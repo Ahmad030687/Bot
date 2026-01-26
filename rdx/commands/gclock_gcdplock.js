@@ -2,148 +2,119 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 
-const cacheFolder = path.join(__dirname, "cache");
-if (!fs.existsSync(cacheFolder)) fs.mkdirSync(cacheFolder);
+// Folder Check & Create (Crash Fix)
+const cacheDir = path.join(__dirname, "cache");
+if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
 
-const pathDP = path.join(cacheFolder, "gcdplock.json");
-const pathName = path.join(cacheFolder, "gclock.json");
+const nameFile = path.join(cacheDir, "gclock.json");
+const dpFile   = path.join(cacheDir, "gcdplock.json");
 
-if (!fs.existsSync(pathDP)) fs.writeFileSync(pathDP, JSON.stringify({}));
-if (!fs.existsSync(pathName)) fs.writeFileSync(pathName, JSON.stringify({}));
+module.exports.config = {
+  name: "glock",
+  version: "1.1",
+  hasPermssion: 1, // 0=All, 1=Admin, 2=Bot Admin
+  credits: "Ahmad & Gemini",
+  description: "Group Name + DP Lock System",
+  commandCategory: "System",
+  usages: "[name/dp] [on/off]",
+  prefix: true
+};
 
-module.exports = {
-  config: {
-    name: "gclock_gcdplock",
-    version: "1.0.2",
-    hasPermssion: 1,
-    credits: "Ahmad Ali Safdar",
-    description: "Lock Group Name and DP in single file",
-    commandCategory: "System",
-    usages: "[name/dp] [on/off]",
-    prefix: true,
-    cooldowns: 5
-  },
+module.exports.onLoad = () => {
+  if (!fs.existsSync(nameFile)) fs.writeFileSync(nameFile, JSON.stringify({}));
+  if (!fs.existsSync(dpFile)) fs.writeFileSync(dpFile, JSON.stringify({}));
+};
 
-  run: async function({ api, event, args }) {
-    const { threadID, messageID } = event;
-    const type = args[0];
-    const command = args[1];
+// AUTO RESTORE EVENTS
+module.exports.handleEvent = async function ({ api, event }) {
+  const { threadID, logMessageType, author, logMessageData } = event;
 
-    if(!type || !command) return api.sendMessage("❌ Format: *gclock_gcdplock name|dp on/off", threadID, messageID);
+  // Ignore bot itself
+  if (author === api.getCurrentUserID()) return;
 
-    if(type === "name") await handleNameLock(api, event, command);
-    else if(type === "dp") await handleDPLock(api, event, command);
-    else api.sendMessage("❌ Type invalid! Use 'name' or 'dp'", threadID, messageID);
-  },
-
-  handleEvent: async function({ api, event }) {
-    const { threadID, author, logMessageType } = event;
-
-    // --------- DP LOCK EVENT ---------
-    if (logMessageType === "log:thread-image") {
-      let dpData = {};
-      try { dpData = JSON.parse(fs.readFileSync(pathDP)); } catch(e){ console.log("DP read error:", e); }
-      if(!dpData[threadID] || author === api.getCurrentUserID()) return;
-
-      const oldImage = dpData[threadID];
-      try { api.sendMessage("⚠ Group DP Locked! Restoring...", threadID); } catch(e){}
-
-      setTimeout(async ()=>{
+  // NAME RESTORE
+  if (logMessageType === "log:thread-name") {
+    let nameData = JSON.parse(fs.readFileSync(nameFile));
+    if (nameData[threadID] && nameData[threadID] !== logMessageData.name) {
+      
+      // Delay lagaya taaki FB Block na kare
+      setTimeout(async () => {
         try {
-          const response = await axios.get(oldImage, { responseType: "stream" });
-          await api.changeGroupImage(response.data, threadID, (err)=>{
-            if(err){
-              console.log("DP restore error:", err);
-              try{ api.sendMessage("❌ DP restore failed! Make bot admin.", threadID); }catch(e){}
-            }
-          });
-        } catch(e){
-          console.log("Axios fetch DP error:", e);
-          try{ api.sendMessage("❌ DP restore fetch error", threadID); }catch(e){}
+          await api.setTitle(nameData[threadID], threadID);
+          api.sendMessage("🛡️ Group Name Locked hai! Restore kar diya.", threadID);
+        } catch (e) {
+          console.log(e);
+          api.sendMessage("❌ Error: Bot ko Admin banao (Name Restore).", threadID);
         }
-      }, 2500); // 2.5 sec delay to avoid FB rate limit
+      }, 3000); // 3 Seconds Delay
     }
+  }
 
-    // --------- NAME LOCK EVENT ---------
-    if (logMessageType === "log:thread-name") {
-      let nameData = {};
-      try { nameData = JSON.parse(fs.readFileSync(pathName)); } catch(e){ console.log("Name read error:", e); }
-      if(!nameData[threadID] || author === api.getCurrentUserID()) return;
-
-      const oldName = nameData[threadID];
-      const newName = event.logMessageData.name;
-
-      if(oldName !== newName){
-        setTimeout(async ()=>{
-          try {
-            await api.setTitle(threadID, oldName);
-            await api.sendMessage(`⚠ Group Name Locked! Restored: ${oldName}`, threadID);
-          } catch(e){
-            if(e.error === 1390008){
-              console.log("⚠ Rate limit: Cannot change name now, try later.");
-            } else {
-              console.log("Name restore error:", e);
-              try{ api.sendMessage("❌ Name restore failed! Make bot admin.", threadID); }catch(e){}
-            }
-          }
-        }, 2500); // 2.5 sec delay
-      }
+  // DP RESTORE
+  if (logMessageType === "log:thread-image") {
+    let dpData = JSON.parse(fs.readFileSync(dpFile));
+    if (dpData[threadID]) {
+      
+      api.sendMessage("🛡️ DP Locked hai! Restore kar raha hu...", threadID);
+      
+      // Delay lagaya taaki FB Block na kare
+      setTimeout(async () => {
+        try {
+          const img = await axios.get(dpData[threadID], { responseType: "stream" });
+          api.changeGroupImage(img.data, threadID, (err) => {
+            if (err) api.sendMessage("❌ Error: Bot ko Admin banao (DP Restore).", threadID);
+          });
+        } catch (e) {
+          console.log(e);
+        }
+      }, 3000); // 3 Seconds Delay
     }
   }
 };
 
-// ========================= FUNCTIONS =========================
-async function handleNameLock(api, event, command){
-  const { threadID, messageID } = event;
-  let data = {};
-  try{ data = JSON.parse(fs.readFileSync(pathName)); } catch(e){}
+// COMMAND RUN
+module.exports.run = async function ({ api, event, args }) {
+  const { threadID } = event;
+  const type = args[0]?.toLowerCase();
+  const onoff = args[1]?.toLowerCase();
 
-  if(command === "on"){
-    if(data[threadID]) return api.sendMessage("⚠ Name already locked!", threadID, messageID);
-    try{
+  let nameData = JSON.parse(fs.readFileSync(nameFile));
+  let dpData   = JSON.parse(fs.readFileSync(dpFile));
+
+  // ------ NAME LOCK ------
+  if (type === "name") {
+    if (onoff === "on") {
       const info = await api.getThreadInfo(threadID);
-      const currentName = info.threadName;
-      if(!currentName) return api.sendMessage("❌ Cannot fetch thread name.", threadID, messageID);
-      data[threadID] = currentName;
-      fs.writeFileSync(pathName, JSON.stringify(data, null, 4));
-      return api.sendMessage(`🔒 Name Locked: ${currentName}`, threadID, messageID);
-    } catch(e){ console.log("Error fetching name:", e); return api.sendMessage("❌ Error fetching name", threadID, messageID);}
-  }
-  if(command === "off"){
-    if(!data[threadID]) return api.sendMessage("⚠ Name lock already OFF.", threadID, messageID);
-    delete data[threadID];
-    fs.writeFileSync(pathName, JSON.stringify(data, null, 4));
-    return api.sendMessage("🔓 Name unlock successful.", threadID, messageID);
-  }
-  return api.sendMessage("❌ Invalid command! Use on/off", threadID, messageID);
-}
+      const newName = info.threadName || "No Name";
+      nameData[threadID] = newName;
+      fs.writeFileSync(nameFile, JSON.stringify(nameData, null, 4));
+      return api.sendMessage(`🔒 Name Lock ON!\nSaved: "${newName}"`, threadID);
+    }
 
-async function handleDPLock(api, event, command){
-  const { threadID, messageID } = event;
-  let data = {};
-  try{ data = JSON.parse(fs.readFileSync(pathDP)); } catch(e){}
+    if (onoff === "off") {
+      delete nameData[threadID];
+      fs.writeFileSync(nameFile, JSON.stringify(nameData, null, 4));
+      return api.sendMessage("🔓 Name Lock OFF!", threadID);
+    }
+  }
 
-  if(command === "on"){
-    if(data[threadID]) return api.sendMessage("⚠ DP already locked!", threadID, messageID);
-    try{
+  // ------ DP LOCK ------
+  if (type === "dp") {
+    if (onoff === "on") {
       const info = await api.getThreadInfo(threadID);
-      const currentImage = info.imageSrc;
-      if(!currentImage) return api.sendMessage("❌ No DP found.", threadID, messageID);
-      data[threadID] = currentImage;
-      fs.writeFileSync(pathDP, JSON.stringify(data, null, 4));
-      return api.sendMessage("🔒 DP Locked! Bot will restore if changed.", threadID, messageID);
-    } catch(e){ console.log("DP fetch error:", e); return api.sendMessage("❌ Error fetching DP", threadID, messageID);}
-  }
-  if(command === "off"){
-    if(!data[threadID]) return api.sendMessage("⚠ DP lock already OFF.", threadID, messageID);
-    delete data[threadID];
-    fs.writeFileSync(pathDP, JSON.stringify(data, null, 4));
-    return api.sendMessage("🔓 DP unlock successful.", threadID, messageID);
-  }
-  return api.sendMessage("❌ Invalid command! Use on/off", threadID, messageID);
-}
+      if (!info.imageSrc) return api.sendMessage("❌ Pehle Group DP lagao, phir lock karo.", threadID);
 
-// ============== GLOBAL UNHANDLED PROMISE ==============
-process.on("unhandledRejection", (reason, promise)=>{
-  console.log("⚠ Unhandled Rejection caught:", reason);
-});
+      dpData[threadID] = info.imageSrc;
+      fs.writeFileSync(dpFile, JSON.stringify(dpData, null, 4));
+      return api.sendMessage("🔒 DP Lock ON!", threadID);
+    }
+
+    if (onoff === "off") {
+      delete dpData[threadID];
+      fs.writeFileSync(dpFile, JSON.stringify(dpData, null, 4));
+      return api.sendMessage("🔓 DP Lock OFF!", threadID);
+    }
+  }
+
+  return api.sendMessage("⚠️ Usage:\n👉 *glock name on\n👉 *glock name off\n\n👉 *glock dp on\n👉 *glock dp off", threadID);
+};

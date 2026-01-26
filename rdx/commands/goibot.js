@@ -16,7 +16,7 @@ const GIRL_OWNERS = {
   'GIRL UID': { name: 'SARA', gender: 'girl' }  // 
 };
 
-const BOT_NAME = 'Mano';
+const BOT_NAME = 'NOOR';
 
 
 

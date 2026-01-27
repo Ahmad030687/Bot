@@ -1,162 +1,96 @@
-const fs = require("fs");
-const path = require("path");
-const axios = require("axios");
-
-// Paths set karein
-const cacheDir = path.join(__dirname, "cache");
-const pathData = path.join(cacheDir, "gclock_master.json");
+const fs = require("fs-extra");
 
 module.exports.config = {
   name: "gclock",
-  version: "4.0", // Version Updated
-  hasPermssion: 1, // 1 = Admin Only
-  credits: "Ahmad & Gemini",
-  description: "Group Settings Lock (Auto-Fix)",
-  commandCategory: "System",
-  usages: "[lock/unlock/status]",
-  prefix: true,
-  cooldowns: 5
+  version: "1.0",
+  author: "RDX Stealth System",
+  countDown: 2,
+  role: 0,
+  shortDescription: "Lock or unlock group name, dp & emoji",
+  longDescription: "Real-time lock on group name, photo and emoji",
+  category: "group",
+  guide: {
+    en: "{p}gclock on\n{p}gclock off"
+  }
 };
 
-// --- HELPER FUNCTION: Safely Read Data ---
-function loadData() {
-  try {
-    // 1. Agar folder nahi hai to banao
-    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-    // 2. Agar file nahi hai to banao
-    if (!fs.existsSync(pathData)) fs.writeFileSync(pathData, JSON.stringify({}));
-    // 3. File read karo
-    return JSON.parse(fs.readFileSync(pathData));
-  } catch (e) {
-    return {}; // Agar koi error aye to empty data return karo
-  }
-}
+// File to save lock data
+const LOCK_FILE = __dirname + "/cache/gclock_data.json";
+
+if (!fs.existsSync(LOCK_FILE)) fs.writeJsonSync(LOCK_FILE, {});
 
 module.exports.onLoad = () => {
-  loadData(); // Startup pe file check kar lo
+  if (!fs.existsSync(LOCK_FILE)) fs.writeJsonSync(LOCK_FILE, {});
 };
 
-// ================== AUTOMATIC GUARD ==================
-module.exports.handleEvent = async function ({ api, event }) {
-  const { threadID, logMessageType, logMessageData, author } = event;
-  if (author === api.getCurrentUserID()) return; // Bot ko ignore kare
+module.exports.onEvent = async function ({ api, event }) {
+  try {
+    const data = fs.readJsonSync(LOCK_FILE);
+    const threadID = event.threadID;
 
-  // File check (Direct read nahi karenge taaki crash na ho)
-  if (!fs.existsSync(pathData)) return;
-  
-  let data = {};
-  try { data = JSON.parse(fs.readFileSync(pathData)); } catch(e) { return; }
+    if (!data[threadID] || !data[threadID].locked) return;
 
-  // Agar Group Locked nahi hai to return
-  if (!data[threadID]) return;
+    const lock = data[threadID];
 
-  const saved = data[threadID];
-  const delay = 3000; // 3 Second Delay (Safety)
-
-  // 1. NAME LOCK
-  if (logMessageType === "log:thread-name" && saved.name) {
-    if (logMessageData.name !== saved.name) {
-      console.log(`Name changed detected. Reverting to: ${saved.name}`);
-      setTimeout(async () => {
-        try {
-          await api.setTitle(saved.name, threadID);
-          api.sendMessage("🛡️ Group Name Locked hai!", threadID);
-        } catch (e) {}
-      }, delay);
+    // Lock Name
+    if (event.logMessageType === "log:thread-name" && lock.name) {
+      await api.setTitle(lock.name, threadID);
     }
-  }
 
-  // 2. EMOJI LOCK
-  if (logMessageType === "log:thread-icon" && saved.emoji) {
-    if (logMessageData.thread_icon !== saved.emoji) {
-      setTimeout(async () => {
-        try {
-          await api.changeThreadEmoji(saved.emoji, threadID);
-          api.sendMessage("🛡️ Group Emoji Locked hai!", threadID);
-        } catch (e) {}
-      }, delay);
+    // Lock Emoji
+    if (event.logMessageType === "log:thread-icon" && lock.emoji) {
+      await api.changeThreadEmoji(lock.emoji, threadID);
     }
-  }
 
-  // 3. THEME LOCK
-  if (logMessageType === "log:thread-color" && saved.color) {
-    setTimeout(async () => {
-      try {
-        await api.changeThreadColor(saved.color, threadID);
-        api.sendMessage("🛡️ Group Theme Locked hai!", threadID);
-      } catch (e) {}
-    }, delay);
-  }
+    // Lock Group DP
+    if (event.logMessageType === "log:thread-image" && lock.dp) {
+      await api.changeGroupImage(fs.createReadStream(lock.dp), threadID);
+    }
 
-  // 4. DP LOCK
-  if (logMessageType === "log:thread-image" && saved.imageSrc) {
-    api.sendMessage("🛡️ Group DP Locked hai! Restore kar raha hu...", threadID);
-    setTimeout(async () => {
-      try {
-        const img = await axios.get(saved.imageSrc, { responseType: "stream" });
-        api.changeGroupImage(img.data, threadID, (err) => {});
-      } catch (e) {
-        console.log("DP Restore Error:", e);
-      }
-    }, delay);
-  }
+  } catch (e) {}
 };
 
-// ================== COMMAND RUN ==================
-module.exports.run = async function ({ api, event, args }) {
-  const { threadID } = event;
-  const command = args[0]?.toLowerCase();
+module.exports.run = async function ({ api, event }) {
+  const threadID = event.threadID;
+  const data = fs.readJsonSync(LOCK_FILE);
+  const args = event.body.split(" ");
 
-  // Data load karo (Safe Tarike se)
-  let data = loadData();
-
-  // --- LOCK COMMAND ---
-  if (command === "lock") {
+  // ON command
+  if (args[1] === "on") {
     try {
       const info = await api.getThreadInfo(threadID);
-      
-      // Settings Save
+
       data[threadID] = {
-        name: info.threadName || "No Name",
-        emoji: info.emoji,
-        color: info.color,
-        imageSrc: info.imageSrc
+        locked: true,
+        name: info.threadName || "",
+        emoji: info.emoji || "",
+        dp: __dirname + `/cache/dp_${threadID}.jpg`
       };
 
-      fs.writeFileSync(pathData, JSON.stringify(data, null, 4));
-      
-      // Professional Menu Output
-      let msg = "╔══════════════════╗\n";
-      msg +=    "║   🔒 SECURITY ACTIVE   ║\n";
-      msg +=    "╚══════════════════╝\n\n";
-      msg += "🛡️ Settings Protected:\n";
-      msg += `✓ Name: ${info.threadName || "None"}\n`;
-      msg += `✓ Emoji: ${info.emoji || "👍"}\n`;
-      msg += `✓ Theme: Secured\n`;
-      msg += `✓ DP: ${info.imageSrc ? "Locked" : "No DP Found"}`;
+      // Save DP to file
+      if (info.imageSrc) {
+        const axios = require("axios");
+        const img = await axios.get(info.imageSrc, { responseType: "arraybuffer" });
+        fs.writeFileSync(data[threadID].dp, Buffer.from(img.data));
+      }
 
-      return api.sendMessage(msg, threadID);
+      fs.writeJsonSync(LOCK_FILE, data);
+
+      return api.sendMessage("🔒 GROUP LOCK ENABLED\n\n✔ Name Locked\n✔ DP Locked\n✔ Emoji Locked", threadID);
 
     } catch (e) {
-      return api.sendMessage("❌ Error fetching group info: " + e.message, threadID);
+      return api.sendMessage("❌ Error while enabling lock.", threadID);
     }
   }
 
-  // --- UNLOCK COMMAND ---
-  if (command === "unlock") {
-    if (!data[threadID]) return api.sendMessage("⚠️ Group pehle se hi Unlocked hai.", threadID);
-    
-    delete data[threadID];
-    fs.writeFileSync(pathData, JSON.stringify(data, null, 4));
-    
-    return api.sendMessage("🔓 **Security Disabled:** Ab sab kuch change kiya ja sakta hai.", threadID);
+  // OFF command
+  if (args[1] === "off") {
+    data[threadID] = { locked: false };
+    fs.writeJsonSync(LOCK_FILE, data);
+
+    return api.sendMessage("🔓 GROUP LOCK DISABLED\n\nGroup Name + DP + Emoji unlocked.", threadID);
   }
 
-  // --- STATUS COMMAND ---
-  if (command === "status") {
-    const status = data[threadID] ? "🔒 LOCKED (Active)" : "🔓 UNLOCKED (Inactive)";
-    return api.sendMessage(`System Status: ${status}`, threadID);
-  }
-
-  return api.sendMessage("⚠️ Usage:\n👉 *gclock lock\n👉 *gclock unlock\n👉 *gclock status", threadID);
+  // Help
+  return api.sendMessage("🔐 Usage:\n\n• gclock on → Lock name/dp/emoji\n• gclock off → Unlock all", threadID);
 };

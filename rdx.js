@@ -1,7 +1,10 @@
-
-// ANTI-BAN STEALTH MODE PATCH
+const ws3fca = require('./Data/rdx-fca');
+const fs = require('fs-extra');
+const path = require('path');
+const cron = require('node-cron');
 const moment = require('moment-timezone');
 
+// ANTI-BAN STEALTH MODE PATCH
 function isSleepTime() {
   const hour = moment().tz("Asia/Karachi").hour();
   return (hour >= 2 && hour < 7);
@@ -23,11 +26,7 @@ function patchApi(api) {
   return api;
 }
 
-const ws3fca = require('./Data/rdx-fca');
-const fs = require('fs-extra');
-const path = require('path');
-const cron = require('node-cron');
-const moment = require('moment-timezone');
+
 const axios = require('axios');
 
 const logs = require('./Data/utility/logs');
@@ -448,4 +447,4 @@ module.exports = {
 
 if (require.main === module) {
   startBot();
-}
+      }

@@ -1,9 +1,9 @@
 module.exports.config = {
 	name: "thread",
-	version: "0.0.3",
+	version: "1.0.0",
 	hasPermssion: 2,
-	credits: "𝐏𝐫𝐢𝐲𝐚𝐧𝐬𝐡 𝐑𝐚𝐣𝐩𝐮𝐭",
-	description: "Ban or unblock a group",
+	credits: "Ahmad Ali",
+	description: "Ban or unblock a group (Fixed)",
 	commandCategory: "system",
 	usages: "[unban/ban/search] [ID or text]",
 	cooldowns: 5
@@ -11,40 +11,54 @@ module.exports.config = {
 
 module.exports.handleReaction = async ({ event, api, Threads, handleReaction }) => {
 	if (parseInt(event.userID) !== parseInt(handleReaction.author)) return;
+	
+	// ✅ FIXED: ID ko String rakhein, Number nahi banayein
+	const targetID = String(handleReaction.target);
+
 	switch (handleReaction.type) {
 		case "ban": {
-			const data = (await Threads.getData(handleReaction.target)).data || {};
+			const data = (await Threads.getData(targetID)).data || {};
 			data.banned = 1;
-			await Threads.setData(handleReaction.target, { data });
-			global.data.threadBanned.set(parseInt(handleReaction.target), 1);
-			api.sendMessage(`[${handleReaction.target}] Successfully granted!`, event.threadID, () => api.unsendMessage(handleReaction.messageID));
+			await Threads.setData(targetID, { data });
+			
+			// Global Cache Update (String Key)
+			global.data.threadBanned.set(targetID, 1);
+			
+			api.sendMessage(`🚫 [${targetID}] Group Banned Successfully!`, event.threadID, () => api.unsendMessage(handleReaction.messageID));
 			break;
 		}
 		case "unban": {
-			const data = (await Threads.getData(handleReaction.target)).data || {};
+			const data = (await Threads.getData(targetID)).data || {};
 			data.banned = 0;
-			await Threads.setData(handleReaction.target, { data });
-			global.data.threadBanned.delete(parseInt(handleReaction.target), 1);
-			api.sendMessage(`[${handleReaction.target}] Successfully unbanned`, event.threadID, () => api.unsendMessage(handleReaction.messageID));
+			await Threads.setData(targetID, { data });
+			
+			// Global Cache Update
+			global.data.threadBanned.delete(targetID);
+			
+			api.sendMessage(`✅ [${targetID}] Group Unbanned Successfully!`, event.threadID, () => api.unsendMessage(handleReaction.messageID));
 			break;
 		}
 		default:
 			break;
 	}
-}
+};
 
 module.exports.run = async ({ event, api, args, Threads }) => {
+    // Arguments handling logic kept same but optimized
     let content = args.slice(1, args.length);
+	
 	switch (args[0]) {
 		case "ban": {
-			if (content.length == 0) return api.sendMessage("You need to enter the thread ID you want to ban!", event.threadID);
+			if (content.length == 0) return api.sendMessage("⚠️ Thread ID likhein jise ban karna hai!", event.threadID);
 			for (let idThread of content) {
-				idThread = parseInt(idThread);
-				if (isNaN(idThread)) return api.sendMessage(`[${idThread}] not IDthread!`, event.threadID);
-				let dataThread = (await Threads.getData(idThread.toString()));
-				if (!dataThread) return api.sendMessage(`[${idThread}] thread does not exist in database!`, event.threadID);
-				if (dataThread.banned) return api.sendMessage(`[${idThread}] Already banned`, event.threadID);
-				return api.sendMessage(`[${idThread}] Do you want to ban this thread?\n\nPlease react to this message to ban!`, event.threadID, (error, info) => {
+				// ✅ FIXED: String conversion only
+				idThread = String(idThread);
+				
+				let dataThread = (await Threads.getData(idThread)).data || {};
+				
+				if (dataThread.banned) return api.sendMessage(`⚠️ [${idThread}] Ye group pehle se banned hai.`, event.threadID);
+				
+				return api.sendMessage(`🚫 [${idThread}] Kya aap is group ko Ban karna chahte hain?\n\nReaction dein to confirm.`, event.threadID, (error, info) => {
 					global.client.handleReaction.push({
 						name: this.config.name,
 						messageID: info.messageID,
@@ -52,19 +66,20 @@ module.exports.run = async ({ event, api, args, Threads }) => {
 						type: "ban",
 						target: idThread
 					});
-				})
+				});
 			}
 			break;
 		}
 		case "unban": {
-			if (content.length == 0) return api.sendMessage("You need to enter the thread ID you want to ban!", event.threadID);
+			if (content.length == 0) return api.sendMessage("⚠️ Thread ID likhein jise unban karna hai!", event.threadID);
 			for (let idThread of content) {
-				idThread = parseInt(idThread);
-				if (isNaN(idThread)) return api.sendMessage(`[${idThread}] not IDthread!`, event.threadID);
-				let dataThread = (await Threads.getData(idThread)).data;
-				if (!dataThread) return api.sendMessage(`[${idThread}] thread does not exist in the database!`, event.threadID);
-				if (dataThread.banned != 1) return api.sendMessage(`[${idThread}] Not banned before`, event.threadID);
-				return api.sendMessage(`[${idThread}] You want to unban this thread ?\n\nPlease react to this message to ban!`, event.threadID, (error, info) => {
+				idThread = String(idThread);
+				
+				let dataThread = (await Threads.getData(idThread)).data || {};
+				
+				if (!dataThread.banned) return api.sendMessage(`⚠️ [${idThread}] Ye group banned nahi hai.`, event.threadID);
+				
+				return api.sendMessage(`✅ [${idThread}] Kya aap is group ko Unban karna chahte hain?\n\nReaction dein to confirm.`, event.threadID, (error, info) => {
 					global.client.handleReaction.push({
 						name: this.config.name,
 						messageID: info.messageID,
@@ -72,13 +87,13 @@ module.exports.run = async ({ event, api, args, Threads }) => {
 						type: "unban",
 						target: idThread
 					});
-				})
+				});
 			}
 			break;
 		}
 		case "search": {
 			let contentJoin = content.join(" ");
-			let getThreads =  (await Threads.getAll(['threadID', 'name'])).filter(item => !!item.name);
+			let getThreads = (await Threads.getAll(['threadID', 'name'])).filter(item => !!item.name);
 			let matchThreads = [], a = '', b = 0;
 			getThreads.forEach(i => {
 				if (i.name.toLowerCase().includes(contentJoin.toLowerCase())) {
@@ -89,11 +104,11 @@ module.exports.run = async ({ event, api, args, Threads }) => {
 				}
 			});
 			matchThreads.forEach(i => a += `\n${b += 1}. ${i.name} - ${i.id}`);
-			(matchThreads.length > 0) ? api.sendMessage(`Here is the match: \n${a}`, event.threadID) : api.sendMessage("No results found based on your search!", event.threadID);
+			(matchThreads.length > 0) ? api.sendMessage(`🔍 Search Result:\n${a}`, event.threadID) : api.sendMessage("❌ Koi group nahi mila.", event.threadID);
 			break;
 		}
 		default: {
-			return global.utils.throwError(this.config.name, event.threadID, event.messageID)
+			return api.sendMessage("⚠️ Use: #thread ban [ID] or #thread unban [ID]", event.threadID);
 		}
 	}
-}
+};

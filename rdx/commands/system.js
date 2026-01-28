@@ -4,14 +4,41 @@ const path = require("path");
 
 module.exports.config = {
   name: "system",
-  version: "20.1.0",
+  version: "20.2.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Safe Voice Mimic Engine (Copy speaking style, NOT identity)",
+  description: "Safe voice mimic engine with multi-api fallback",
   commandCategory: "Fun",
   usages: "system mimic [text] (reply to audio)",
   cooldowns: 3
 };
+
+const MIMIC_APIS = [
+  "https://api.kenliejugarap.com/safe-voice-mimic",
+  "https://tts-df3489.vercel.app/mimic",
+  "https://voice-simulator.vercel.app/mimic"
+];
+
+async function tryMimic(audio, text) {
+  for (const api of MIMIC_APIS) {
+    try {
+      const url = `${api}?audio=${encodeURIComponent(audio)}&text=${encodeURIComponent(text)}`;
+      console.log("Trying:", url);
+
+      const res = await axios({
+        method: "GET",
+        url,
+        responseType: "stream",
+        timeout: 20000
+      });
+
+      return res;
+    } catch (e) {
+      console.log("API failed:", api);
+    }
+  }
+  return null;
+}
 
 module.exports.run = async function ({ api, event, args }) {
   const { threadID, messageID, messageReply } = event;
@@ -19,85 +46,47 @@ module.exports.run = async function ({ api, event, args }) {
   const cmd = args[0]?.toLowerCase();
   const text = args.slice(1).join(" ");
 
-  // Only mimic command
   if (cmd !== "mimic") {
-    return api.sendMessage(`🧠 **System Command Active**\nUse: #system mimic [text] (reply to audio)`, threadID, messageID);
+    return api.sendMessage("Use: #system mimic [text] (reply to audio)", threadID, messageID);
   }
 
-  // Check voice reply
-  if (
-    !messageReply ||
-    !messageReply.attachments ||
-    !messageReply.attachments[0] ||
-    messageReply.attachments[0].type !== "audio"
-  ) {
-    return api.sendMessage(
-      "🎧 **Mimic Mode:** Pehle kisi ki voice note ko reply karein!",
-      threadID,
-      messageID
-    );
+  if (!messageReply?.attachments?.[0] || messageReply.attachments[0].type !== "audio") {
+    return api.sendMessage("🎧 Reply to an audio message!", threadID, messageID);
   }
 
   if (!text) {
-    return api.sendMessage(
-      "📝 **Text Missing:**\nUse:\n#system mimic Chalo bhai start hojaye!",
-      threadID,
-      messageID
-    );
+    return api.sendMessage("📝 Text missing!", threadID, messageID);
   }
 
-  // Reaction
   api.setMessageReaction("🎙️", messageID, () => {}, true);
+  api.sendMessage("🎙️ Mimic Engine Active...\nAnalyzing tone & style...", threadID, messageID);
 
-  api.sendMessage(
-    "🎙️ **Voice Mimic Engine Active…**\nAnalyzing style, tone, rhythm…",
-    threadID,
-    messageID
-  );
+  const audioURL = messageReply.attachments[0].url;
 
   try {
-    const audioURL = messageReply.attachments[0].url;
+    const response = await tryMimic(audioURL, text);
 
-    // SAFE mimic API (NOT cloning!)
-    const apiUrl = `https://api.kenliejugarap.com/safe-voice-mimic?audio=${encodeURIComponent(
-      audioURL
-    )}&text=${encodeURIComponent(text)}`;
+    if (!response) {
+      return api.sendMessage("❌ All mimic servers busy. Try again later.", threadID);
+    }
 
-    const voicePath = path.join(__dirname, "cache", `mimic_${Date.now()}.mp3`);
+    const filePath = path.join(__dirname, "cache", `mimic_${Date.now()}.mp3`);
 
-    // Stream result
-    const response = await axios({
-      method: "GET",
-      url: apiUrl,
-      responseType: "stream"
-    });
-
-    const writer = fs.createWriteStream(voicePath);
+    const writer = fs.createWriteStream(filePath);
     response.data.pipe(writer);
 
     writer.on("finish", () => {
       api.sendMessage(
         {
           body:
-            "🎤 **Mimic Result Ready**\n━━━━━━━━━━━━━━\n🗣️ Style matched\n🎚️ Tone matched\n🎭 Emotion matched\n✔ 100% Safe (Not identity cloning)\n━━━━━━━━━━━━━━",
-          attachment: fs.createReadStream(voicePath)
+            "🎤 Mimic Ready!\nStyle, tone & rhythm matched.\n(Identity NOT cloned — SAFE)",
+          attachment: fs.createReadStream(filePath)
         },
         threadID,
-        () => fs.unlinkSync(voicePath)
-      );
-    });
-
-    writer.on("error", () => {
-      api.sendMessage(
-        "❌ **Stream Error:** Mimic audio download fail.",
-        threadID
+        () => fs.unlinkSync(filePath)
       );
     });
   } catch (e) {
-    console.error(e);
-    api.sendMessage(
-      "❌ **Server Error:** Mimic Engine overload. 1 minute baad try karein.",
-      threadID
-    );
+    api.sendMessage("❌ Critical Error. Try again later.", threadID);
   }
 };

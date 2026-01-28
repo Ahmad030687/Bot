@@ -1,69 +1,99 @@
-module.exports = {
-  config: {
-    name: 'threadban',
-    aliases: ['tban', 'blockthread'],
-    description: 'Ban or unban a thread - bot will not respond in banned threads',
-    credits: 'SARDAR RDX',
-    usage: 'threadban [ban/unban] [tid]',
-    category: 'Admin',
-    adminOnly: true,
-    prefix: true
-  },
-  
-  async run({ api, event, args, send, Threads, config }) {
-    const { threadID, senderID } = event;
-    
-    if (!config.ADMINBOT.includes(senderID)) {
-      return send.reply('Only bot admins can use this command.');
-    }
-    
-    const action = args[0]?.toLowerCase();
-    const targetTID = args[1] || threadID;
-    
-    if (!action) {
-      const thread = Threads.get(targetTID);
-      const isBanned = thread?.banned === 1;
-      return send.reply(`Thread ${targetTID} is currently ${isBanned ? 'BANNED' : 'ACTIVE'}.
-
-Usage:
-- threadban ban [tid] - Ban a thread
-- threadban unban [tid] - Unban a thread`);
-    }
-    
-    if (action === 'ban' || action === 'block') {
-      Threads.ban(targetTID, 'Banned by admin');
-      
-      let threadName = 'Unknown';
-      try {
-        const info = await api.getThreadInfo(targetTID);
-        threadName = info.threadName || info.name || 'Unknown';
-      } catch {}
-      
-      return send.reply(`Thread Banned
-─────────────────
-Name: ${threadName}
-TID: ${targetTID}
-
-Bot will not respond in this thread.`);
-    }
-    
-    if (action === 'unban' || action === 'unblock') {
-      Threads.unban(targetTID);
-      
-      let threadName = 'Unknown';
-      try {
-        const info = await api.getThreadInfo(targetTID);
-        threadName = info.threadName || info.name || 'Unknown';
-      } catch {}
-      
-      return send.reply(`Thread Unbanned
-─────────────────
-Name: ${threadName}
-TID: ${targetTID}
-
-Bot will now respond in this thread.`);
-    }
-    
-    return send.reply('Invalid action. Use: threadban [ban/unban] [tid]');
-  }
+module.exports.config = {
+	name: "thread",
+	version: "0.0.3",
+	hasPermssion: 2,
+	credits: "𝐏𝐫𝐢𝐲𝐚𝐧𝐬𝐡 𝐑𝐚𝐣𝐩𝐮𝐭",
+	description: "Ban or unblock a group",
+	commandCategory: "system",
+	usages: "[unban/ban/search] [ID or text]",
+	cooldowns: 5
 };
+
+module.exports.handleReaction = async ({ event, api, Threads, handleReaction }) => {
+	if (parseInt(event.userID) !== parseInt(handleReaction.author)) return;
+	switch (handleReaction.type) {
+		case "ban": {
+			const data = (await Threads.getData(handleReaction.target)).data || {};
+			data.banned = 1;
+			await Threads.setData(handleReaction.target, { data });
+			global.data.threadBanned.set(parseInt(handleReaction.target), 1);
+			api.sendMessage(`[${handleReaction.target}] Successfully granted!`, event.threadID, () => api.unsendMessage(handleReaction.messageID));
+			break;
+		}
+		case "unban": {
+			const data = (await Threads.getData(handleReaction.target)).data || {};
+			data.banned = 0;
+			await Threads.setData(handleReaction.target, { data });
+			global.data.threadBanned.delete(parseInt(handleReaction.target), 1);
+			api.sendMessage(`[${handleReaction.target}] Successfully unbanned`, event.threadID, () => api.unsendMessage(handleReaction.messageID));
+			break;
+		}
+		default:
+			break;
+	}
+}
+
+module.exports.run = async ({ event, api, args, Threads }) => {
+    let content = args.slice(1, args.length);
+	switch (args[0]) {
+		case "ban": {
+			if (content.length == 0) return api.sendMessage("You need to enter the thread ID you want to ban!", event.threadID);
+			for (let idThread of content) {
+				idThread = parseInt(idThread);
+				if (isNaN(idThread)) return api.sendMessage(`[${idThread}] not IDthread!`, event.threadID);
+				let dataThread = (await Threads.getData(idThread.toString()));
+				if (!dataThread) return api.sendMessage(`[${idThread}] thread does not exist in database!`, event.threadID);
+				if (dataThread.banned) return api.sendMessage(`[${idThread}] Already banned`, event.threadID);
+				return api.sendMessage(`[${idThread}] Do you want to ban this thread?\n\nPlease react to this message to ban!`, event.threadID, (error, info) => {
+					global.client.handleReaction.push({
+						name: this.config.name,
+						messageID: info.messageID,
+						author: event.senderID,
+						type: "ban",
+						target: idThread
+					});
+				})
+			}
+			break;
+		}
+		case "unban": {
+			if (content.length == 0) return api.sendMessage("You need to enter the thread ID you want to ban!", event.threadID);
+			for (let idThread of content) {
+				idThread = parseInt(idThread);
+				if (isNaN(idThread)) return api.sendMessage(`[${idThread}] not IDthread!`, event.threadID);
+				let dataThread = (await Threads.getData(idThread)).data;
+				if (!dataThread) return api.sendMessage(`[${idThread}] thread does not exist in the database!`, event.threadID);
+				if (dataThread.banned != 1) return api.sendMessage(`[${idThread}] Not banned before`, event.threadID);
+				return api.sendMessage(`[${idThread}] You want to unban this thread ?\n\nPlease react to this message to ban!`, event.threadID, (error, info) => {
+					global.client.handleReaction.push({
+						name: this.config.name,
+						messageID: info.messageID,
+						author: event.senderID,
+						type: "unban",
+						target: idThread
+					});
+				})
+			}
+			break;
+		}
+		case "search": {
+			let contentJoin = content.join(" ");
+			let getThreads =  (await Threads.getAll(['threadID', 'name'])).filter(item => !!item.name);
+			let matchThreads = [], a = '', b = 0;
+			getThreads.forEach(i => {
+				if (i.name.toLowerCase().includes(contentJoin.toLowerCase())) {
+					matchThreads.push({
+						name: i.name,
+						id: i.threadID
+					});
+				}
+			});
+			matchThreads.forEach(i => a += `\n${b += 1}. ${i.name} - ${i.id}`);
+			(matchThreads.length > 0) ? api.sendMessage(`Here is the match: \n${a}`, event.threadID) : api.sendMessage("No results found based on your search!", event.threadID);
+			break;
+		}
+		default: {
+			return global.utils.throwError(this.config.name, event.threadID, event.messageID)
+		}
+	}
+}

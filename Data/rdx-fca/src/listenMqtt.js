@@ -1,3 +1,5 @@
+if (!global.client) global.client = {};
+if (!global.client.handleReaction) global.client.handleReaction = [];
 "use strict";
 // Fixed by @NethWs3Dev
 // Chopchop wood from other fca

@@ -9,7 +9,7 @@ if (!fs.existsSync(statusFile)) {
 }
 
 module.exports.config = {
-  name: "switch",
+  name: "bot",
   version: "2.0.0",
   hasPermssion: 2,
   credits: "Ahmad Ali Safdar",

@@ -6,37 +6,73 @@ const moment = require('moment-timezone');
 const axios = require('axios');
 
 // ============================================================
-// 🛡️ AHMAD ALI "ULTRA-SAFE" ANTI-BAN SYSTEM
+// 🔒 AHMAD ALI "FORTRESS" SECURITY SYSTEM (High Level)
 // ============================================================
 
-// 1. SLEEP MODE: Raat 2 se Subah 7 baje tak bot OFF rahega
+// Global Cooldown Map to track last message time per Group
+const threadCooldowns = new Map();
+
+// 1. SLEEP MODE: Raat 2 se Subah 7 tak bot OFF
 function isSleepTime() {
   const hour = moment().tz("Asia/Karachi").hour();
   return (hour >= 2 && hour < 7);
 }
 
-// 2. HUMAN DELAY: Har reply mein 2 se 5 second ka natural gap
-async function humanDelay() {
-  const delay = Math.floor(Math.random() * 3000) + 2000; // 2000ms to 5000ms
-  await new Promise(r => setTimeout(r, delay));
-}
-
-// 3. API PATCHER: Is function se guzre bina koi message nahi jayega
+// 2. HEAVY SECURITY API PATCHER
+// Ye function har message ko rok kar check karega
 function patchApi(api) {
-  const orig = api.sendMessage;
+  const origSendMessage = api.sendMessage;
+
   api.sendMessage = async function(...args) {
-    if (isSleepTime()) {
-        // Agar sone ka waqt hai to message mat bhejo
-        return; 
+    const msg = args[0];
+    const threadID = args[1]; // Usually 2nd argument is threadID
+
+    // Check 1: Sleep Time (Sone ke waqt disturb na ho)
+    if (isSleepTime()) return;
+
+    // Check 2: Rate Limit (1 Minute mein 1 Message per Group)
+    if (threadID) {
+        const lastSent = threadCooldowns.get(threadID) || 0;
+        const now = Date.now();
+        const timeDiff = now - lastSent;
+
+        // Agar 60 Seconds (60000ms) nahi guzre
+        if (timeDiff < 60000) {
+            // EXCEPTION: Agar ye hamara Quran/Namaz broadcast hai to jaane do
+            const isBroadcast = (typeof msg === 'string' && (msg.includes("𝐐𝐔𝐑𝐀𝐍") || msg.includes("𝐍𝐀𝐌𝐀𝐙"))) ||
+                                (msg.body && (msg.body.includes("𝐐𝐔𝐑𝐀𝐍") || msg.body.includes("𝐍𝐀𝐌𝐀𝐙")));
+
+            if (!isBroadcast) {
+                // Spam detect hua - Ignore message
+                // console.log(`[SECURITY] Blocked spam in ${threadID}.`);
+                return; 
+            }
+        }
     }
-    await humanDelay(); // Pehle wait karo, phir bhejo
-    return orig.apply(api, args);
+
+    try {
+        // 3. TYPING INDICATOR (3 Dots Blinking)
+        // Message bhejne se pehle typing show karo taake natural lage
+        if (threadID) api.sendTypingIndicator(threadID, (err) => {});
+    } catch (e) {}
+
+    // 4. RANDOM DELAY (5 to 10 Seconds)
+    // Is doran "Typing..." show hota rahega
+    const secureDelay = Math.floor(Math.random() * 5000) + 5000; // 5000ms (5s) to 10000ms (10s)
+    await new Promise(r => setTimeout(r, secureDelay));
+
+    // 5. UPDATE COOLDOWN TIMER
+    if (threadID) threadCooldowns.set(threadID, Date.now());
+
+    // 6. FINALLY SEND MESSAGE
+    return origSendMessage.apply(api, args);
   };
+  
   return api;
 }
 
 // ============================================================
-// ⚙️ SYSTEM IMPORTS & VARIABLES
+// ⚙️ SYSTEM IMPORTS & CONFIGURATION
 // ============================================================
 
 const logs = require('./Data/utility/logs');
@@ -53,6 +89,7 @@ const commandsPath = path.join(__dirname, 'rdx/commands');
 const eventsPath = path.join(__dirname, 'rdx/events');
 
 let config = {};
+let islamicMessages = {};
 let api = null;
 let client = {
   commands: new Map(),
@@ -61,21 +98,21 @@ let client = {
   cooldowns: new Map()
 };
 
-// 🖼️ CONTENT ARRAYS
+// 🖼️ ISLAMIC DATA ASSETS
 const quranPics = [
-  'https://i.ibb.co/JRBFpq8t/6c776cdd6b6c.gif',
+  'https://i.ibb.co/JRBFpq8t/6c776cdd6b6c.gif', 
   'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif',
-  'https://i.ibb.co/8nr8qyQ4/6bc620dedb70.gif',
+  'https://i.ibb.co/8nr8qyQ4/6bc620dedb70.gif', 
   'https://i.ibb.co/7dTJ6CDr/fb08a62a841c.jpg',
-  'https://i.ibb.co/6cPMkDjz/598fc7c4d477.jpg',
+  'https://i.ibb.co/6cPMkDjz/598fc7c4d477.jpg', 
   'https://i.ibb.co/Txn0TTps/7e729fcd56e1.jpg',
   'https://i.ibb.co/5WQY7xCn/dd0f3964d6cf.jpg'
 ];
 
 const namazPics = [
-  'https://i.ibb.co/wZpyLkrY/dceaf4301489.jpg',
+  'https://i.ibb.co/wZpyLkrY/dceaf4301489.jpg', 
   'https://i.ibb.co/6xQbz5W/a6a8d577489d.jpg',
-  'https://i.ibb.co/DgKj8LNT/77b2f9b97b9e.jpg',
+  'https://i.ibb.co/DgKj8LNT/77b2f9b97b9e.jpg', 
   'https://i.ibb.co/bg3PJH6v/f5056f9410d1.gif'
 ];
 
@@ -95,7 +132,7 @@ const quranAyats = [
 ];
 
 // ============================================================
-// ⚙️ LOADING FUNCTIONS
+// 🛠️ LOADING & HELPERS
 // ============================================================
 
 function loadConfig() {
@@ -105,27 +142,26 @@ function loadConfig() {
   } catch (error) {
     logs.error('CONFIG', 'Failed to load config. Using default.');
     config = {
-      BOTNAME: 'SARDAR RDX',
-      PREFIX: '.',
-      ADMINBOT: ['100009012838085'],
-      TIMEZONE: 'Asia/Karachi',
-      PREFIX_ENABLED: true,
-      REACT_DELETE_EMOJI: '😡',
-      ADMIN_ONLY_MODE: false,
-      AUTO_ISLAMIC_POST: true,
-      AUTO_GROUP_MESSAGE: true
+      BOTNAME: 'SARDAR RDX', PREFIX: '.', ADMINBOT: ['100009012838085'],
+      TIMEZONE: 'Asia/Karachi', PREFIX_ENABLED: true, REACT_DELETE_EMOJI: '😡',
+      ADMIN_ONLY_MODE: false, AUTO_ISLAMIC_POST: true, AUTO_GROUP_MESSAGE: true
     };
     global.config = config;
   }
 }
 
-function saveConfig() {
+function loadIslamicMessages() {
   try {
-    fs.writeJsonSync(configPath, config, { spaces: 2 });
-    global.config = config;
+    islamicMessages = fs.readJsonSync(islamicPath);
   } catch (error) {
-    logs.error('CONFIG', 'Failed to save config:', error.message);
+    logs.error('ISLAMIC', 'Failed to load islamic messages:', error.message);
+    islamicMessages = { posts: [], groupMessages: [] };
   }
+}
+
+function saveConfig() {
+  try { fs.writeJsonSync(configPath, config, { spaces: 2 }); global.config = config; } 
+  catch (error) { logs.error('CONFIG', 'Failed to save config:', error.message); }
 }
 
 async function downloadImage(url, filePath) {
@@ -133,27 +169,25 @@ async function downloadImage(url, filePath) {
     const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
     fs.writeFileSync(filePath, Buffer.from(response.data));
     return true;
-  } catch (e) {
-    logs.error('DOWNLOAD', `Image download failed: ${e.message}`);
-    return false;
-  }
+  } catch (e) { return false; }
 }
 
 // ============================================================
-// 📡 BROADCAST FUNCTIONS (EXTREME SAFETY MODE)
+// 📡 BROADCAST FUNCTIONS (Bypasses Rate Limit)
 // ============================================================
 
 async function sendQuranAyat() {
   if (!api || !config.AUTO_ISLAMIC_POST) return;
   
   try {
-    // Database se threads lo
+    // Database se groups uthao
     const threads = require('./Data/system/database/models/threads').getAll();
+    // Sirf Approved aur Not Banned groups
     const approvedThreads = threads.filter(t => t.approved === 1 && t.banned !== 1);
     
     if (approvedThreads.length === 0) return;
     
-    logs.info('BROADCAST', `Starting SAFE Quran Post for ${approvedThreads.length} groups...`);
+    logs.info('BROADCAST', `Starting SAFE Quran Post...`);
 
     const randomAyat = quranAyats[Math.floor(Math.random() * quranAyats.length)];
     const randomPic = quranPics[Math.floor(Math.random() * quranPics.length)];
@@ -167,26 +201,27 @@ async function sendQuranAyat() {
     
     const downloaded = await downloadImage(randomPic, imgPath);
     
-    // ⚠️ SAFETY LOOP: Har Group ke beech 20-30 Second ka Gap
+    // ⚠️ BROADCAST LOOP: 30 Seconds Delay Per Group
     for (const thread of approvedThreads) {
       try {
         if (downloaded && fs.existsSync(imgPath)) {
+          // Hum direct patchApi wale function ko call kar rahe hain lekin internal cooldown logic usay rokega nahi
+          // kyunki humne "EXCEPTION" lagayi hai msg.includes("QURAN") par
           await api.sendMessage({ body: message, attachment: fs.createReadStream(imgPath) }, thread.id);
         } else {
           await api.sendMessage(message, thread.id);
         }
         
-        // 🛑 CRITICAL DELAY (Anti-Ban)
-        const safeDelay = Math.floor(Math.random() * 10000) + 20000; // 20s to 30s
-        await new Promise(r => setTimeout(r, safeDelay));
-
+        // 30 Seconds Gap for Broadcast to be extra safe
+        await new Promise(r => setTimeout(r, 30000));
+        
       } catch (e) {
-        // Agar group ne kick kiya hai to ignore karo
+        // Silent fail if kicked
       }
     }
     
     try { fs.unlinkSync(imgPath); } catch {}
-    logs.success('QURAN_POST', `Finished sending Quran Ayat.`);
+    logs.success('QURAN_POST', `Broadcast Finished.`);
   } catch (error) {
     logs.error('QURAN_POST', error.message);
   }
@@ -212,7 +247,6 @@ async function sendNamazAlert(namazName) {
     
     const downloaded = await downloadImage(randomPic, imgPath);
     
-    // ⚠️ SAFETY LOOP
     for (const thread of approvedThreads) {
       try {
         if (downloaded && fs.existsSync(imgPath)) {
@@ -221,9 +255,8 @@ async function sendNamazAlert(namazName) {
           await api.sendMessage(message, thread.id);
         }
         
-        // 🛑 CRITICAL DELAY
-        const safeDelay = Math.floor(Math.random() * 10000) + 20000; // 20s to 30s
-        await new Promise(r => setTimeout(r, safeDelay));
+        // 30 Seconds Gap
+        await new Promise(r => setTimeout(r, 30000));
 
       } catch (e) {}
     }
@@ -235,9 +268,9 @@ async function sendNamazAlert(namazName) {
   }
 }
 
-// 🛡️ SCHEDULER SETUP (Restricted Times)
+// 🛡️ SECURE SCHEDULER
 function setupSchedulers() {
-  // Quran: Sirf 9:00 AM aur 9:00 PM (2 baar)
+  // Quran: Sirf 9:00 AM aur 9:00 PM (Spam Free)
   cron.schedule('0 9,21 * * *', () => {
     logs.info('SCHEDULER', 'Twice Daily Quran Ayat triggered');
     sendQuranAyat();
@@ -250,7 +283,7 @@ function setupSchedulers() {
   cron.schedule('43 17 * * *', () => sendNamazAlert('Maghrib'), { timezone: 'Asia/Karachi' });
   cron.schedule('4 19 * * *', () => sendNamazAlert('Isha'), { timezone: 'Asia/Karachi' });
   
-  logs.success('SCHEDULER', 'Anti-Ban Schedulers Started');
+  logs.success('SCHEDULER', 'Secured Schedulers Started');
 }
 
 // ============================================================
@@ -260,18 +293,18 @@ function setupSchedulers() {
 async function startBot() {
   logs.banner();
   loadConfig();
+  loadIslamicMessages();
   
   let appstate;
   try {
     appstate = fs.readJsonSync(appstatePath);
   } catch (error) {
-    logs.error('APPSTATE', 'Failed to load appstate.json. Please upload a valid appstate.');
+    logs.error('APPSTATE', 'Failed to load appstate.json');
     return;
   }
   
-  logs.info('BOT', 'Starting SARDAR RDX with Safety Protocols...');
+  logs.info('BOT', 'Initializing Fortress Security System...');
   
-  // Login Options
   const loginOptions = {
     listenEvents: true,
     selfListen: false,
@@ -288,13 +321,13 @@ async function startBot() {
     }
     
     api = loginApi;
-    // ✅ Apply the Safety Patch (Delay)
+    
+    // ✅ APPLY HEAVY SECURITY PATCH
     global.api = patchApi(api);
     global.startTime = Date.now();
     
-    logs.success('LOGIN', 'Logged In Successfully!');
+    logs.success('LOGIN', 'Login Success! Security Mode: HEAVY');
     
-    // Initialize Controllers
     const Users = new UsersController(api);
     const Threads = new ThreadsController(api);
     const Currencies = new CurrenciesController(api);
@@ -303,7 +336,7 @@ async function startBot() {
     global.Threads = Threads;
     global.Currencies = Currencies;
     
-    // ✅ CRITICAL MEMORY FIX (For Threadban error)
+    // ✅ CRITICAL MEMORY FIX (For ThreadBan)
     global.data = {
       threadBanned: new Map(),
       userBanned: new Map(),
@@ -312,13 +345,11 @@ async function startBot() {
       online: []
     };
     
-    // Load System
     await loadCommands(client, commandsPath);
     await loadEvents(client, eventsPath);
     
     global.client = client;
     
-    // Start Services
     setupSchedulers();
     
     const listener = listen({
@@ -332,11 +363,27 @@ async function startBot() {
     
     api.listenMqtt(listener);
     
+    // Stats Logging
+    const uniqueCommands = new Set();
+    client.commands.forEach((cmd) => {
+      if (cmd.config && cmd.config.name) uniqueCommands.add(cmd.config.name.toLowerCase());
+    });
+    
     logs.success('BOT', `${config.BOTNAME} is Online & Protected.`);
+    logs.info('SECURITY', 'Rate Limit: 1 Command / Min');
+    logs.info('SECURITY', 'Response Delay: 5-10 Seconds');
+    
+    // Notify Admin
+    const adminID = config.ADMINBOT[0];
+    if (adminID) {
+      try {
+        await api.sendMessage(`${config.BOTNAME} is Online!\n🔒 Security Level: Fortress\n🛡️ Rate Limit: Active`, adminID);
+      } catch (e) {}
+    }
   });
 }
 
-// Global Error Handlers (Taake bot crash na ho)
+// Global Error Handlers
 process.on('unhandledRejection', (reason, promise) => {
   logs.warn('UNHANDLED', 'Unhandled Promise Rejection (Ignored)');
 });
@@ -345,10 +392,19 @@ process.on('uncaughtException', (error) => {
   logs.error('EXCEPTION', `Uncaught Exception: ${error.message}`);
 });
 
-module.exports = { startBot };
+module.exports = {
+  startBot,
+  getApi: () => api,
+  getClient: () => client,
+  getConfig: () => config,
+  saveConfig,
+  loadConfig,
+  reloadCommands: () => loadCommands(client, commandsPath),
+  reloadEvents: () => loadEvents(client, eventsPath)
+};
 
-// Auto Start if run directly
+// Auto Start
 if (require.main === module) {
   startBot();
-      }
-
+  }
+                                           

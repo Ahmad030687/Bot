@@ -84,6 +84,6 @@ module.exports = {
 
     const selectedLine = poetryLines[Math.floor(Math.random() * poetryLines.length)];
 
-    return send.reply(`꧁🍒❤️‍🔥${name}❤️‍🔥🍒꧂\n\n『꧁🍒\n   ${selectedLine} 🍒꧂』\n\n❤️𝕆𝕎ℕ𝔼ℝ : ꧁𝐙𝐚𝐢𝐧𝐢-𝐉𝐮𝐭𝐭꧂🌹`);
+    return send.reply(`꧁🍒❤️‍🔥${name}❤️‍🔥🍒꧂\n\n『꧁🍒\n   ${selectedLine} 🍒꧂』\n\n❤️𝕆𝕎ℕ𝔼ℝ : ꧁𝐀𝐇𝐌𝐀𝐃-𝐑𝐃𝐗꧂🌹`);
   }
 };

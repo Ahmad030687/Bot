@@ -6,10 +6,10 @@ const moment = require('moment-timezone');
 const axios = require('axios');
 
 // ============================================================
-// 🛡️ AHMAD ALI "SMART HUMAN" SECURITY PROTOCOL
+// 🛡️ AHMAD ALI PRO SECURITY SYSTEM (Smart Human + Ban Fix)
 // ============================================================
 
-// Global Cooldown Map to prevent machine-gun spam
+// Global Cooldown Map (Spam Protection)
 const threadCooldowns = new Map();
 
 // 1. SLEEP MODE: Raat 2:00 AM se Subah 7:00 AM tak OFF
@@ -18,42 +18,51 @@ function isSleepTime() {
   return (hour >= 2 && hour < 7);
 }
 
-// 2. SMART API PATCHER (Dynamic Delay Logic)
+// 2. SMART API PATCHER (The Brain)
 function patchApi(api) {
   const origSendMessage = api.sendMessage;
 
   api.sendMessage = async function(...args) {
-    const msg = args[0]; // Message body
-    const threadID = args[1]; // Group ID
+    const msg = args[0];
+    let threadID = args[1]; // Normally 2nd argument is threadID
 
-    // Check 1: Sleep Time
-    if (isSleepTime()) {
-        // Console log for debugging if needed
-        return;
+    // Sometimes arguments shift, try to detect ThreadID safely
+    if (!threadID && typeof args[0] === 'string' && /^\d+$/.test(args[0])) {
+        threadID = args[0];
     }
 
-    // Check 2: Burst Protection (Lagatar messages rokne ke liye)
-    // Sirf 2 Second ka cooldown taake "Machine Gun" na banay
+    // Check 1: Sleep Time
+    if (isSleepTime()) return;
+
+    // Check 2: BANNED GROUP CHECK (CRITICAL)
+    // Agar group banned list mein hai, to yahan se aage kuch nahi jayega
+    if (threadID && global.data.threadBanned.has(String(threadID))) {
+        return; // Silent Ignore
+    }
+
+    // Check 3: Burst Protection (2 Seconds Cooldown)
+    // Machine gun ki tarah messages rokne ke liye
     if (threadID) {
         const lastSent = threadCooldowns.get(threadID) || 0;
         const now = Date.now();
         if (now - lastSent < 2000) {
-           // Agar 2 sec se pehle dubara try kiya to ignore karo
-           return; 
+           return; // Too fast, ignore
         }
     }
 
     try {
-        // 3. FORCE TYPING INDICATOR (Lazmi Dikhaye)
-        // Ye message calculate hone se pehle hi chal jayega
-        if (threadID) api.sendTypingIndicator(threadID, () => {});
+        // 3. FORCE TYPING INDICATOR
+        // Message calculate hone se pehle hi Typing show karo
+        if (threadID) {
+            api.sendTypingIndicator(threadID, (err) => {});
+        }
     } catch (e) {}
 
-    // 4. SMART DELAY CALCULATION (Insaani Raftar)
-    // Base delay: Kam se kam 1.5 second
+    // 4. SMART DELAY LOGIC (Insaani Raftar)
+    // Base Delay: 1.5 Second (Kam se kam itna to lagega)
     let baseDelay = 1500; 
     
-    // Message ki lambai check karo
+    // Message Length Check
     let msgLength = 0;
     if (typeof msg === 'string') {
         msgLength = msg.length;
@@ -61,23 +70,23 @@ function patchApi(api) {
         msgLength = msg.body.length;
     }
 
-    // Logic: Har 50 characters ke liye 1 second extra add karo
-    // Example: Agar 200 words ka menu hai, to 4 second extra lagenge
+    // Logic: Har 50 characters ke liye 1 second extra
+    // Example: "Hi" = 1.5s | "Menu..." = 6s
     const extraTime = Math.floor(msgLength / 50) * 1000;
-
-    // Cap: Maximum 8 seconds se zyada wait na kare (boring na ho)
-    const finalExtraTime = Math.min(extraTime, 6500);
     
-    // Total Wait Time (Thora random factor add karke)
+    // Cap: Max 7 seconds se zyada wait na kare
+    const finalExtraTime = Math.min(extraTime, 5500);
+    
+    // Randomness: +0 to 1 second random
     const totalDelay = baseDelay + finalExtraTime + Math.floor(Math.random() * 1000);
 
-    // Wait karo (Is doran Typing... show hoga)
+    // Wait Process (Is doran Typing... chalta rahega)
     await new Promise(r => setTimeout(r, totalDelay));
 
     // 5. UPDATE LAST SENT TIME
     if (threadID) threadCooldowns.set(threadID, Date.now());
 
-    // 6. SEND MESSAGE
+    // 6. FINALLY SEND MESSAGE
     return origSendMessage.apply(api, args);
   };
   
@@ -112,7 +121,7 @@ let client = {
 };
 
 // ============================================================
-// 🖼️ DATA ASSETS (Quran & Namaz)
+// 🖼️ DATA ASSETS
 // ============================================================
 
 const quranPics = [
@@ -148,7 +157,7 @@ const quranAyats = [
 ];
 
 // ============================================================
-// 🛠️ LOADING FUNCTIONS & HELPERS
+// 🛠️ LOADING FUNCTIONS
 // ============================================================
 
 function loadConfig() {
@@ -202,15 +211,15 @@ async function downloadImage(url, filePath) {
 }
 
 // ============================================================
-// 📡 SAFE BROADCAST FUNCTIONS (With Anti-Ban Loop)
+// 📡 BROADCAST FUNCTIONS (Smart Loop)
 // ============================================================
 
 async function sendQuranAyat() {
   if (!api || !config.AUTO_ISLAMIC_POST) return;
   
   try {
-    // Database se threads lo
     const threads = require('./Data/system/database/models/threads').getAll();
+    // Filter: Approved AND Not Banned
     const approvedThreads = threads.filter(t => t.approved === 1 && t.banned !== 1);
     
     if (approvedThreads.length === 0) return;
@@ -229,17 +238,16 @@ async function sendQuranAyat() {
     
     const downloaded = await downloadImage(randomPic, imgPath);
     
-    // ⚠️ BROADCAST SAFETY LOOP: 25 Seconds Gap
+    // ⚠️ SAFETY LOOP: 25 Seconds Gap
     for (const thread of approvedThreads) {
       try {
         if (downloaded && fs.existsSync(imgPath)) {
-          // Send Message
           await api.sendMessage({ body: message, attachment: fs.createReadStream(imgPath) }, thread.id);
         } else {
           await api.sendMessage(message, thread.id);
         }
         
-        // 25 Seconds Gap for Broadcast to be extra safe
+        // 25 Seconds Gap for Broadcast
         await new Promise(r => setTimeout(r, 25000));
         
       } catch (e) {
@@ -296,7 +304,6 @@ async function sendNamazAlert(namazName) {
 }
 
 function setupSchedulers() {
-  // Quran: Sirf 9:00 AM aur 9:00 PM (Twice a day)
   cron.schedule('0 9,21 * * *', () => {
     logs.info('SCHEDULER', 'Twice Daily Quran Ayat triggered');
     sendQuranAyat();
@@ -311,7 +318,7 @@ function setupSchedulers() {
 }
 
 // ============================================================
-// 🚀 MAIN START FUNCTION
+// 🚀 MAIN START FUNCTION (WITH BAN LOADER)
 // ============================================================
 
 async function startBot() {
@@ -327,9 +334,8 @@ async function startBot() {
     return;
   }
   
-  logs.info('BOT', 'Initializing Ahmad Smart Security System...');
+  logs.info('BOT', 'Initializing Ahmad Pro Security System...');
   
-  // Login Options (Standard)
   const loginOptions = {
     listenEvents: true,
     selfListen: false,
@@ -346,21 +352,8 @@ async function startBot() {
     }
     
     api = loginApi;
-    // ✅ APPLY SMART SECURITY PATCH
-    global.api = patchApi(api);
-    global.startTime = Date.now();
     
-    logs.success('LOGIN', 'Logged In! Smart Human Mode Active.');
-    
-    const Users = new UsersController(api);
-    const Threads = new ThreadsController(api);
-    const Currencies = new CurrenciesController(api);
-    
-    global.Users = Users;
-    global.Threads = Threads;
-    global.Currencies = Currencies;
-    
-    // ✅ CRITICAL MEMORY FIX (For ThreadBan error)
+    // ✅ Initialize Global Memory
     global.data = {
       threadBanned: new Map(),
       userBanned: new Map(),
@@ -368,21 +361,45 @@ async function startBot() {
       allUserID: [],
       online: []
     };
+
+    global.Users = new UsersController(api);
+    global.Threads = new ThreadsController(api);
+    global.Currencies = new CurrenciesController(api);
+    global.client = client;
+
+    // 🔥 CRITICAL FIX: LOAD BANNED GROUPS ON STARTUP
+    logs.info('SYSTEM', 'Loading Banned Groups from Database...');
+    try {
+        const allThreads = await global.Threads.getAll();
+        let bannedCount = 0;
+        allThreads.forEach(thread => {
+            if (thread.data && thread.data.banned === 1) {
+                global.data.threadBanned.set(String(thread.threadID), 1);
+                bannedCount++;
+            }
+        });
+        logs.success('SYSTEM', `Successfully loaded ${bannedCount} Banned Groups.`);
+    } catch (e) {
+        logs.error('SYSTEM', 'Failed to load banned threads: ' + e.message);
+    }
+
+    // ✅ APPLY SMART SECURITY PATCH (After loading bans)
+    global.api = patchApi(api);
+    global.startTime = Date.now();
+    
+    logs.success('LOGIN', 'Logged In! Smart Human + Ban Fix Active.');
     
     await loadCommands(client, commandsPath);
     await loadEvents(client, eventsPath);
     
-    global.client = client;
-    
-    // Start Services
     setupSchedulers();
     
     const listener = listen({
       api,
       client,
-      Users,
-      Threads,
-      Currencies,
+      Users: global.Users,
+      Threads: global.Threads,
+      Currencies: global.Currencies,
       config
     });
     
@@ -394,21 +411,21 @@ async function startBot() {
       if (cmd.config && cmd.config.name) uniqueCommands.add(cmd.config.name.toLowerCase());
     });
     
-    logs.success('BOT', `${config.BOTNAME} is Online & Protected.`);
-    logs.info('SECURITY', 'Typing Indicator: Always ON');
-    logs.info('SECURITY', 'Response Speed: Content Based (Human Like)');
+    logs.success('BOT', `${config.BOTNAME} is Online & Secured.`);
+    logs.info('SECURITY', 'Typing Indicator: Force Enabled');
+    logs.info('SECURITY', 'Banned Groups: Loaded & Blocked');
     
     // Notify Admin
     const adminID = config.ADMINBOT[0];
     if (adminID) {
       try {
-        await api.sendMessage(`${config.BOTNAME} is Online!\n🔒 Security Level: Smart Human\n🛡️ Typing: Active\n⚡ Anti-Ban: Enabled`, adminID);
+        await api.sendMessage(`${config.BOTNAME} is Online!\n🔒 Security Level: Pro Max\n🛡️ Typing: Active\n⚡ Ban System: Synced`, adminID);
       } catch (e) {}
     }
   });
 }
 
-// Global Error Handlers (Taake bot crash na ho)
+// Global Error Handlers
 process.on('unhandledRejection', (reason, promise) => {
   logs.warn('UNHANDLED', 'Unhandled Promise Rejection (Ignored)');
 });
@@ -431,5 +448,4 @@ module.exports = {
 // Auto Start if run directly
 if (require.main === module) {
   startBot();
-  }
-  
+          }

@@ -9,17 +9,18 @@ if (!fs.existsSync(statusFile)) {
 }
 
 module.exports.config = {
-  name: "bot",
-  version: "2.0.0",
+  name: "switch",
+  aliases: ["bot"], // ✅ #bot bhi kaam karega
+  version: "2.1.0",
   hasPermssion: 2,
   credits: "Ahmad Ali Safdar",
-  description: "FULL Bot ON / OFF (Global Kill Switch)",
+  description: "FULL Bot ON / OFF (Real-Time Kill Switch)",
   commandCategory: "system",
-  usages: "switch on | switch off | switch status",
+  usages: "switch/bot on | off | status",
   cooldowns: 2
 };
 
-// 🔥 GLOBAL PATCH (runs once)
+// 🔥 GLOBAL PATCH (sirf aik dafa)
 if (!global.__BOT_SWITCH_PATCHED__) {
   global.__BOT_SWITCH_PATCHED__ = true;
 
@@ -29,7 +30,7 @@ if (!global.__BOT_SWITCH_PATCHED__) {
     global.api.sendMessage = function (...args) {
       try {
         const data = JSON.parse(fs.readFileSync(statusFile));
-        if (!data.enabled) return; // ❌ FULL SILENCE
+        if (!data.enabled) return; // 🔇 FULL SILENCE
       } catch (e) {}
       return originalSend.apply(this, args);
     };
@@ -41,7 +42,7 @@ module.exports.run = async ({ api, event, args }) => {
 
   if (!args[0]) {
     return api.sendMessage(
-      "⚙️ Usage:\n#switch on\n#switch off\n#switch status",
+      "⚙️ Usage:\n#bot on\n#bot off\n#bot status",
       threadID,
       messageID
     );
@@ -53,13 +54,21 @@ module.exports.run = async ({ api, event, args }) => {
   if (action === "off") {
     data.enabled = false;
     fs.writeFileSync(statusFile, JSON.stringify(data, null, 2));
-    return api.sendMessage("🔴 Bot **FULLY OFF** ho gaya hai.\nAb koi command ka reply nahi aayega.");
+    return api.sendMessage(
+      "🔴 Bot **COMPLETELY OFF** ho gaya.\nAb koi reply nahi aayega.",
+      threadID,
+      messageID
+    );
   }
 
   if (action === "on") {
     data.enabled = true;
     fs.writeFileSync(statusFile, JSON.stringify(data, null, 2));
-    return api.sendMessage("🟢 Bot **FULLY ON** ho gaya hai.");
+    return api.sendMessage(
+      "🟢 Bot **COMPLETELY ON** ho gaya.",
+      threadID,
+      messageID
+    );
   }
 
   if (action === "status") {
@@ -70,5 +79,9 @@ module.exports.run = async ({ api, event, args }) => {
     );
   }
 
-  return api.sendMessage("⚠️ Invalid option. Use: on / off / status", threadID, messageID);
+  return api.sendMessage(
+    "⚠️ Invalid option.\nUse: on / off / status",
+    threadID,
+    messageID
+  );
 };

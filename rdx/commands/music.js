@@ -1,136 +1,68 @@
 const axios = require('axios');
+const ytdl = require('ytdl-core');
+const yts = require('yt-search');
 const fs = require('fs-extra');
 const path = require('path');
-const yts = require('yt-search');
 
 module.exports.config = {
-    name: "music",
-    version: "5.0.0",
-    permission: 0,
-    prefix: true,
-    premium: false,
-    category: "media",
-    credits: "SARDAR RDX",
-    description: "Download music from YouTube",
-    commandCategory: "media",
-    usages: ".music [song name]",
-    cooldowns: 5
+  name: "music",
+  version: "1.5.0",
+  hasPermssion: 0,
+  credits: "Ahmad Ali Safdar",
+  description: "YouTube se Audio ya Video download karein",
+  commandCategory: "media",
+  usages: "music [audio/video] [song name]",
+  cooldowns: 10
 };
 
-const API_BASE = "https://yt-tt.onrender.com";
+module.exports.run = async ({ api, event, args }) => {
+  const { threadID, messageID } = event;
+  const type = args[0]?.toLowerCase();
+  const query = args.slice(1).join(" ");
 
-async function downloadAudio(videoUrl) {
-    try {
-        const response = await axios.get(`${API_BASE}/api/youtube/audio`, {
-            params: { url: videoUrl },
-            timeout: 60000,
-            responseType: 'arraybuffer'
-        });
-        
-        if (response.data) {
-            return { success: true, data: response.data };
-        }
-        return null;
-    } catch (err) {
-        console.log("Audio download failed:", err.message);
-        return null;
-    }
-}
+  // 1. Validation
+  if (!type || !query || (type !== 'audio' && type !== 'video')) {
+    return api.sendMessage(`⚠️ Ghalat Tariqa!\nSahi tariqa: #music [audio/video] [name]\n\nExample: #music audio Mere Humsafar`, threadID, messageID);
+  }
 
-module.exports.run = async function ({ api, event, args }) {
-    const query = args.join(" ");
-    
-    if (!query) {
-        return api.sendMessage("❌ Please provide a song name", event.threadID, event.messageID);
-    }
+  try {
+    api.sendMessage(`🔍 "${query}" dhoonda ja raha hai...`, threadID, messageID);
 
-    const frames = [
-        "🩵▰▱▱▱▱▱▱▱▱▱ 10%",
-        "💙▰▰▱▱▱▱▱▱▱▱ 25%",
-        "💜▰▰▰▰▱▱▱▱▱▱ 45%",
-        "💖▰▰▰▰▰▰▱▱▱▱ 70%",
-        "💗▰▰▰▰▰▰▰▰▰▰ 100% 😍"
-    ];
+    // 2. Search YouTube
+    const search = await yts(query);
+    const video = search.videos[0];
+    if (!video) return api.sendMessage("❌ Kuch nahi mila!", threadID, messageID);
 
-    const searchMsg = await api.sendMessage(`🔍 Searching: ${query}\n\n${frames[0]}`, event.threadID);
+    // 3. Prepare File Path
+    const ext = type === 'audio' ? 'mp3' : 'mp4';
+    const filePath = path.join(__dirname, `/cache/${Date.now()}.${ext}`);
+    fs.ensureDirSync(path.join(__dirname, '/cache'));
 
-    try {
-        const searchResults = await yts(query);
-        const videos = searchResults.videos;
-        
-        if (!videos || videos.length === 0) {
-            api.unsendMessage(searchMsg.messageID);
-            return api.sendMessage("❌ No results found", event.threadID, event.messageID);
-        }
+    // 4. Download Logic
+    const options = type === 'audio' 
+      ? { filter: 'audioonly', quality: 'highestaudio' } 
+      : { quality: 'highest', filter: 'item => item.container === "mp4"' };
 
-        const firstResult = videos[0];
-        const videoUrl = firstResult.url;
-        const title = firstResult.title;
-        const author = firstResult.author.name;
-        const thumbnail = firstResult.thumbnail;
+    const stream = ytdl(video.url, options);
 
-        await api.editMessage(`🎵 Found: ${title}\n\n${frames[1]}`, searchMsg.messageID, event.threadID);
-        await api.editMessage(`🎵 Downloading...\n\n${frames[2]}`, searchMsg.messageID, event.threadID);
+    stream.pipe(fs.createWriteStream(filePath)).on('finish', async () => {
+      const stats = fs.statSync(filePath);
+      const sizeMB = stats.size / (1024 * 1024);
 
-        const downloadResult = await downloadAudio(videoUrl);
-        
-        if (!downloadResult || !downloadResult.success) {
-            api.unsendMessage(searchMsg.messageID);
-            return api.sendMessage("❌ Download server is busy. Please try again later.", event.threadID, event.messageID);
-        }
+      // Facebook Limit Check (Approx 45MB safe limit)
+      if (sizeMB > 45) {
+        fs.unlinkSync(filePath);
+        return api.sendMessage("❌ File bohot bari hai (45MB+). Facebook allow nahi karega.", threadID, messageID);
+      }
 
-        await api.editMessage(`🎵 Processing...\n\n${frames[3]}`, searchMsg.messageID, event.threadID);
+      // 5. Send File
+      await api.sendMessage({
+        body: `🎵 𝐓𝐢𝐭𝐥𝐞: ${video.title}\n⏱️ 𝐃𝐮𝐫𝐚𝐭𝐢𝐨𝐧: ${video.timestamp}\n🔗 𝐋𝐢𝐧𝐤: ${video.url}`,
+        attachment: fs.createReadStream(filePath)
+      }, threadID, () => fs.unlinkSync(filePath), messageID);
+    });
 
-        const cacheDir = path.join(__dirname, "cache");
-        await fs.ensureDir(cacheDir);
-
-        const audioPath = path.join(cacheDir, `${Date.now()}_audio.mp3`);
-        fs.writeFileSync(audioPath, Buffer.from(downloadResult.data));
-
-        await api.editMessage(`🎵 Complete!\n\n${frames[4]}`, searchMsg.messageID, event.threadID);
-
-        let thumbPath = null;
-        if (thumbnail) {
-            try {
-                const thumbRes = await axios.get(thumbnail, { responseType: 'arraybuffer', timeout: 10000 });
-                thumbPath = path.join(cacheDir, `${Date.now()}_thumb.jpg`);
-                fs.writeFileSync(thumbPath, Buffer.from(thumbRes.data));
-            } catch (thumbError) {
-                console.log("Thumbnail download failed:", thumbError.message);
-            }
-        }
-
-        if (thumbPath && fs.existsSync(thumbPath)) {
-            await api.sendMessage(
-                {
-                    body: `🎵 ${title}\n📺 ${author}`,
-                    attachment: fs.createReadStream(thumbPath)
-                },
-                event.threadID
-            );
-        }
-
-        await api.sendMessage(
-            {
-                body: `🎵 Audio File`,
-                attachment: fs.createReadStream(audioPath)
-            },
-            event.threadID
-        );
-
-        setTimeout(() => {
-            try {
-                if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
-                if (thumbPath && fs.existsSync(thumbPath)) fs.unlinkSync(thumbPath);
-                api.unsendMessage(searchMsg.messageID);
-            } catch (err) {
-                console.log("Cleanup error:", err);
-            }
-        }, 10000);
-
-    } catch (error) {
-        console.error("Music command error:", error.message);
-        try { api.unsendMessage(searchMsg.messageID); } catch(e) {}
-        return api.sendMessage("❌ An error occurred. Please try again.", event.threadID, event.messageID);
-    }
+  } catch (e) {
+    return api.sendMessage(`❌ Error: ${e.message}`, threadID, messageID);
+  }
 };

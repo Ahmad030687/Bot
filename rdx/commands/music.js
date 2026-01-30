@@ -1,15 +1,13 @@
 const axios = require('axios');
-const ytdl = require('ytdl-core');
-const yts = require('yt-search');
 const fs = require('fs-extra');
 const path = require('path');
 
 module.exports.config = {
   name: "music",
-  version: "1.5.0",
+  version: "3.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali Safdar",
-  description: "YouTube se Audio ya Video download karein",
+  description: "YouTube Music/Video using Official Google API Key",
   commandCategory: "media",
   usages: "music [audio/video] [song name]",
   cooldowns: 10
@@ -19,50 +17,57 @@ module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID } = event;
   const type = args[0]?.toLowerCase();
   const query = args.slice(1).join(" ");
+  const apiKey = "AIzaSyCrDsoqkZKHRH9tX_FF0FpIYBGAeefHu2E"; // Aapki Official Key
 
-  // 1. Validation
   if (!type || !query || (type !== 'audio' && type !== 'video')) {
-    return api.sendMessage(`⚠️ Ghalat Tariqa!\nSahi tariqa: #music [audio/video] [name]\n\nExample: #music audio Mere Humsafar`, threadID, messageID);
+    return api.sendMessage(`⚠️ Sahi Tariqa:\n#music audio [song name]\n#music video [song name]`, threadID, messageID);
   }
 
   try {
-    api.sendMessage(`🔍 "${query}" dhoonda ja raha hai...`, threadID, messageID);
+    api.sendMessage(`🔍 Google API se "${query}" dhoonda ja raha hai...`, threadID, messageID);
 
-    // 2. Search YouTube
-    const search = await yts(query);
-    const video = search.videos[0];
-    if (!video) return api.sendMessage("❌ Kuch nahi mila!", threadID, messageID);
+    // 1. Google Official Search (Bahut Fast aur Accurate)
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&key=${apiKey}&maxResults=1`;
+    const searchRes = await axios.get(searchUrl);
+    const video = searchRes.data.items[0];
 
-    // 3. Prepare File Path
+    if (!video) return api.sendMessage("❌ YouTube par kuch nahi mila!", threadID, messageID);
+
+    const videoId = video.id.videoId;
+    const videoTitle = video.snippet.title;
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+    // 2. Download Processing (Stable API se)
+    // Hum aik aisi API use karenge jo sirf download ka link de
+    const dlUrl = `https://api.vyt-dl.xyz/download?url=${videoUrl}&type=${type}`; 
+    // Note: Agar ye API busy ho to hum Priyanshu ya kisi aur ka link yahan daal sakte hain
+    const res = await axios.get(`https://priyanshuapi.xyz/api/v2/yt-dl?url=${videoUrl}&type=${type}`);
+
+    if (!res.data.status) return api.sendMessage("❌ Server Busy! Phir se try karein.", threadID, messageID);
+
+    const fileUrl = res.data.data.download_url;
     const ext = type === 'audio' ? 'mp3' : 'mp4';
     const filePath = path.join(__dirname, `/cache/${Date.now()}.${ext}`);
-    fs.ensureDirSync(path.join(__dirname, '/cache'));
 
-    // 4. Download Logic
-    const options = type === 'audio' 
-      ? { filter: 'audioonly', quality: 'highestaudio' } 
-      : { quality: 'highest', filter: 'item => item.container === "mp4"' };
+    // 3. Streaming File to Cache
+    const fileRes = await axios({ method: 'GET', url: fileUrl, responseType: 'stream' });
+    const writer = fs.createWriteStream(filePath);
+    fileRes.data.pipe(writer);
 
-    const stream = ytdl(video.url, options);
-
-    stream.pipe(fs.createWriteStream(filePath)).on('finish', async () => {
+    writer.on('finish', async () => {
       const stats = fs.statSync(filePath);
-      const sizeMB = stats.size / (1024 * 1024);
-
-      // Facebook Limit Check (Approx 45MB safe limit)
-      if (sizeMB > 45) {
+      if (stats.size > 47185920) { // 45MB Limit
         fs.unlinkSync(filePath);
-        return api.sendMessage("❌ File bohot bari hai (45MB+). Facebook allow nahi karega.", threadID, messageID);
+        return api.sendMessage("❌ File 45MB se bari hai, Facebook allow nahi karega.", threadID, messageID);
       }
 
-      // 5. Send File
       await api.sendMessage({
-        body: `🎵 𝐓𝐢𝐭𝐥𝐞: ${video.title}\n⏱️ 𝐃𝐮𝐫𝐚𝐭𝐢𝐨𝐧: ${video.timestamp}\n🔗 𝐋𝐢𝐧𝐤: ${video.url}`,
+        body: `🎵 𝐓𝐢𝐭𝐥𝐞: ${videoTitle}\n🔗 𝐋𝐢𝐧𝐤: ${videoUrl}\n\n🤪 Ahmad RDX System`,
         attachment: fs.createReadStream(filePath)
       }, threadID, () => fs.unlinkSync(filePath), messageID);
     });
 
   } catch (e) {
-    return api.sendMessage(`❌ Error: ${e.message}`, threadID, messageID);
+    return api.sendMessage(`❌ Error: Google API limit khatam ho sakti hai ya server down hai.`, threadID, messageID);
   }
 };

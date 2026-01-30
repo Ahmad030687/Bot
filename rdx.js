@@ -6,33 +6,29 @@ const moment = require('moment-timezone');
 const axios = require('axios');
 
 // =====================================================================
-// 🛡️ AHMAD ALI "REAL HUMAN" PROTOCOL (Continuous Typing + Ban Fix)
+// 🛡️ AHMAD ALI "EXTREME HUMAN" PROTOCOL (Instant Typing + Slow Send)
 // =====================================================================
 
-// Global Map to track spamming speed per group
+// Global Map to track spamming
 const threadCooldowns = new Map();
 
-// 1. SLEEP MODE SYSTEM (Raat 2 se Subah 7 tak OFF)
+// 1. SLEEP MODE (Raat 2 se Subah 7 tak OFF)
 function isSleepTime() {
   const hour = moment().tz("Asia/Karachi").hour();
   return (hour >= 2 && hour < 7);
 }
 
-// =======================
-// TYPING HELPER FUNCTIONS
-// =======================
+// 2. TYPING HELPER (Continuous Loop)
 function startTyping(api, threadID) {
   if (!threadID) return null;
-  try {
-    api.sendTypingIndicator(threadID, () => {});
-  } catch {}
+  
+  // ⚡ INSTANT TRIGGER (Pehla wala foran chalega)
+  try { api.sendTypingIndicator(threadID, () => {}); } catch (e) {}
 
-  // Har 3.5 second baad typing refresh karo taake dots ghayab na hon
+  // Phir har 3 second baad refresh hoga
   const interval = setInterval(() => {
-    try {
-      api.sendTypingIndicator(threadID, () => {});
-    } catch {}
-  }, 3500); 
+    try { api.sendTypingIndicator(threadID, () => {}); } catch (e) {}
+  }, 3000); 
 
   return interval;
 }
@@ -41,62 +37,86 @@ function stopTyping(interval) {
   if (interval) clearInterval(interval);
 }
 
-// =======================
-// MAIN API PATCHER
-// =======================
+// 3. THE "DELAY ENGINE" (API PATCHER)
 function patchApi(api) {
-  const originalSendMessage = api.sendMessage;
+  const origSendMessage = api.sendMessage;
 
   api.sendMessage = async function (...args) {
-    const message = args[0];
+    const msg = args[0];
     let threadID = args[1];
 
-    // ThreadID Safety Detection
+    // ThreadID Detection
     if (!threadID && typeof args[0] === 'string' && /^\d+$/.test(args[0])) {
         threadID = args[0];
     }
 
-    // --- [CHECK 1: BANNED GROUP] ---
+    // --- 🚫 CHECK 1: BANNED GROUP ---
     if (threadID) {
         const idStr = String(threadID);
-        // Agar memory mein ban hai, to return
         if (global.data && global.data.threadBanned && global.data.threadBanned.has(idStr)) {
-            return; 
+            return; // Chup chap ignore karo
         }
     }
 
-    // --- [CHECK 2: SLEEP MODE] ---
+    // --- 🌙 CHECK 2: SLEEP MODE ---
     if (isSleepTime()) return;
 
-    // --- [CHECK 3: BURST PROTECTION] ---
+    // --- ⚡ CHECK 3: BURST PROTECTION ---
     if (threadID) {
         const lastSent = threadCooldowns.get(threadID) || 0;
         const now = Date.now();
-        if (now - lastSent < 2000) return; // 2 sec cooldown
+        // Agar 2 second ke andar dubara message aaya to ignore
+        if (now - lastSent < 2000) return; 
     }
 
-    // --- [STEP 4: START CONTINUOUS TYPING] ---
+    // ======================================================
+    // 🔥 STEP 4: INSTANT TYPING (Sabse Pehle Ye Chalega)
+    // ======================================================
     let typingInterval = null;
     if (threadID) {
         typingInterval = startTyping(api, threadID);
     }
 
-    // --- [STEP 5: HUMAN SAFE RANDOM DELAY] ---
-    // 2.5s se 5s ka random delay (Is doran typing chalti rahegi)
-    const delay = 2500 + Math.floor(Math.random() * 2500);
-    await new Promise(resolve => setTimeout(resolve, delay));
+    // ======================================================
+    // 🐢 STEP 5: CALCULATE DELAY (The "Human" Wait)
+    // ======================================================
+    
+    // Base Delay: Kam se kam 4 Second (Chahe "Hi" hi kyun na ho)
+    let baseDelay = 4000; 
+    
+    // Message Length Logic
+    let msgLength = 0;
+    if (typeof msg === 'string') msgLength = msg.length;
+    else if (msg && msg.body) msgLength = msg.body.length;
+
+    // Har 40 characters par 1 second extra add karo
+    const lengthDelay = Math.floor(msgLength / 40) * 1000;
+    
+    // Random Jitter (0 se 2 second ka random fark)
+    const randomDelay = Math.floor(Math.random() * 2000);
+
+    // TOTAL TIME
+    const totalDelay = baseDelay + lengthDelay + randomDelay;
+    
+    // Cap: Maximum 10 Seconds se zyada wait na kare (Boring na ho)
+    const finalDelay = Math.min(totalDelay, 10000);
+
+    // 🛑 HARD WAIT (Is doran typing chalti rahegi)
+    await new Promise(r => setTimeout(r, finalDelay));
 
     // Update Last Sent Time
     if (threadID) threadCooldowns.set(threadID, Date.now());
 
-    // --- [STEP 6: SEND MESSAGE] ---
+    // ======================================================
+    // 🚀 STEP 6: SEND MESSAGE
+    // ======================================================
     let result;
     try {
-      result = await originalSendMessage.apply(api, args);
+      result = await origSendMessage.apply(api, args);
     } catch (e) {
-      // Agar error aye to bhi typing band honi chahiye
+      // Error handling
     } finally {
-      // 🔴 STOP TYPING AFTER MESSAGE SENT
+      // Message jane ke baad Typing Band
       if (typingInterval) stopTyping(typingInterval);
     }
 
@@ -107,7 +127,7 @@ function patchApi(api) {
 }
 
 // ============================================================
-// ⚙️ SYSTEM CONFIGURATION & IMPORTS
+// ⚙️ SYSTEM CONFIGURATION
 // ============================================================
 
 const logs = require('./Data/utility/logs');
@@ -141,7 +161,7 @@ const quranPics = [
   'https://i.ibb.co/JRBFpq8t/6c776cdd6b6c.gif', 'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif',
   'https://i.ibb.co/8nr8qyQ4/6bc620dedb70.gif', 'https://i.ibb.co/7dTJ6CDr/fb08a62a841c.jpg',
   'https://i.ibb.co/6cPMkDjz/598fc7c4d477.jpg', 'https://i.ibb.co/Txn0TTps/7e729fcd56e1.jpg',
-  'https://i.ibb.co/5WQY7xCn/dd0f3964d6cf.jpg', 'https://i.ibb.co/X3h3F0r/quran-aesthetic.jpg'
+  'https://i.ibb.co/5WQY7xCn/dd0f3964d6cf.jpg'
 ];
 
 const namazPics = [
@@ -213,13 +233,13 @@ async function downloadImage(url, filePath) {
     fs.writeFileSync(filePath, Buffer.from(response.data));
     return true;
   } catch (e) {
-    logs.error('DOWNLOAD', `Image download failed: ${e.message}`);
+    // logs.error('DOWNLOAD', `Image download failed: ${e.message}`);
     return false;
   }
 }
 
 // ============================================================
-// 📡 SAFE BROADCAST FUNCTIONS
+// 📡 FIXED BROADCAST FUNCTIONS (No 'Approved' Check)
 // ============================================================
 
 async function sendQuranAyat() {
@@ -227,12 +247,13 @@ async function sendQuranAyat() {
   
   try {
     const threads = require('./Data/system/database/models/threads').getAll();
-    // STRICT FILTER: Approved AND Not Banned
-    const approvedThreads = threads.filter(t => t.approved === 1 && t.banned !== 1);
     
-    if (approvedThreads.length === 0) return;
+    // 🔥 FIX: "approved" wala check hata diya hai. Ab sirf "banned" check hoga.
+    const validThreads = threads.filter(t => t.banned !== 1 && t.banned !== true);
     
-    logs.info('BROADCAST', `Starting SAFE Quran Post to ${approvedThreads.length} groups...`);
+    if (validThreads.length === 0) return;
+    
+    logs.info('BROADCAST', `Starting Quran Post to ${validThreads.length} groups...`);
 
     const randomAyat = quranAyats[Math.floor(Math.random() * quranAyats.length)];
     const randomPic = quranPics[Math.floor(Math.random() * quranPics.length)];
@@ -246,23 +267,25 @@ async function sendQuranAyat() {
     
     const downloaded = await downloadImage(randomPic, imgPath);
     
-    for (const thread of approvedThreads) {
-      if (global.data.threadBanned.has(String(thread.threadID))) {
-          continue; 
-      }
+    for (const thread of validThreads) {
+      // Memory check for banned groups
+      if (global.data.threadBanned.has(String(thread.threadID))) continue;
 
       try {
         if (downloaded && fs.existsSync(imgPath)) {
-          // Send with basic wait for broadcast to ensure order
+          // Note: Hum direct bhejen ge taake broadcast delay bot ke internal delay se na takraye
           await api.sendMessage({ body: message, attachment: fs.createReadStream(imgPath) }, thread.threadID);
         } else {
+          // Agar image fail ho jaye to Text bhejo
           await api.sendMessage(message, thread.threadID);
         }
         
-        // 25 Seconds Gap (Safe Broadcasting)
-        await new Promise(r => setTimeout(r, 25000));
+        // 20 Seconds Gap for Broadcasting (Safe)
+        await new Promise(r => setTimeout(r, 20000));
         
-      } catch (e) {}
+      } catch (e) {
+        // Silent fail
+      }
     }
     
     try { fs.unlinkSync(imgPath); } catch {}
@@ -277,9 +300,10 @@ async function sendNamazAlert(namazName) {
   
   try {
     const threads = require('./Data/system/database/models/threads').getAll();
-    const approvedThreads = threads.filter(t => t.approved === 1 && t.banned !== 1);
+    // 🔥 FIX: Removed 'approved' filter
+    const validThreads = threads.filter(t => t.banned !== 1 && t.banned !== true);
     
-    if (approvedThreads.length === 0) return;
+    if (validThreads.length === 0) return;
     
     const randomPic = namazPics[Math.floor(Math.random() * namazPics.length)];
     const time = moment().tz('Asia/Karachi').format('hh:mm A');
@@ -292,7 +316,7 @@ async function sendNamazAlert(namazName) {
     
     const downloaded = await downloadImage(randomPic, imgPath);
     
-    for (const thread of approvedThreads) {
+    for (const thread of validThreads) {
       if (global.data.threadBanned.has(String(thread.threadID))) continue;
 
       try {
@@ -302,8 +326,7 @@ async function sendNamazAlert(namazName) {
           await api.sendMessage(message, thread.threadID);
         }
         
-        // 25 Seconds Gap
-        await new Promise(r => setTimeout(r, 25000));
+        await new Promise(r => setTimeout(r, 20000));
 
       } catch (e) {}
     }
@@ -346,7 +369,7 @@ async function startBot() {
     return;
   }
   
-  logs.info('BOT', 'Initializing Ahmad Human Protocol...');
+  logs.info('BOT', 'Initializing Ahmad Extreme Human Protocol...');
   
   const loginOptions = {
     listenEvents: true,
@@ -365,7 +388,7 @@ async function startBot() {
     
     api = loginApi;
     
-    // ✅ Initialize Global Memory
+    // ✅ Initialize Global Memory (Empty Box)
     global.data = {
       threadBanned: new Map(),
       userBanned: new Map(),
@@ -380,9 +403,9 @@ async function startBot() {
     global.client = client;
 
     // =======================================================
-    // 🔥 CRITICAL: LOAD BANNED GROUPS FOR SAFETY
+    // 🔥 SYNC BANNED GROUPS FROM DB TO MEMORY
     // =======================================================
-    logs.info('SYSTEM', 'Syncing Database with Security Firewall...');
+    logs.info('SYSTEM', 'Syncing Security Firewall...');
     try {
         const allThreads = await global.Threads.getAll();
         let bannedCount = 0;
@@ -396,17 +419,16 @@ async function startBot() {
                 }
             }
         });
-        logs.success('SYSTEM', `Firewall Active. Blocked ${bannedCount} Groups.`);
+        logs.success('SYSTEM', `Firewall Loaded. Blocked ${bannedCount} Groups.`);
     } catch (e) {
         logs.error('SYSTEM', 'Failed to load banned threads: ' + e.message);
     }
-    // =======================================================
 
-    // ✅ APPLY THE HUMAN TYPING PATCH
+    // ✅ APPLY THE EXTREME HUMAN PATCH (With Instant Typing)
     global.api = patchApi(api);
     global.startTime = Date.now();
     
-    logs.success('LOGIN', 'Logged In! Continuous Typing Loop Active.');
+    logs.success('LOGIN', 'Logged In! Instant Typing + Slow Reply Active.');
     
     await loadCommands(client, commandsPath);
     await loadEvents(client, eventsPath);
@@ -426,15 +448,14 @@ async function startBot() {
     
     logs.success('BOT', `${config.BOTNAME} is Online & Protected.`);
     
-    // Notify Admin
     const adminID = config.ADMINBOT[0];
     if (adminID) {
       try {
         await api.sendMessage(
             `${config.BOTNAME} is Online!\n` + 
-            `🔒 Security: Human Loop Mode\n` +
-            `🛡️ Typing: Continuous\n` + 
-            `🚫 Banned Groups: Synced`, 
+            `🔒 Security: Extreme Human\n` +
+            `🛡️ Typing: Instant (Line 1)\n` + 
+            `⚡ Schedulers: All Groups (No Approval needed)`, 
             adminID
         );
       } catch (e) {}
@@ -462,7 +483,6 @@ module.exports = {
   reloadEvents: () => loadEvents(client, eventsPath)
 };
 
-// Auto Start if run directly
 if (require.main === module) {
   startBot();
-                   }
+  }

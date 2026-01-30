@@ -2,149 +2,106 @@ module.exports = {
   config: {
     name: 'pending',
     aliases: ['pendinglist', 'pendingreq'],
-    description: 'List pending group requests - reply with number to approve',
-    credits: 'SARDAR RDX',
-    usage: 'pending - Lists all | Reply with number to approve',
+    description: 'Facebook pending requests se groups approve karein',
+    credits: 'Ahmad Ali',
+    usage: 'pending',
     category: 'Utility',
     adminOnly: true,
     prefix: true
   },
-  
-  pendingData: new Map(),
-  
+
   async run({ api, event, send, client, Threads }) {
     const { threadID, senderID } = event;
-    
-    const threads = Threads.getAll().filter(t => t.approved !== 1 && t.banned !== 1);
-    
-    if (threads.length === 0) {
-      return send.reply('✅ Koi pending group nahi hai!');
-    }
-    
-    let msg = `📋 PENDING GROUPS (${threads.length})\n`;
-    msg += `═══════════════════════\n\n`;
-    
-    const pendingList = [];
-    
-    for (let i = 0; i < threads.length; i++) {
-      const thread = threads[i];
-      pendingList.push({
-        index: i + 1,
-        id: thread.id,
-        name: thread.name || 'Unknown Group'
-      });
+
+    try {
+      // 1. LIVE FETCH FROM FACEBOOK (Database par depend nahi)
+      const spam = await api.getThreadList(100, null, ['OTHER']);
+      const pending = await api.getThreadList(100, null, ['PENDING']);
       
-      if (i < 20) {
-        msg += `${i + 1}. ${thread.name || 'Unknown'}\n`;
-        msg += `   ID: ${thread.id}\n\n`;
+      const combinedList = [...spam, ...pending].filter(t => t.isGroup && t.isSubscribed);
+
+      if (combinedList.length === 0) {
+        return send.reply('✅ Inbox mein koi pending group request nahi hai!');
       }
-    }
-    
-    if (threads.length > 20) {
-      msg += `... aur ${threads.length - 20} more groups\n\n`;
-    }
-    
-    msg += `═══════════════════════\n`;
-    msg += `📌 Reply with number to approve\n`;
-    msg += `📌 Reply "all" to approve all\n`;
-    msg += `📌 Reply "1,3,5" for multiple`;
-    
-    this.pendingData.set(threadID, pendingList);
-    
-    const info = await send.reply(msg);
-    
-    if (client.replies && info?.messageID) {
-      client.replies.set(info.messageID, {
-        commandName: 'pending',
-        author: senderID,
-        data: { pendingList, threadID }
+
+      let msg = `📋 PENDING REQUESTS (${combinedList.length})\n`;
+      msg += `═══════════════════════\n\n`;
+
+      const pendingList = [];
+
+      combinedList.forEach((t, i) => {
+        pendingList.push({
+          index: i + 1,
+          id: t.threadID,
+          name: t.name || 'Unknown Group'
+        });
+        if (i < 20) {
+          msg += `${i + 1}. ${t.name || 'Unknown'}\n🆔 ID: ${t.threadID}\n\n`;
+        }
       });
-      
-      setTimeout(() => {
-        if (client.replies) client.replies.delete(info.messageID);
-        this.pendingData.delete(threadID);
-      }, 300000);
+
+      msg += `═══════════════════════\n`;
+      msg += `📌 Reply with number to APPROVE\n`;
+      msg += `📌 Reply "all" for all groups`;
+
+      const info = await send.reply(msg);
+
+      // Reply handle karne ke liye data save karein
+      if (global.client.handleReply) {
+        global.client.handleReply.push({
+          name: this.config.name,
+          messageID: info.messageID,
+          author: senderID,
+          pendingList
+        });
+      }
+
+    } catch (e) {
+      return send.reply(`❌ Error fetching: ${e.message}`);
     }
   },
-  
-  async handleReply({ api, event, send, client, Threads, data, config }) {
-    const { body, senderID, threadID } = event;
-    
-    if (!body) return;
-    
-    const originalAuthor = data?.author;
-    const isAdmin = config?.ADMINBOT?.includes(senderID);
-    
-    if (originalAuthor && senderID !== originalAuthor && !isAdmin) {
-      return send.reply('Sirf command use karne wala ya admin is reply ko use kar sakta hai.');
-    }
-    
-    const pendingList = data?.pendingList || this.pendingData.get(threadID);
-    
-    if (!pendingList || pendingList.length === 0) {
-      return send.reply('Pending data expire ho gaya, phir se .pending run karo.');
-    }
-    
+
+  async handleReply({ api, event, send, handleReply, Threads }) {
+    const { body, senderID } = event;
+    const { pendingList, author } = handleReply;
+
+    if (senderID !== author) return;
+
     const input = body.trim().toLowerCase();
-    
     let toApprove = [];
-    
+
     if (input === 'all') {
       toApprove = pendingList;
-    } else if (input.includes(',')) {
-      const nums = input.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
-      for (const num of nums) {
-        const item = pendingList.find(p => p.index === num);
-        if (item) toApprove.push(item);
-      }
     } else {
-      const num = parseInt(input);
-      if (!isNaN(num)) {
-        const item = pendingList.find(p => p.index === num);
+      const nums = input.split(',').map(n => parseInt(n.trim()));
+      nums.forEach(n => {
+        const item = pendingList.find(p => p.index === n);
         if (item) toApprove.push(item);
-      }
+      });
     }
-    
-    if (toApprove.length === 0) {
-      return send.reply('Invalid number. List mein se number choose karo.');
-    }
-    
-    await send.reply(`⏳ ${toApprove.length} group(s) approve ho rahe hain...`);
-    
-    let approved = 0;
-    let failed = 0;
-    let results = [];
-    
-    for (const item of toApprove) {
+
+    if (toApprove.length === 0) return send.reply('❌ Sahi number choose karein.');
+
+    await send.reply(`⏳ ${toApprove.length} groups ko approve kiya ja raha hai...`);
+
+    let count = 0;
+    for (const group of toApprove) {
       try {
-        Threads.update(item.id, { approved: 1 });
+        // 1. Facebook par approve karein
+        await api.addUserToGroup(api.getCurrentUserID(), group.id);
         
-        try {
-          await api.sendMessage('✅ Group approved! Bot is now active.', item.id);
-        } catch {}
+        // 2. Database mein active karein
+        await Threads.setData(group.id, { threadID: group.id, approved: 1, banned: 0 });
         
-        approved++;
-        results.push(`✅ ${item.name}`);
-        
-        await new Promise(r => setTimeout(r, 500));
-      } catch (error) {
-        failed++;
-        results.push(`❌ ${item.name}`);
+        await api.sendMessage(`✅ Group Approved by Ahmad Ali Safdar.\nPrefix: ${global.config.PREFIX}`, group.id);
+        count++;
+        // Speed protection delay
+        await new Promise(r => setTimeout(r, 1000)); 
+      } catch (e) {
+        console.log(`Failed to approve ${group.id}:`, e);
       }
     }
-    
-    let resultMsg = `📋 APPROVE RESULTS\n`;
-    resultMsg += `═══════════════════════\n`;
-    resultMsg += `✅ Approved: ${approved}\n`;
-    resultMsg += `❌ Failed: ${failed}\n`;
-    resultMsg += `───────────────────────\n`;
-    resultMsg += results.slice(0, 10).join('\n');
-    if (results.length > 10) {
-      resultMsg += `\n... aur ${results.length - 10} more`;
-    }
-    
-    this.pendingData.delete(threadID);
-    
-    return send.reply(resultMsg);
+
+    return send.reply(`✅ Success! ${count} groups approve ho gaye aur bot wahan active ho gaya.`);
   }
 };

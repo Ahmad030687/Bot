@@ -29,6 +29,7 @@
     "node-fetch": "^3.3.2",
     "string-similarity": "^4.0.4",
     "ws3-fca": "^2.0.1",
-    "yt-search": "^2.13.1"
+    "ytdl-core": "latest",
+    "yt-search": "latest"
   }
 }

@@ -9,81 +9,90 @@ module.exports = {
     adminOnly: true,
     prefix: true
   },
-
+  
   pendingData: new Map(),
-
+  
   async run({ api, event, send, client, Threads }) {
     const { threadID, senderID } = event;
 
-    // ✅ Fetch all threads that are not approved and not banned
-    const threads = Threads.getAll().filter(t => t.data?.approved !== 1 && t.data?.banned !== 1);
+    // 🔹 Debug line: Check total threads
+    const allThreads = await Threads.getAll();
+    console.log("[DEBUG] Pending command triggered. Total threads loaded:", allThreads.length);
 
+    const threads = allThreads.filter(t => t.approved !== 1 && t.banned !== 1);
+    
     if (threads.length === 0) {
       return send.reply('✅ Koi pending group nahi hai!');
     }
-
-    let msg = `📋 PENDING GROUPS (${threads.length})\n═══════════════════════\n\n`;
-
+    
+    let msg = `📋 PENDING GROUPS (${threads.length})\n`;
+    msg += `═══════════════════════\n\n`;
+    
     const pendingList = [];
-
+    
     for (let i = 0; i < threads.length; i++) {
       const thread = threads[i];
       pendingList.push({
         index: i + 1,
-        id: thread.threadID,
+        id: thread.threadID || thread.id,
         name: thread.name || 'Unknown Group'
       });
-
+      
       if (i < 20) {
         msg += `${i + 1}. ${thread.name || 'Unknown'}\n`;
-        msg += `   ID: ${thread.threadID}\n\n`;
+        msg += `   ID: ${thread.threadID || thread.id}\n\n`;
       }
     }
-
+    
     if (threads.length > 20) {
       msg += `... aur ${threads.length - 20} more groups\n\n`;
     }
-
-    msg += `═══════════════════════\n📌 Reply with number to approve\n📌 Reply "all" to approve all\n📌 Reply "1,3,5" for multiple`;
-
+    
+    msg += `═══════════════════════\n`;
+    msg += `📌 Reply with number to approve\n`;
+    msg += `📌 Reply "all" to approve all\n`;
+    msg += `📌 Reply "1,3,5" for multiple`;
+    
     this.pendingData.set(threadID, pendingList);
-
+    
     const info = await send.reply(msg);
-
+    
     if (client.replies && info?.messageID) {
       client.replies.set(info.messageID, {
         commandName: 'pending',
         author: senderID,
         data: { pendingList, threadID }
       });
-
+      
       setTimeout(() => {
         if (client.replies) client.replies.delete(info.messageID);
         this.pendingData.delete(threadID);
-      }, 300000); // 5 min auto expire
+      }, 300000);
     }
   },
-
+  
   async handleReply({ api, event, send, client, Threads, data, config }) {
     const { body, senderID, threadID } = event;
+    
     if (!body) return;
-
+    
     const originalAuthor = data?.author;
     const isAdmin = config?.ADMINBOT?.includes(senderID);
-
+    
     if (originalAuthor && senderID !== originalAuthor && !isAdmin) {
       return send.reply('Sirf command use karne wala ya admin is reply ko use kar sakta hai.');
     }
-
+    
     const pendingList = data?.pendingList || this.pendingData.get(threadID);
-
+    
     if (!pendingList || pendingList.length === 0) {
       return send.reply('Pending data expire ho gaya, phir se .pending run karo.');
     }
-
+    
     const input = body.trim().toLowerCase();
+    
     let toApprove = [];
-
+    
     if (input === 'all') {
       toApprove = pendingList;
     } else if (input.includes(',')) {
@@ -99,41 +108,47 @@ module.exports = {
         if (item) toApprove.push(item);
       }
     }
-
+    
     if (toApprove.length === 0) {
       return send.reply('Invalid number. List mein se number choose karo.');
     }
-
+    
     await send.reply(`⏳ ${toApprove.length} group(s) approve ho rahe hain...`);
-
+    
     let approved = 0;
     let failed = 0;
     let results = [];
-
+    
     for (const item of toApprove) {
       try {
-        // ✅ Update approved flag in database
-        await Threads.update(item.id, { approved: 1 });
-
+        Threads.update(item.id, { approved: 1 });
+        
         try {
           await api.sendMessage('✅ Group approved! Bot is now active.', item.id);
         } catch {}
-
+        
         approved++;
         results.push(`✅ ${item.name}`);
+        
         await new Promise(r => setTimeout(r, 500));
-      } catch {
+      } catch (error) {
         failed++;
         results.push(`❌ ${item.name}`);
       }
     }
-
-    let resultMsg = `📋 APPROVE RESULTS\n═══════════════════════\n`;
-    resultMsg += `✅ Approved: ${approved}\n❌ Failed: ${failed}\n───────────────────────\n`;
+    
+    let resultMsg = `📋 APPROVE RESULTS\n`;
+    resultMsg += `═══════════════════════\n`;
+    resultMsg += `✅ Approved: ${approved}\n`;
+    resultMsg += `❌ Failed: ${failed}\n`;
+    resultMsg += `───────────────────────\n`;
     resultMsg += results.slice(0, 10).join('\n');
-    if (results.length > 10) resultMsg += `\n... aur ${results.length - 10} more`;
-
+    if (results.length > 10) {
+      resultMsg += `\n... aur ${results.length - 10} more`;
+    }
+    
     this.pendingData.delete(threadID);
+    
     return send.reply(resultMsg);
   }
 };

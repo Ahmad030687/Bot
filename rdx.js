@@ -6,10 +6,10 @@ const moment = require('moment-timezone');
 const axios = require('axios');
 
 // =====================================================================
-// 🛡️ AHMAD ALI "EXTREME HUMAN" PROTOCOL (Instant Typing + Slow Send)
+// 🤖 AHMAD ALI "AI HUMAN" PROTOCOL (Smart Delay + Instant Typing)
 // =====================================================================
 
-// Global Map to track spamming
+// Global Map to track spamming history
 const threadCooldowns = new Map();
 
 // 1. SLEEP MODE (Raat 2 se Subah 7 tak OFF)
@@ -18,17 +18,70 @@ function isSleepTime() {
   return (hour >= 2 && hour < 7);
 }
 
-// 2. TYPING HELPER (Continuous Loop)
+// =====================================================================
+// 🧠 AI-BASED DELAY CALCULATOR (Aapka Diya Hua Logic)
+// =====================================================================
+function aiBasedDelay({ message, threadID, lastThreadTime }) {
+  let delay = 2000; // Minimum 2 Seconds (Safety Base)
+
+  // Message text extract karo (Chahe string ho ya object)
+  const text = typeof message === "string" ? message : (message?.body || "");
+  const length = text.length;
+
+  // 📏 RULE 1: Length Based Thinking
+  if (length < 10) delay += 1000;         // "Hi" -> Fast
+  else if (length < 40) delay += 2000;    // Short sentence -> Normal
+  else if (length < 100) delay += 4000;   // Paragraph -> Slow
+  else delay += 6000;                     // Huge text -> Very Slow
+
+  // ❓ RULE 2: Question/Problem Detection (Thinking Time)
+  if (/\?|error|issue|masla|problem|code|help/i.test(text)) {
+      delay += 2000;
+  }
+
+  // 😤 RULE 3: Aggressive Text Detection (Hesitation)
+  if (/!!!|\?\?|gali|bakwas|fast|jaldi/i.test(text)) {
+      delay += 3000; 
+  }
+
+  // 🙏 RULE 4: Polite/Short Text (Quick Reply)
+  if (/thanks|thx|ok|acha|done|👍|❤/i.test(text)) {
+      delay -= 1000;
+  }
+
+  // ⏱️ RULE 5: Thread Activity (Agar convo tez hai to slow ho jao)
+  if (lastThreadTime) {
+    const gap = Date.now() - lastThreadTime;
+    if (gap < 8000) delay += 2500; // Agar pichla msg 8 sec pehle tha, to slow ho jao
+  }
+
+  // 🌙 RULE 6: Late Night Fatigue (Raat ko slow)
+  const hour = new Date().getHours();
+  if (hour >= 0 && hour <= 6) delay += 3000;
+
+  // 🎲 RULE 7: Random Human Jitter (Natural feel)
+  delay += Math.floor(Math.random() * 1500);
+
+  // ⛔ Safety Limits
+  if (delay < 2000) delay = 2000;    // Kam se kam 2 sec
+  if (delay > 12000) delay = 12000;  // Zyada se zyada 12 sec
+
+  return delay;
+}
+
+// =====================================================================
+// ⚡ TYPING INDICATOR LOOP (Instant Start)
+// =====================================================================
 function startTyping(api, threadID) {
   if (!threadID) return null;
-  
-  // ⚡ INSTANT TRIGGER (Pehla wala foran chalega)
+
+  // 1. FORAN Start karo (No Waiting)
   try { api.sendTypingIndicator(threadID, () => {}); } catch (e) {}
 
-  // Phir har 3 second baad refresh hoga
+  // 2. Interval set karo taake dots ghayab na hon
   const interval = setInterval(() => {
     try { api.sendTypingIndicator(threadID, () => {}); } catch (e) {}
-  }, 3000); 
+  }, 3000); // Har 3 sec baad refresh
 
   return interval;
 }
@@ -37,7 +90,9 @@ function stopTyping(interval) {
   if (interval) clearInterval(interval);
 }
 
-// 3. THE "DELAY ENGINE" (API PATCHER)
+// =====================================================================
+// 🛡️ API PATCHER (The Manager)
+// =====================================================================
 function patchApi(api) {
   const origSendMessage = api.sendMessage;
 
@@ -45,7 +100,7 @@ function patchApi(api) {
     const msg = args[0];
     let threadID = args[1];
 
-    // ThreadID Detection
+    // ThreadID Safe Detection
     if (!threadID && typeof args[0] === 'string' && /^\d+$/.test(args[0])) {
         threadID = args[0];
     }
@@ -53,8 +108,9 @@ function patchApi(api) {
     // --- 🚫 CHECK 1: BANNED GROUP ---
     if (threadID) {
         const idStr = String(threadID);
+        // Agar memory mein ban hai, to RETURN (Kuch mat karo)
         if (global.data && global.data.threadBanned && global.data.threadBanned.has(idStr)) {
-            return; // Chup chap ignore karo
+            return; 
         }
     }
 
@@ -62,15 +118,13 @@ function patchApi(api) {
     if (isSleepTime()) return;
 
     // --- ⚡ CHECK 3: BURST PROTECTION ---
-    if (threadID) {
-        const lastSent = threadCooldowns.get(threadID) || 0;
-        const now = Date.now();
-        // Agar 2 second ke andar dubara message aaya to ignore
-        if (now - lastSent < 2000) return; 
+    const lastSent = threadCooldowns.get(threadID) || 0;
+    if (threadID && Date.now() - lastSent < 2000) {
+        return; // Ignore machine gun spam
     }
 
     // ======================================================
-    // 🔥 STEP 4: INSTANT TYPING (Sabse Pehle Ye Chalega)
+    // 🔥 STEP 4: INSTANT TYPING (Ye sabse pehle chalega)
     // ======================================================
     let typingInterval = null;
     if (threadID) {
@@ -78,33 +132,18 @@ function patchApi(api) {
     }
 
     // ======================================================
-    // 🐢 STEP 5: CALCULATE DELAY (The "Human" Wait)
+    // 🧠 STEP 5: AI DELAY CALCULATION
     // ======================================================
-    
-    // Base Delay: Kam se kam 4 Second (Chahe "Hi" hi kyun na ho)
-    let baseDelay = 4000; 
-    
-    // Message Length Logic
-    let msgLength = 0;
-    if (typeof msg === 'string') msgLength = msg.length;
-    else if (msg && msg.body) msgLength = msg.body.length;
+    const aiDelay = aiBasedDelay({
+      message: msg,
+      threadID: threadID,
+      lastThreadTime: lastSent
+    });
 
-    // Har 40 characters par 1 second extra add karo
-    const lengthDelay = Math.floor(msgLength / 40) * 1000;
-    
-    // Random Jitter (0 se 2 second ka random fark)
-    const randomDelay = Math.floor(Math.random() * 2000);
+    // ⏳ WAIT (Is doran Typing... chalta rahega)
+    await new Promise(r => setTimeout(r, aiDelay));
 
-    // TOTAL TIME
-    const totalDelay = baseDelay + lengthDelay + randomDelay;
-    
-    // Cap: Maximum 10 Seconds se zyada wait na kare (Boring na ho)
-    const finalDelay = Math.min(totalDelay, 10000);
-
-    // 🛑 HARD WAIT (Is doran typing chalti rahegi)
-    await new Promise(r => setTimeout(r, finalDelay));
-
-    // Update Last Sent Time
+    // Update Last Sent
     if (threadID) threadCooldowns.set(threadID, Date.now());
 
     // ======================================================
@@ -154,19 +193,25 @@ let client = {
 };
 
 // ============================================================
-// 🖼️ DATA ASSETS
+// 🖼️ DATA ASSETS (Full List)
 // ============================================================
 
 const quranPics = [
-  'https://i.ibb.co/JRBFpq8t/6c776cdd6b6c.gif', 'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif',
-  'https://i.ibb.co/8nr8qyQ4/6bc620dedb70.gif', 'https://i.ibb.co/7dTJ6CDr/fb08a62a841c.jpg',
-  'https://i.ibb.co/6cPMkDjz/598fc7c4d477.jpg', 'https://i.ibb.co/Txn0TTps/7e729fcd56e1.jpg',
-  'https://i.ibb.co/5WQY7xCn/dd0f3964d6cf.jpg'
+  'https://i.ibb.co/JRBFpq8t/6c776cdd6b6c.gif', 
+  'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif',
+  'https://i.ibb.co/8nr8qyQ4/6bc620dedb70.gif', 
+  'https://i.ibb.co/7dTJ6CDr/fb08a62a841c.jpg',
+  'https://i.ibb.co/6cPMkDjz/598fc7c4d477.jpg',
+  'https://i.ibb.co/Txn0TTps/7e729fcd56e1.jpg',
+  'https://i.ibb.co/5WQY7xCn/dd0f3964d6cf.jpg',
+  'https://i.ibb.co/X3h3F0r/quran-aesthetic.jpg'
 ];
 
 const namazPics = [
-  'https://i.ibb.co/wZpyLkrY/dceaf4301489.jpg', 'https://i.ibb.co/6xQbz5W/a6a8d577489d.jpg',
-  'https://i.ibb.co/DgKj8LNT/77b2f9b97b9e.jpg', 'https://i.ibb.co/bg3PJH6v/f5056f9410d1.gif'
+  'https://i.ibb.co/wZpyLkrY/dceaf4301489.jpg', 
+  'https://i.ibb.co/6xQbz5W/a6a8d577489d.jpg',
+  'https://i.ibb.co/DgKj8LNT/77b2f9b97b9e.jpg', 
+  'https://i.ibb.co/bg3PJH6v/f5056f9410d1.gif'
 ];
 
 const quranAyats = [
@@ -233,7 +278,7 @@ async function downloadImage(url, filePath) {
     fs.writeFileSync(filePath, Buffer.from(response.data));
     return true;
   } catch (e) {
-    // logs.error('DOWNLOAD', `Image download failed: ${e.message}`);
+    // Silent fail for download
     return false;
   }
 }
@@ -248,7 +293,7 @@ async function sendQuranAyat() {
   try {
     const threads = require('./Data/system/database/models/threads').getAll();
     
-    // 🔥 FIX: "approved" wala check hata diya hai. Ab sirf "banned" check hoga.
+    // 🔥 FILTER: Approved check removed. Only Banned check remains.
     const validThreads = threads.filter(t => t.banned !== 1 && t.banned !== true);
     
     if (validThreads.length === 0) return;
@@ -273,19 +318,15 @@ async function sendQuranAyat() {
 
       try {
         if (downloaded && fs.existsSync(imgPath)) {
-          // Note: Hum direct bhejen ge taake broadcast delay bot ke internal delay se na takraye
           await api.sendMessage({ body: message, attachment: fs.createReadStream(imgPath) }, thread.threadID);
         } else {
-          // Agar image fail ho jaye to Text bhejo
           await api.sendMessage(message, thread.threadID);
         }
         
         // 20 Seconds Gap for Broadcasting (Safe)
         await new Promise(r => setTimeout(r, 20000));
         
-      } catch (e) {
-        // Silent fail
-      }
+      } catch (e) {}
     }
     
     try { fs.unlinkSync(imgPath); } catch {}
@@ -300,7 +341,7 @@ async function sendNamazAlert(namazName) {
   
   try {
     const threads = require('./Data/system/database/models/threads').getAll();
-    // 🔥 FIX: Removed 'approved' filter
+    // 🔥 FILTER: Only check banned status
     const validThreads = threads.filter(t => t.banned !== 1 && t.banned !== true);
     
     if (validThreads.length === 0) return;
@@ -353,7 +394,7 @@ function setupSchedulers() {
 }
 
 // ============================================================
-// 🚀 MAIN START FUNCTION
+// 🚀 MAIN START FUNCTION (SYNC LOGIC INCLUDED)
 // ============================================================
 
 async function startBot() {
@@ -369,7 +410,7 @@ async function startBot() {
     return;
   }
   
-  logs.info('BOT', 'Initializing Ahmad Extreme Human Protocol...');
+  logs.info('BOT', 'Initializing AI Human Protocol...');
   
   const loginOptions = {
     listenEvents: true,
@@ -388,7 +429,7 @@ async function startBot() {
     
     api = loginApi;
     
-    // ✅ Initialize Global Memory (Empty Box)
+    // ✅ Initialize Global Memory
     global.data = {
       threadBanned: new Map(),
       userBanned: new Map(),
@@ -403,9 +444,9 @@ async function startBot() {
     global.client = client;
 
     // =======================================================
-    // 🔥 SYNC BANNED GROUPS FROM DB TO MEMORY
+    // 🔥 LOAD BANNED GROUPS FROM DB TO MEMORY
     // =======================================================
-    logs.info('SYSTEM', 'Syncing Security Firewall...');
+    logs.info('SYSTEM', 'Syncing Database Bans...');
     try {
         const allThreads = await global.Threads.getAll();
         let bannedCount = 0;
@@ -419,16 +460,16 @@ async function startBot() {
                 }
             }
         });
-        logs.success('SYSTEM', `Firewall Loaded. Blocked ${bannedCount} Groups.`);
+        logs.success('SYSTEM', `Ban List Synced. Blocked ${bannedCount} Groups.`);
     } catch (e) {
         logs.error('SYSTEM', 'Failed to load banned threads: ' + e.message);
     }
 
-    // ✅ APPLY THE EXTREME HUMAN PATCH (With Instant Typing)
+    // ✅ APPLY THE AI PATCH
     global.api = patchApi(api);
     global.startTime = Date.now();
     
-    logs.success('LOGIN', 'Logged In! Instant Typing + Slow Reply Active.');
+    logs.success('LOGIN', 'Logged In! AI Delay + Instant Typing Active.');
     
     await loadCommands(client, commandsPath);
     await loadEvents(client, eventsPath);
@@ -452,10 +493,10 @@ async function startBot() {
     if (adminID) {
       try {
         await api.sendMessage(
-            `${config.BOTNAME} is Online!\n` + 
-            `🔒 Security: Extreme Human\n` +
-            `🛡️ Typing: Instant (Line 1)\n` + 
-            `⚡ Schedulers: All Groups (No Approval needed)`, 
+            `${config.BOTNAME} Online!\n` + 
+            `🧠 Logic: AI Based Human\n` +
+            `⚡ Typing: Instant Trigger\n` + 
+            `🚫 Bans: Synced`, 
             adminID
         );
       } catch (e) {}
@@ -485,4 +526,4 @@ module.exports = {
 
 if (require.main === module) {
   startBot();
-  }
+}

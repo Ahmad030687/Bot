@@ -6,65 +6,78 @@ const moment = require('moment-timezone');
 const axios = require('axios');
 
 // ============================================================
-// 🔒 AHMAD ALI "FORTRESS" SECURITY SYSTEM (High Level)
+// 🛡️ AHMAD ALI "SMART HUMAN" SECURITY PROTOCOL
 // ============================================================
 
-// Global Cooldown Map to track last message time per Group
+// Global Cooldown Map to prevent machine-gun spam
 const threadCooldowns = new Map();
 
-// 1. SLEEP MODE: Raat 2 se Subah 7 tak bot OFF
+// 1. SLEEP MODE: Raat 2:00 AM se Subah 7:00 AM tak OFF
 function isSleepTime() {
   const hour = moment().tz("Asia/Karachi").hour();
   return (hour >= 2 && hour < 7);
 }
 
-// 2. HEAVY SECURITY API PATCHER
-// Ye function har message ko rok kar check karega
+// 2. SMART API PATCHER (Dynamic Delay Logic)
 function patchApi(api) {
   const origSendMessage = api.sendMessage;
 
   api.sendMessage = async function(...args) {
-    const msg = args[0];
-    const threadID = args[1]; // Usually 2nd argument is threadID
+    const msg = args[0]; // Message body
+    const threadID = args[1]; // Group ID
 
-    // Check 1: Sleep Time (Sone ke waqt disturb na ho)
-    if (isSleepTime()) return;
+    // Check 1: Sleep Time
+    if (isSleepTime()) {
+        // Console log for debugging if needed
+        return;
+    }
 
-    // Check 2: Rate Limit (1 Minute mein 1 Message per Group)
+    // Check 2: Burst Protection (Lagatar messages rokne ke liye)
+    // Sirf 2 Second ka cooldown taake "Machine Gun" na banay
     if (threadID) {
         const lastSent = threadCooldowns.get(threadID) || 0;
         const now = Date.now();
-        const timeDiff = now - lastSent;
-
-        // Agar 60 Seconds (60000ms) nahi guzre
-        if (timeDiff < 60000) {
-            // EXCEPTION: Agar ye hamara Quran/Namaz broadcast hai to jaane do
-            const isBroadcast = (typeof msg === 'string' && (msg.includes("𝐐𝐔𝐑𝐀𝐍") || msg.includes("𝐍𝐀𝐌𝐀𝐙"))) ||
-                                (msg.body && (msg.body.includes("𝐐𝐔𝐑𝐀𝐍") || msg.body.includes("𝐍𝐀𝐌𝐀𝐙")));
-
-            if (!isBroadcast) {
-                // Spam detect hua - Ignore message
-                // console.log(`[SECURITY] Blocked spam in ${threadID}.`);
-                return; 
-            }
+        if (now - lastSent < 2000) {
+           // Agar 2 sec se pehle dubara try kiya to ignore karo
+           return; 
         }
     }
 
     try {
-        // 3. TYPING INDICATOR (3 Dots Blinking)
-        // Message bhejne se pehle typing show karo taake natural lage
-        if (threadID) api.sendTypingIndicator(threadID, (err) => {});
+        // 3. FORCE TYPING INDICATOR (Lazmi Dikhaye)
+        // Ye message calculate hone se pehle hi chal jayega
+        if (threadID) api.sendTypingIndicator(threadID, () => {});
     } catch (e) {}
 
-    // 4. RANDOM DELAY (5 to 10 Seconds)
-    // Is doran "Typing..." show hota rahega
-    const secureDelay = Math.floor(Math.random() * 5000) + 5000; // 5000ms (5s) to 10000ms (10s)
-    await new Promise(r => setTimeout(r, secureDelay));
+    // 4. SMART DELAY CALCULATION (Insaani Raftar)
+    // Base delay: Kam se kam 1.5 second
+    let baseDelay = 1500; 
+    
+    // Message ki lambai check karo
+    let msgLength = 0;
+    if (typeof msg === 'string') {
+        msgLength = msg.length;
+    } else if (msg && msg.body) {
+        msgLength = msg.body.length;
+    }
 
-    // 5. UPDATE COOLDOWN TIMER
+    // Logic: Har 50 characters ke liye 1 second extra add karo
+    // Example: Agar 200 words ka menu hai, to 4 second extra lagenge
+    const extraTime = Math.floor(msgLength / 50) * 1000;
+
+    // Cap: Maximum 8 seconds se zyada wait na kare (boring na ho)
+    const finalExtraTime = Math.min(extraTime, 6500);
+    
+    // Total Wait Time (Thora random factor add karke)
+    const totalDelay = baseDelay + finalExtraTime + Math.floor(Math.random() * 1000);
+
+    // Wait karo (Is doran Typing... show hoga)
+    await new Promise(r => setTimeout(r, totalDelay));
+
+    // 5. UPDATE LAST SENT TIME
     if (threadID) threadCooldowns.set(threadID, Date.now());
 
-    // 6. FINALLY SEND MESSAGE
+    // 6. SEND MESSAGE
     return origSendMessage.apply(api, args);
   };
   
@@ -72,7 +85,7 @@ function patchApi(api) {
 }
 
 // ============================================================
-// ⚙️ SYSTEM IMPORTS & CONFIGURATION
+// ⚙️ SYSTEM CONFIGURATION & IMPORTS
 // ============================================================
 
 const logs = require('./Data/utility/logs');
@@ -98,13 +111,16 @@ let client = {
   cooldowns: new Map()
 };
 
-// 🖼️ ISLAMIC DATA ASSETS
+// ============================================================
+// 🖼️ DATA ASSETS (Quran & Namaz)
+// ============================================================
+
 const quranPics = [
   'https://i.ibb.co/JRBFpq8t/6c776cdd6b6c.gif', 
   'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif',
   'https://i.ibb.co/8nr8qyQ4/6bc620dedb70.gif', 
   'https://i.ibb.co/7dTJ6CDr/fb08a62a841c.jpg',
-  'https://i.ibb.co/6cPMkDjz/598fc7c4d477.jpg', 
+  'https://i.ibb.co/6cPMkDjz/598fc7c4d477.jpg',
   'https://i.ibb.co/Txn0TTps/7e729fcd56e1.jpg',
   'https://i.ibb.co/5WQY7xCn/dd0f3964d6cf.jpg'
 ];
@@ -132,7 +148,7 @@ const quranAyats = [
 ];
 
 // ============================================================
-// 🛠️ LOADING & HELPERS
+// 🛠️ LOADING FUNCTIONS & HELPERS
 // ============================================================
 
 function loadConfig() {
@@ -142,9 +158,15 @@ function loadConfig() {
   } catch (error) {
     logs.error('CONFIG', 'Failed to load config. Using default.');
     config = {
-      BOTNAME: 'SARDAR RDX', PREFIX: '.', ADMINBOT: ['100009012838085'],
-      TIMEZONE: 'Asia/Karachi', PREFIX_ENABLED: true, REACT_DELETE_EMOJI: '😡',
-      ADMIN_ONLY_MODE: false, AUTO_ISLAMIC_POST: true, AUTO_GROUP_MESSAGE: true
+      BOTNAME: 'SARDAR RDX',
+      PREFIX: '.',
+      ADMINBOT: ['100009012838085'],
+      TIMEZONE: 'Asia/Karachi',
+      PREFIX_ENABLED: true,
+      REACT_DELETE_EMOJI: '😡',
+      ADMIN_ONLY_MODE: false,
+      AUTO_ISLAMIC_POST: true,
+      AUTO_GROUP_MESSAGE: true
     };
     global.config = config;
   }
@@ -160,8 +182,12 @@ function loadIslamicMessages() {
 }
 
 function saveConfig() {
-  try { fs.writeJsonSync(configPath, config, { spaces: 2 }); global.config = config; } 
-  catch (error) { logs.error('CONFIG', 'Failed to save config:', error.message); }
+  try {
+    fs.writeJsonSync(configPath, config, { spaces: 2 });
+    global.config = config;
+  } catch (error) {
+    logs.error('CONFIG', 'Failed to save config:', error.message);
+  }
 }
 
 async function downloadImage(url, filePath) {
@@ -169,20 +195,22 @@ async function downloadImage(url, filePath) {
     const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
     fs.writeFileSync(filePath, Buffer.from(response.data));
     return true;
-  } catch (e) { return false; }
+  } catch (e) {
+    logs.error('DOWNLOAD', `Image download failed: ${e.message}`);
+    return false;
+  }
 }
 
 // ============================================================
-// 📡 BROADCAST FUNCTIONS (Bypasses Rate Limit)
+// 📡 SAFE BROADCAST FUNCTIONS (With Anti-Ban Loop)
 // ============================================================
 
 async function sendQuranAyat() {
   if (!api || !config.AUTO_ISLAMIC_POST) return;
   
   try {
-    // Database se groups uthao
+    // Database se threads lo
     const threads = require('./Data/system/database/models/threads').getAll();
-    // Sirf Approved aur Not Banned groups
     const approvedThreads = threads.filter(t => t.approved === 1 && t.banned !== 1);
     
     if (approvedThreads.length === 0) return;
@@ -201,19 +229,18 @@ async function sendQuranAyat() {
     
     const downloaded = await downloadImage(randomPic, imgPath);
     
-    // ⚠️ BROADCAST LOOP: 30 Seconds Delay Per Group
+    // ⚠️ BROADCAST SAFETY LOOP: 25 Seconds Gap
     for (const thread of approvedThreads) {
       try {
         if (downloaded && fs.existsSync(imgPath)) {
-          // Hum direct patchApi wale function ko call kar rahe hain lekin internal cooldown logic usay rokega nahi
-          // kyunki humne "EXCEPTION" lagayi hai msg.includes("QURAN") par
+          // Send Message
           await api.sendMessage({ body: message, attachment: fs.createReadStream(imgPath) }, thread.id);
         } else {
           await api.sendMessage(message, thread.id);
         }
         
-        // 30 Seconds Gap for Broadcast to be extra safe
-        await new Promise(r => setTimeout(r, 30000));
+        // 25 Seconds Gap for Broadcast to be extra safe
+        await new Promise(r => setTimeout(r, 25000));
         
       } catch (e) {
         // Silent fail if kicked
@@ -255,8 +282,8 @@ async function sendNamazAlert(namazName) {
           await api.sendMessage(message, thread.id);
         }
         
-        // 30 Seconds Gap
-        await new Promise(r => setTimeout(r, 30000));
+        // 25 Seconds Gap
+        await new Promise(r => setTimeout(r, 25000));
 
       } catch (e) {}
     }
@@ -268,9 +295,8 @@ async function sendNamazAlert(namazName) {
   }
 }
 
-// 🛡️ SECURE SCHEDULER
 function setupSchedulers() {
-  // Quran: Sirf 9:00 AM aur 9:00 PM (Spam Free)
+  // Quran: Sirf 9:00 AM aur 9:00 PM (Twice a day)
   cron.schedule('0 9,21 * * *', () => {
     logs.info('SCHEDULER', 'Twice Daily Quran Ayat triggered');
     sendQuranAyat();
@@ -282,8 +308,6 @@ function setupSchedulers() {
   cron.schedule('7 16 * * *', () => sendNamazAlert('Asr'), { timezone: 'Asia/Karachi' });
   cron.schedule('43 17 * * *', () => sendNamazAlert('Maghrib'), { timezone: 'Asia/Karachi' });
   cron.schedule('4 19 * * *', () => sendNamazAlert('Isha'), { timezone: 'Asia/Karachi' });
-  
-  logs.success('SCHEDULER', 'Secured Schedulers Started');
 }
 
 // ============================================================
@@ -299,12 +323,13 @@ async function startBot() {
   try {
     appstate = fs.readJsonSync(appstatePath);
   } catch (error) {
-    logs.error('APPSTATE', 'Failed to load appstate.json');
+    logs.error('APPSTATE', 'Failed to load appstate.json. Please upload a valid appstate.');
     return;
   }
   
-  logs.info('BOT', 'Initializing Fortress Security System...');
+  logs.info('BOT', 'Initializing Ahmad Smart Security System...');
   
+  // Login Options (Standard)
   const loginOptions = {
     listenEvents: true,
     selfListen: false,
@@ -321,12 +346,11 @@ async function startBot() {
     }
     
     api = loginApi;
-    
-    // ✅ APPLY HEAVY SECURITY PATCH
+    // ✅ APPLY SMART SECURITY PATCH
     global.api = patchApi(api);
     global.startTime = Date.now();
     
-    logs.success('LOGIN', 'Login Success! Security Mode: HEAVY');
+    logs.success('LOGIN', 'Logged In! Smart Human Mode Active.');
     
     const Users = new UsersController(api);
     const Threads = new ThreadsController(api);
@@ -336,7 +360,7 @@ async function startBot() {
     global.Threads = Threads;
     global.Currencies = Currencies;
     
-    // ✅ CRITICAL MEMORY FIX (For ThreadBan)
+    // ✅ CRITICAL MEMORY FIX (For ThreadBan error)
     global.data = {
       threadBanned: new Map(),
       userBanned: new Map(),
@@ -350,6 +374,7 @@ async function startBot() {
     
     global.client = client;
     
+    // Start Services
     setupSchedulers();
     
     const listener = listen({
@@ -370,20 +395,20 @@ async function startBot() {
     });
     
     logs.success('BOT', `${config.BOTNAME} is Online & Protected.`);
-    logs.info('SECURITY', 'Rate Limit: 1 Command / Min');
-    logs.info('SECURITY', 'Response Delay: 5-10 Seconds');
+    logs.info('SECURITY', 'Typing Indicator: Always ON');
+    logs.info('SECURITY', 'Response Speed: Content Based (Human Like)');
     
     // Notify Admin
     const adminID = config.ADMINBOT[0];
     if (adminID) {
       try {
-        await api.sendMessage(`${config.BOTNAME} is Online!\n🔒 Security Level: Fortress\n🛡️ Rate Limit: Active`, adminID);
+        await api.sendMessage(`${config.BOTNAME} is Online!\n🔒 Security Level: Smart Human\n🛡️ Typing: Active\n⚡ Anti-Ban: Enabled`, adminID);
       } catch (e) {}
     }
   });
 }
 
-// Global Error Handlers
+// Global Error Handlers (Taake bot crash na ho)
 process.on('unhandledRejection', (reason, promise) => {
   logs.warn('UNHANDLED', 'Unhandled Promise Rejection (Ignored)');
 });
@@ -403,8 +428,8 @@ module.exports = {
   reloadEvents: () => loadEvents(client, eventsPath)
 };
 
-// Auto Start
+// Auto Start if run directly
 if (require.main === module) {
   startBot();
   }
-                                           
+  

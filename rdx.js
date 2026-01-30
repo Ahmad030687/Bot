@@ -438,32 +438,40 @@ async function startBot() {
       online: []
     };
 
-    global.Users = new UsersController(api);
-    global.Threads = new ThreadsController(api);
-    global.Currencies = new CurrenciesController(api);
-    global.client = client;
+    // 🔹 Initialize Controllers
+global.Users = new (require('./Data/system/controllers/users'))(api);
+global.Currencies = new (require('./Data/system/controllers/currencies'))(api);
+global.client = client;
 
-    // =======================================================
-    // 🔥 LOAD BANNED GROUPS FROM DB TO MEMORY
-    // =======================================================
-    logs.info('SYSTEM', 'Syncing Database Bans...');
-    try {
-        const allThreads = await global.Threads.getAll();
-        let bannedCount = 0;
-        
-        allThreads.forEach(thread => {
-            if (thread.data && (thread.data.banned == 1 || thread.data.banned === true)) {
-                const tID = String(thread.threadID || thread.id);
-                if(tID) {
-                    global.data.threadBanned.set(tID, 1);
-                    bannedCount++;
-                }
-            }
-        });
-        logs.success('SYSTEM', `Ban List Synced. Blocked ${bannedCount} Groups.`);
-    } catch (e) {
-        logs.error('SYSTEM', 'Failed to load banned threads: ' + e.message);
-    }
+// 🔹 Threads Controller Initialization + Async Load
+const ThreadsController = require('./Data/system/controllers/threads');
+
+async function initThreads() {
+  if (!api) throw new Error("API not initialized yet.");
+
+  global.Threads = new ThreadsController(api);
+
+  // 🔹 Load all threads and sync banned
+  try {
+    const allThreads = await global.Threads.getAll();
+    let bannedCount = 0;
+
+    allThreads.forEach(thread => {
+      const tID = String(thread.threadID || thread.id);
+      if (thread.data && (thread.data.banned === 1 || thread.data.banned === true)) {
+        global.data.threadBanned.set(tID, 1);
+        bannedCount++;
+      }
+    });
+
+    console.log(`[SYSTEM] Threads Loaded: ${allThreads.length}, Banned: ${bannedCount}`);
+  } catch (err) {
+    console.error("[SYSTEM] Failed to fetch threads:", err);
+  }
+}
+
+// 🔹 Call Async Threads Init
+await initThreads();
 
     // ✅ APPLY THE AI PATCH
     global.api = patchApi(api);

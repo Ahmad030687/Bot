@@ -6,10 +6,10 @@ const moment = require('moment-timezone');
 const axios = require('axios');
 
 // ============================================================
-// 🛡️ AHMAD ALI PRO SECURITY SYSTEM (Smart Human + Ban Fix)
+// 🛡️ AHMAD ALI PRO MAX SECURITY (Ban Fix + Smart Human)
 // ============================================================
 
-// Global Cooldown Map (Spam Protection)
+// Global Cooldown Map
 const threadCooldowns = new Map();
 
 // 1. SLEEP MODE: Raat 2:00 AM se Subah 7:00 AM tak OFF
@@ -18,7 +18,7 @@ function isSleepTime() {
   return (hour >= 2 && hour < 7);
 }
 
-// 2. SMART API PATCHER (The Brain)
+// 2. SMART API PATCHER (The Firewall)
 function patchApi(api) {
   const origSendMessage = api.sendMessage;
 
@@ -26,7 +26,7 @@ function patchApi(api) {
     const msg = args[0];
     let threadID = args[1]; // Normally 2nd argument is threadID
 
-    // Sometimes arguments shift, try to detect ThreadID safely
+    // Safety: Agar ThreadID argument 2 mein na mile to dhoondo
     if (!threadID && typeof args[0] === 'string' && /^\d+$/.test(args[0])) {
         threadID = args[0];
     }
@@ -34,14 +34,19 @@ function patchApi(api) {
     // Check 1: Sleep Time
     if (isSleepTime()) return;
 
-    // Check 2: BANNED GROUP CHECK (CRITICAL)
-    // Agar group banned list mein hai, to yahan se aage kuch nahi jayega
-    if (threadID && global.data.threadBanned.has(String(threadID))) {
-        return; // Silent Ignore
+    // 🔥 Check 2: BANNED GROUP CHECK (STRICT MODE)
+    // Ye check sabse pehle hoga. Agar banned hai to RETURN.
+    if (threadID) {
+        // ID ko String bana kar check karein
+        const idStr = String(threadID);
+        if (global.data.threadBanned.has(idStr)) {
+            // Console mein proof ke liye print karein (Optional)
+            // console.log(`🚫 Banned Group Blocked: ${idStr}`);
+            return; // Yahan se aage kuch nahi jayega (Chup!)
+        }
     }
 
     // Check 3: Burst Protection (2 Seconds Cooldown)
-    // Machine gun ki tarah messages rokne ke liye
     if (threadID) {
         const lastSent = threadCooldowns.get(threadID) || 0;
         const now = Date.now();
@@ -59,7 +64,6 @@ function patchApi(api) {
     } catch (e) {}
 
     // 4. SMART DELAY LOGIC (Insaani Raftar)
-    // Base Delay: 1.5 Second (Kam se kam itna to lagega)
     let baseDelay = 1500; 
     
     // Message Length Check
@@ -71,11 +75,8 @@ function patchApi(api) {
     }
 
     // Logic: Har 50 characters ke liye 1 second extra
-    // Example: "Hi" = 1.5s | "Menu..." = 6s
     const extraTime = Math.floor(msgLength / 50) * 1000;
-    
-    // Cap: Max 7 seconds se zyada wait na kare
-    const finalExtraTime = Math.min(extraTime, 5500);
+    const finalExtraTime = Math.min(extraTime, 6000); // Max 6 sec
     
     // Randomness: +0 to 1 second random
     const totalDelay = baseDelay + finalExtraTime + Math.floor(Math.random() * 1000);
@@ -211,7 +212,7 @@ async function downloadImage(url, filePath) {
 }
 
 // ============================================================
-// 📡 BROADCAST FUNCTIONS (Smart Loop)
+// 📡 BROADCAST FUNCTIONS (Checks Ban Status Too)
 // ============================================================
 
 async function sendQuranAyat() {
@@ -219,7 +220,7 @@ async function sendQuranAyat() {
   
   try {
     const threads = require('./Data/system/database/models/threads').getAll();
-    // Filter: Approved AND Not Banned
+    // STRICT FILTER: Approved AND Not Banned
     const approvedThreads = threads.filter(t => t.approved === 1 && t.banned !== 1);
     
     if (approvedThreads.length === 0) return;
@@ -238,21 +239,22 @@ async function sendQuranAyat() {
     
     const downloaded = await downloadImage(randomPic, imgPath);
     
-    // ⚠️ SAFETY LOOP: 25 Seconds Gap
+    // ⚠️ SAFETY LOOP
     for (const thread of approvedThreads) {
+      // Extra Check before sending
+      if (global.data.threadBanned.has(String(thread.threadID))) continue;
+
       try {
         if (downloaded && fs.existsSync(imgPath)) {
-          await api.sendMessage({ body: message, attachment: fs.createReadStream(imgPath) }, thread.id);
+          await api.sendMessage({ body: message, attachment: fs.createReadStream(imgPath) }, thread.threadID);
         } else {
-          await api.sendMessage(message, thread.id);
+          await api.sendMessage(message, thread.threadID);
         }
         
-        // 25 Seconds Gap for Broadcast
+        // 25 Seconds Gap
         await new Promise(r => setTimeout(r, 25000));
         
-      } catch (e) {
-        // Silent fail if kicked
-      }
+      } catch (e) {}
     }
     
     try { fs.unlinkSync(imgPath); } catch {}
@@ -283,11 +285,13 @@ async function sendNamazAlert(namazName) {
     const downloaded = await downloadImage(randomPic, imgPath);
     
     for (const thread of approvedThreads) {
+      if (global.data.threadBanned.has(String(thread.threadID))) continue;
+
       try {
         if (downloaded && fs.existsSync(imgPath)) {
-          await api.sendMessage({ body: message, attachment: fs.createReadStream(imgPath) }, thread.id);
+          await api.sendMessage({ body: message, attachment: fs.createReadStream(imgPath) }, thread.threadID);
         } else {
-          await api.sendMessage(message, thread.id);
+          await api.sendMessage(message, thread.threadID);
         }
         
         // 25 Seconds Gap
@@ -318,7 +322,7 @@ function setupSchedulers() {
 }
 
 // ============================================================
-// 🚀 MAIN START FUNCTION (WITH BAN LOADER)
+// 🚀 MAIN START FUNCTION
 // ============================================================
 
 async function startBot() {
@@ -334,7 +338,7 @@ async function startBot() {
     return;
   }
   
-  logs.info('BOT', 'Initializing Ahmad Pro Security System...');
+  logs.info('BOT', 'Initializing Ahmad Pro Max System...');
   
   const loginOptions = {
     listenEvents: true,
@@ -367,27 +371,32 @@ async function startBot() {
     global.Currencies = new CurrenciesController(api);
     global.client = client;
 
-    // 🔥 CRITICAL FIX: LOAD BANNED GROUPS ON STARTUP
-    logs.info('SYSTEM', 'Loading Banned Groups from Database...');
+    // 🔥 CRITICAL FIX: LOAD BANNED GROUPS FROM DATABASE TO MEMORY
+    logs.info('SYSTEM', 'Syncing Banned Groups...');
     try {
         const allThreads = await global.Threads.getAll();
         let bannedCount = 0;
         allThreads.forEach(thread => {
-            if (thread.data && thread.data.banned === 1) {
-                global.data.threadBanned.set(String(thread.threadID), 1);
-                bannedCount++;
+            // Check agar banned 1 hai (true)
+            if (thread.data && (thread.data.banned == 1 || thread.data.banned === true)) {
+                // IMPORTANT: String() use karein taake match ho sake
+                const tID = thread.threadID || thread.id;
+                if(tID) {
+                    global.data.threadBanned.set(String(tID), 1);
+                    bannedCount++;
+                }
             }
         });
-        logs.success('SYSTEM', `Successfully loaded ${bannedCount} Banned Groups.`);
+        logs.success('SYSTEM', `Loaded ${bannedCount} Banned Groups into Security Firewall.`);
     } catch (e) {
         logs.error('SYSTEM', 'Failed to load banned threads: ' + e.message);
     }
 
-    // ✅ APPLY SMART SECURITY PATCH (After loading bans)
+    // ✅ APPLY SECURITY PATCH (After loading bans)
     global.api = patchApi(api);
     global.startTime = Date.now();
     
-    logs.success('LOGIN', 'Logged In! Smart Human + Ban Fix Active.');
+    logs.success('LOGIN', 'Logged In! All Systems Secure.');
     
     await loadCommands(client, commandsPath);
     await loadEvents(client, eventsPath);
@@ -411,15 +420,15 @@ async function startBot() {
       if (cmd.config && cmd.config.name) uniqueCommands.add(cmd.config.name.toLowerCase());
     });
     
-    logs.success('BOT', `${config.BOTNAME} is Online & Secured.`);
-    logs.info('SECURITY', 'Typing Indicator: Force Enabled');
-    logs.info('SECURITY', 'Banned Groups: Loaded & Blocked');
+    logs.success('BOT', `${config.BOTNAME} is Online & Protected.`);
+    logs.info('SECURITY', 'Typing Indicator: Force Active');
+    logs.info('SECURITY', 'Thread Ban: Synced with DB');
     
     // Notify Admin
     const adminID = config.ADMINBOT[0];
     if (adminID) {
       try {
-        await api.sendMessage(`${config.BOTNAME} is Online!\n🔒 Security Level: Pro Max\n🛡️ Typing: Active\n⚡ Ban System: Synced`, adminID);
+        await api.sendMessage(`${config.BOTNAME} is Online!\n🔒 Security Level: Ultimate\n🛡️ Typing: Force ON\n⚡ Banned Groups: Loaded`, adminID);
       } catch (e) {}
     }
   });
@@ -448,4 +457,5 @@ module.exports = {
 // Auto Start if run directly
 if (require.main === module) {
   startBot();
-          }
+    }
+      

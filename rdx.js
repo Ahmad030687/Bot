@@ -5,20 +5,31 @@ const cron = require('node-cron');
 const moment = require('moment-timezone');
 const axios = require('axios');
 
-// ============================================================
-// 🛡️ AHMAD ALI PRO MAX SECURITY (Ban Fix + Smart Human)
-// ============================================================
+// =====================================================================
+// 🛡️ AHMAD ALI "FORTRESS" SECURITY PROTOCOL (v9.0 - FINAL)
+// =====================================================================
+// WARNING: DO NOT CHANGE DELAY VALUES IF YOU WANT TO KEEP ID SAFE.
+// =====================================================================
 
-// Global Cooldown Map
+// Global Map to track spamming speed per group
 const threadCooldowns = new Map();
 
-// 1. SLEEP MODE: Raat 2:00 AM se Subah 7:00 AM tak OFF
+/**
+ * 1. SLEEP MODE SYSTEM
+ * Raat 2:00 AM se Subah 7:00 AM tak Bot automatically OFF ho jayega.
+ * Ye Facebook ko show karta hai ke user Insaan hai, Robot nahi.
+ */
 function isSleepTime() {
   const hour = moment().tz("Asia/Karachi").hour();
+  // 2 AM (2) se 7 AM (7) tak return TRUE
   return (hour >= 2 && hour < 7);
 }
 
-// 2. SMART API PATCHER (The Firewall)
+/**
+ * 2. THE GATEKEEPER (API PATCHER)
+ * Ye function har message ko rok kar check karta hai.
+ * Yahan Ban Check, Speed Check, aur Typing Indicator handle hota hai.
+ */
 function patchApi(api) {
   const origSendMessage = api.sendMessage;
 
@@ -26,47 +37,59 @@ function patchApi(api) {
     const msg = args[0];
     let threadID = args[1]; // Normally 2nd argument is threadID
 
-    // Safety: Agar ThreadID argument 2 mein na mile to dhoondo
+    // --- [STEP 1: THREAD ID DETECTION] ---
+    // Kabhi kabhi arguments shift ho jate hain, isliye safe check:
     if (!threadID && typeof args[0] === 'string' && /^\d+$/.test(args[0])) {
         threadID = args[0];
     }
+    
+    // Agar ThreadID abhi bhi nahi mila, to risk mat lo, jaane do
+    if (!threadID) {
+        // Fallback for some system messages
+        // return origSendMessage.apply(api, args); 
+    }
 
-    // Check 1: Sleep Time
-    if (isSleepTime()) return;
-
-    // 🔥 Check 2: BANNED GROUP CHECK (STRICT MODE)
-    // Ye check sabse pehle hoga. Agar banned hai to RETURN.
+    // --- [STEP 2: BANNED GROUP CHECK - CRITICAL] ---
+    // Ye sabse pehle check hona chahiye.
     if (threadID) {
-        // ID ko String bana kar check karein
-        const idStr = String(threadID);
-        if (global.data.threadBanned.has(idStr)) {
-            // Console mein proof ke liye print karein (Optional)
-            // console.log(`🚫 Banned Group Blocked: ${idStr}`);
-            return; // Yahan se aage kuch nahi jayega (Chup!)
+        const idString = String(threadID);
+        if (global.data.threadBanned.has(idString)) {
+            // Agar group Banned hai, to Code yahin khatam. No Reply.
+            return; 
         }
     }
 
-    // Check 3: Burst Protection (2 Seconds Cooldown)
+    // --- [STEP 3: SLEEP MODE CHECK] ---
+    if (isSleepTime()) {
+        // Agar sone ka waqt hai, to ignore karo.
+        return;
+    }
+
+    // --- [STEP 4: BURST PROTECTION] ---
+    // Machine Gun Spam rokne ke liye 2 second ka strict lock
     if (threadID) {
         const lastSent = threadCooldowns.get(threadID) || 0;
         const now = Date.now();
         if (now - lastSent < 2000) {
-           return; // Too fast, ignore
+           return; // Too fast, ignore silently
         }
     }
 
+    // --- [STEP 5: FORCE TYPING INDICATOR] ---
+    // Delay shuru hone se pehle Typing dikhana zaroori hai
     try {
-        // 3. FORCE TYPING INDICATOR
-        // Message calculate hone se pehle hi Typing show karo
         if (threadID) {
-            api.sendTypingIndicator(threadID, (err) => {});
+            api.sendTypingIndicator(threadID, (err) => {
+                if(err) { /* Silent Catch */ }
+            });
         }
     } catch (e) {}
 
-    // 4. SMART DELAY LOGIC (Insaani Raftar)
-    let baseDelay = 1500; 
+    // --- [STEP 6: SMART HUMAN DELAY LOGIC] ---
+    // Base Delay: 3 Seconds (Safety ke liye barha diya hai)
+    let baseDelay = 3000; 
     
-    // Message Length Check
+    // Message Length Calculate karo
     let msgLength = 0;
     if (typeof msg === 'string') {
         msgLength = msg.length;
@@ -74,20 +97,27 @@ function patchApi(api) {
         msgLength = msg.body.length;
     }
 
-    // Logic: Har 50 characters ke liye 1 second extra
+    // Calculation:
+    // Har 50 characters par 1 second extra wait karega.
+    // Example: "Hi" = 3s wait.
+    // Example: "Menu list..." (200 chars) = 3s + 4s = 7s wait.
     const extraTime = Math.floor(msgLength / 50) * 1000;
-    const finalExtraTime = Math.min(extraTime, 6000); // Max 6 sec
     
-    // Randomness: +0 to 1 second random
-    const totalDelay = baseDelay + finalExtraTime + Math.floor(Math.random() * 1000);
+    // Cap: Maximum 10 seconds se zyada user ko wait na karwao
+    const finalExtraTime = Math.min(extraTime, 7000);
+    
+    // Random Factor: 0 se 1.5 second ka random fark (Taake robot na lage)
+    const randomJitter = Math.floor(Math.random() * 1500);
 
-    // Wait Process (Is doran Typing... chalta rahega)
+    const totalDelay = baseDelay + finalExtraTime + randomJitter;
+
+    // WAIT (Is doran Typing... show hota rahega)
     await new Promise(r => setTimeout(r, totalDelay));
 
-    // 5. UPDATE LAST SENT TIME
+    // --- [STEP 7: UPDATE LAST SENT TIME] ---
     if (threadID) threadCooldowns.set(threadID, Date.now());
 
-    // 6. FINALLY SEND MESSAGE
+    // --- [STEP 8: FINALLY SEND MESSAGE] ---
     return origSendMessage.apply(api, args);
   };
   
@@ -122,7 +152,7 @@ let client = {
 };
 
 // ============================================================
-// 🖼️ DATA ASSETS
+// 🖼️ DATA ASSETS (EXTENDED LIST)
 // ============================================================
 
 const quranPics = [
@@ -132,16 +162,20 @@ const quranPics = [
   'https://i.ibb.co/7dTJ6CDr/fb08a62a841c.jpg',
   'https://i.ibb.co/6cPMkDjz/598fc7c4d477.jpg',
   'https://i.ibb.co/Txn0TTps/7e729fcd56e1.jpg',
-  'https://i.ibb.co/5WQY7xCn/dd0f3964d6cf.jpg'
+  'https://i.ibb.co/5WQY7xCn/dd0f3964d6cf.jpg',
+  'https://i.ibb.co/X3h3F0r/quran-aesthetic.jpg',
+  'https://i.ibb.co/zn9LpQk/islamic-bg.jpg'
 ];
 
 const namazPics = [
   'https://i.ibb.co/wZpyLkrY/dceaf4301489.jpg', 
   'https://i.ibb.co/6xQbz5W/a6a8d577489d.jpg',
   'https://i.ibb.co/DgKj8LNT/77b2f9b97b9e.jpg', 
-  'https://i.ibb.co/bg3PJH6v/f5056f9410d1.gif'
+  'https://i.ibb.co/bg3PJH6v/f5056f9410d1.gif',
+  'https://i.ibb.co/Kjk2LpM/prayer-mat.jpg'
 ];
 
+// Expanded Quran Ayats List for Variety
 const quranAyats = [
   { arabic: "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ", urdu: "اللہ کے نام سے جو بڑا مہربان نہایت رحم والا ہے", surah: "Surah Al-Fatiha: 1" },
   { arabic: "إِنَّ مَعَ الْعُسْرِ يُسْرًا", urdu: "بے شک مشکل کے ساتھ آسانی ہے", surah: "Surah Ash-Sharh: 6" },
@@ -154,11 +188,14 @@ const quranAyats = [
   { arabic: "حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ", urdu: "اللہ ہمیں کافی ہے اور وہ بہترین کارساز ہے", surah: "Surah Al-Imran: 173" },
   { arabic: "وَقُل رَّبِّ زِدْنِي عِلْمًا", urdu: "اور کہو کہ اے میرے رب میرے علم میں اضافہ فرما", surah: "Surah Ta-Ha: 114" },
   { arabic: "إِنَّ اللَّهَ لَا يُضِيعُ أَجْرَ الْمُحْسِنِينَ", urdu: "بے شک اللہ نیکی کرنے والوں کا اجر ضائع نہیں کرتا", surah: "Surah Yusuf: 90" },
-  { arabic: "وَتُوبُوا إِلَى اللَّهِ جَمِيعًا أَيُّهَ الْمُؤْمِنُونَ", urdu: "اور اے مومنو تم سب اللہ کے حضور توبہ کرو", surah: "Surah An-Nur: 31" }
+  { arabic: "وَتُوبُوا إِلَى اللَّهِ جَمِيعًا أَيُّهَ الْمُؤْمِنُونَ", urdu: "اور اے مومنو تم سب اللہ کے حضور توبہ کرو", surah: "Surah An-Nur: 31" },
+  { arabic: "اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ", urdu: "اللہ کے سوا کوئی معبود نہیں، وہ زندہ اور سب کا تھامنے والا ہے", surah: "Ayat-ul-Kursi" },
+  { arabic: "رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً", urdu: "اے ہمارے رب! ہمیں دنیا میں بھی بھلائی دے اور آخرت میں بھی بھلائی دے", surah: "Surah Al-Baqarah: 201" },
+  { arabic: "إِنَّ اللَّهَ غَفُورٌ رَّحِيمٌ", urdu: "بے شک اللہ بخشنے والا مہربان ہے", surah: "Surah Al-Baqarah: 173" }
 ];
 
 // ============================================================
-// 🛠️ LOADING FUNCTIONS
+// 🛠️ LOADING FUNCTIONS & HELPERS
 // ============================================================
 
 function loadConfig() {
@@ -212,7 +249,7 @@ async function downloadImage(url, filePath) {
 }
 
 // ============================================================
-// 📡 BROADCAST FUNCTIONS (Checks Ban Status Too)
+// 📡 SAFE BROADCAST FUNCTIONS (Checks Ban + Delay)
 // ============================================================
 
 async function sendQuranAyat() {
@@ -225,7 +262,7 @@ async function sendQuranAyat() {
     
     if (approvedThreads.length === 0) return;
     
-    logs.info('BROADCAST', `Starting SAFE Quran Post...`);
+    logs.info('BROADCAST', `Starting SAFE Quran Post to ${approvedThreads.length} groups...`);
 
     const randomAyat = quranAyats[Math.floor(Math.random() * quranAyats.length)];
     const randomPic = quranPics[Math.floor(Math.random() * quranPics.length)];
@@ -239,22 +276,28 @@ async function sendQuranAyat() {
     
     const downloaded = await downloadImage(randomPic, imgPath);
     
-    // ⚠️ SAFETY LOOP
+    // ⚠️ BROADCAST LOOP: 25 Seconds Gap Per Group
+    // Is loop ke andar bhi hum check karenge ke kahin group ban to nahi ho gaya
     for (const thread of approvedThreads) {
-      // Extra Check before sending
-      if (global.data.threadBanned.has(String(thread.threadID))) continue;
+      if (global.data.threadBanned.has(String(thread.threadID))) {
+          continue; // Skip Banned Group
+      }
 
       try {
         if (downloaded && fs.existsSync(imgPath)) {
+          // Note: Broadcast directly calls patched api but logic inside patchApi might block it
+          // So we invoke directly via simple delay here
           await api.sendMessage({ body: message, attachment: fs.createReadStream(imgPath) }, thread.threadID);
         } else {
           await api.sendMessage(message, thread.threadID);
         }
         
-        // 25 Seconds Gap
+        // 25 Seconds Gap (Safe Broadcasting)
         await new Promise(r => setTimeout(r, 25000));
         
-      } catch (e) {}
+      } catch (e) {
+        // Silent fail if kicked
+      }
     }
     
     try { fs.unlinkSync(imgPath); } catch {}
@@ -285,6 +328,7 @@ async function sendNamazAlert(namazName) {
     const downloaded = await downloadImage(randomPic, imgPath);
     
     for (const thread of approvedThreads) {
+      // Extra Check
       if (global.data.threadBanned.has(String(thread.threadID))) continue;
 
       try {
@@ -308,6 +352,7 @@ async function sendNamazAlert(namazName) {
 }
 
 function setupSchedulers() {
+  // Quran: Sirf 9:00 AM aur 9:00 PM (Twice a day)
   cron.schedule('0 9,21 * * *', () => {
     logs.info('SCHEDULER', 'Twice Daily Quran Ayat triggered');
     sendQuranAyat();
@@ -322,7 +367,7 @@ function setupSchedulers() {
 }
 
 // ============================================================
-// 🚀 MAIN START FUNCTION
+// 🚀 MAIN START FUNCTION (SYNC LOGIC INCLUDED)
 // ============================================================
 
 async function startBot() {
@@ -338,7 +383,7 @@ async function startBot() {
     return;
   }
   
-  logs.info('BOT', 'Initializing Ahmad Pro Max System...');
+  logs.info('BOT', 'Initializing Ahmad Security Protocols v9.0...');
   
   const loginOptions = {
     listenEvents: true,
@@ -346,6 +391,7 @@ async function startBot() {
     autoMarkRead: true,
     autoMarkDelivery: false,
     forceLogin: true,
+    // Using a standard modern User Agent for safety
     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
   };
 
@@ -358,6 +404,7 @@ async function startBot() {
     api = loginApi;
     
     // ✅ Initialize Global Memory
+    // IMPORTANT: Yeh step sabse pehle hona chahiye
     global.data = {
       threadBanned: new Map(),
       userBanned: new Map(),
@@ -371,32 +418,37 @@ async function startBot() {
     global.Currencies = new CurrenciesController(api);
     global.client = client;
 
-    // 🔥 CRITICAL FIX: LOAD BANNED GROUPS FROM DATABASE TO MEMORY
-    logs.info('SYSTEM', 'Syncing Banned Groups...');
+    // =======================================================
+    // 🔥 CRITICAL FIX: LOAD BANNED GROUPS FROM DATABASE TO RAM
+    // =======================================================
+    logs.info('SYSTEM', 'Syncing Database with Security Firewall...');
     try {
         const allThreads = await global.Threads.getAll();
         let bannedCount = 0;
+        
         allThreads.forEach(thread => {
-            // Check agar banned 1 hai (true)
+            // Check if 'banned' field exists and is true/1
             if (thread.data && (thread.data.banned == 1 || thread.data.banned === true)) {
-                // IMPORTANT: String() use karein taake match ho sake
-                const tID = thread.threadID || thread.id;
+                // Ensure ID is String for correct Map matching
+                const tID = String(thread.threadID || thread.id);
                 if(tID) {
-                    global.data.threadBanned.set(String(tID), 1);
+                    global.data.threadBanned.set(tID, 1);
                     bannedCount++;
                 }
             }
         });
-        logs.success('SYSTEM', `Loaded ${bannedCount} Banned Groups into Security Firewall.`);
+        
+        logs.success('SYSTEM', `Security Firewall Loaded. Blocked ${bannedCount} Banned Groups.`);
     } catch (e) {
         logs.error('SYSTEM', 'Failed to load banned threads: ' + e.message);
     }
+    // =======================================================
 
-    // ✅ APPLY SECURITY PATCH (After loading bans)
+    // ✅ APPLY THE GATEKEEPER PATCH (After loading bans)
     global.api = patchApi(api);
     global.startTime = Date.now();
     
-    logs.success('LOGIN', 'Logged In! All Systems Secure.');
+    logs.success('LOGIN', 'Logged In! Smart Human + Ban Fix Active.');
     
     await loadCommands(client, commandsPath);
     await loadEvents(client, eventsPath);
@@ -422,13 +474,21 @@ async function startBot() {
     
     logs.success('BOT', `${config.BOTNAME} is Online & Protected.`);
     logs.info('SECURITY', 'Typing Indicator: Force Active');
-    logs.info('SECURITY', 'Thread Ban: Synced with DB');
+    logs.info('SECURITY', 'Banned Groups: Loaded & Blocked');
+    logs.info('SECURITY', 'Smart Delay: 3s - 10s (Content Based)');
     
-    // Notify Admin
+    // Notify Admin on Startup
     const adminID = config.ADMINBOT[0];
     if (adminID) {
       try {
-        await api.sendMessage(`${config.BOTNAME} is Online!\n🔒 Security Level: Ultimate\n🛡️ Typing: Force ON\n⚡ Banned Groups: Loaded`, adminID);
+        await api.sendMessage(
+            `${config.BOTNAME} is Online!\n` + 
+            `🔒 Security Level: Ultimate v9.0\n` +
+            `🛡️ Typing: Force ON\n` + 
+            `🚫 Banned Groups Loaded: Synced\n` +
+            `⚡ Anti-Ban Speed: Active`, 
+            adminID
+        );
       } catch (e) {}
     }
   });

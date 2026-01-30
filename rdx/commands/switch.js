@@ -1,56 +1,74 @@
+const fs = require("fs");
+const path = require("path");
+
+const statusFile = path.join(__dirname, "../cache/switch_status.json");
+
+// default ON
+if (!fs.existsSync(statusFile)) {
+  fs.writeFileSync(statusFile, JSON.stringify({ enabled: true }, null, 2));
+}
+
 module.exports.config = {
-  name: "bot",
+  name: "switch",
   version: "2.0.0",
-  hasPermssion: 2, // Sirf Admin
+  hasPermssion: 2,
   credits: "Ahmad Ali Safdar",
-  description: "Bot ko on ya off karein (No Main File Change)",
-  commandCategory: "admin",
-  usages: "bot [on/off]",
+  description: "FULL Bot ON / OFF (Global Kill Switch)",
+  commandCategory: "system",
+  usages: "switch on | switch off | switch status",
   cooldowns: 2
 };
 
-// --- STARTUP LOGIC ---
-module.exports.onLoad = function () {
-    // Agar bot restart ho to ye default ON rahega
-    if (typeof global.rdx_status === "undefined") {
-        global.rdx_status = true; 
-    }
-};
+// 🔥 GLOBAL PATCH (runs once)
+if (!global.__BOT_SWITCH_PATCHED__) {
+  global.__BOT_SWITCH_PATCHED__ = true;
 
-// --- INTERCEPTOR LOGIC ---
-// Ye hissa bot ki har command chalne se pehle usay check karega
-module.exports.handleEvent = async function ({ api, event, client }) {
-    const { body, senderID, threadID } = event;
-    if (!body) return;
+  const originalSend = global.api?.sendMessage;
 
-    const isAdmin = global.config.ADMINBOT.includes(senderID);
-    const isEnableCommand = body.toLowerCase().startsWith(global.config.PREFIX + "bot on");
+  if (originalSend) {
+    global.api.sendMessage = function (...args) {
+      try {
+        const data = JSON.parse(fs.readFileSync(statusFile));
+        if (!data.enabled) return; // ❌ FULL SILENCE
+      } catch (e) {}
+      return originalSend.apply(this, args);
+    };
+  }
+}
 
-    // Agar bot OFF hai
-    if (global.rdx_status === false) {
-        // Agar admin "bot on" bole to rasta do
-        if (isAdmin && isEnableCommand) return;
-        
-        // Baki sab ke liye STOP
-        return; 
-    }
-};
-
-// --- RUN LOGIC ---
 module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID } = event;
-  const state = args[0]?.toLowerCase();
 
-  if (state === "on") {
-    global.rdx_status = true;
-    return api.sendMessage("✅ AHMAD RDX: System Active. Sabhi commands ab kaam karengi.", threadID, messageID);
-  } 
-  else if (state === "off") {
-    global.rdx_status = false;
-    return api.sendMessage("🛑 AHMAD RDX: System Disabled. Bot ab kisi command ka jawab nahi dega.", threadID, messageID);
-  } 
-  else {
-    const status = global.rdx_status ? "ON ✅" : "OFF 🛑";
-    return api.sendMessage(`🤖 Current Status: ${status}\n\nSahi tariqa: #bot on ya #bot off`, threadID, messageID);
+  if (!args[0]) {
+    return api.sendMessage(
+      "⚙️ Usage:\n#switch on\n#switch off\n#switch status",
+      threadID,
+      messageID
+    );
   }
+
+  let data = JSON.parse(fs.readFileSync(statusFile));
+  const action = args[0].toLowerCase();
+
+  if (action === "off") {
+    data.enabled = false;
+    fs.writeFileSync(statusFile, JSON.stringify(data, null, 2));
+    return api.sendMessage("🔴 Bot **FULLY OFF** ho gaya hai.\nAb koi command ka reply nahi aayega.");
+  }
+
+  if (action === "on") {
+    data.enabled = true;
+    fs.writeFileSync(statusFile, JSON.stringify(data, null, 2));
+    return api.sendMessage("🟢 Bot **FULLY ON** ho gaya hai.");
+  }
+
+  if (action === "status") {
+    return api.sendMessage(
+      `🤖 Bot Status: ${data.enabled ? "🟢 ON" : "🔴 OFF"}`,
+      threadID,
+      messageID
+    );
+  }
+
+  return api.sendMessage("⚠️ Invalid option. Use: on / off / status", threadID, messageID);
 };

@@ -1,141 +1,70 @@
-const axios = require('axios');
-
-const dayTranslations = {
-  'Sunday': 'Sunday',
-  'Monday': 'Monday',
-  'Tuesday': 'Tuesday',
-  'Wednesday': 'Wednesday',
-  'Thursday': 'Thursday',
-  'Friday': 'Friday',
-  'Saturday': 'Saturday'
-};
-
-const weatherTranslations = {
-  'sunny': 'Sunny',
-  'mostly sunny': 'Mostly Sunny',
-  'partly sunny': 'Partly Sunny',
-  'rain showers': 'Rain Showers',
-  't-storms': 'Thunderstorms',
-  'light rain': 'Light Rain',
-  'mostly cloudy': 'Mostly Cloudy',
-  'rain': 'Rainy',
-  'heavy t-storms': 'Severe Thunderstorms',
-  'partly cloudy': 'Partly Cloudy',
-  'mostly clear': 'Mostly Clear',
-  'cloudy': 'Cloudy',
-  'clear': 'Clear Sky'
-};
-
-const translateWeather = (weather) => {
-  const normalizedWeather = weather.toLowerCase();
-  if (weatherTranslations[normalizedWeather]) {
-    return weatherTranslations[normalizedWeather];
-  } else {
-    console.log(`No translation found for weather status: ${weather}`);
-    return weather; // Keep original if not found
-  }
-};
-
-const formatDate = (dateStr) => {
-  const [year, month, day] = dateStr.split('-');
-  return `${day}/${month}/${year}`;
-};
-
 module.exports.config = {
-  name: 'weather',
-  version: '1.0.0',
-  hasPermission: 0,
-  credits: "SARDAR RDX",
-  description: 'View weather forecast of a city/province',
-  commandCategory: 'Members',
-  usages: [],
-  cooldowns: 3,
+  name: "weather",
+  version: "1.0.0",
+  hasPermssion: 0,
+  credits: "Ahmad Ali",
+  description: "Get real-time weather info",
+  commandCategory: "utility",
+  usages: "weather [city name]",
+  cooldowns: 5
 };
 
 module.exports.run = async ({ api, event, args }) => {
+  const axios = require("axios");
+  const { threadID, messageID } = event;
+  const city = args.join(" ");
+
+  if (!city) return api.sendMessage("⚠️ Shehar ka naam to likho Ahmad bhai! (e.g. #weather Faisalabad)", threadID, messageID);
+
+  const apiKey = "c1e0e18e477442ac9410418d8835de56";
+  const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric`;
+
   try {
-    const location = args.join(" ");
-    if (!location) return api.sendMessage("༻﹡﹡﹡﹡﹡﹡﹡༺\n\n**Enter the city/province to check the weather.**\n\n༻﹡﹡﹡﹡﹡﹡﹡༺", event.threadID);
+    const res = await axios.get(url);
+    const data = res.data;
 
-    const res = await axios.get(`https://api.popcat.xyz/weather?q=${encodeURI(location)}`);
-    if (!res.data || res.data.length === 0) {
-      return api.sendMessage("≿━━━━༺❀༻━━━━≾\n\n**No weather data found for this location.**\n\n≿━━━━༺❀༻━━━━≾", event.threadID);
+    const temp = data.main.temp;
+    const feelsLike = data.main.feels_like;
+    const weather = data.weather[0].main;
+    const humidity = data.main.humidity;
+    const wind = data.wind.speed;
+    const country = data.sys.country;
+
+    // Sigma Aura Logic based on weather
+    let auraMsg = "";
+    if (temp > 35) auraMsg = "🔥 Garmi zyada hai, Sigma ko thanda rehna chahiye.";
+    else if (temp < 15) auraMsg = "❄️ Mausam thanda hai, coding ke liye best vibes hain.";
+    else auraMsg = "🌤️ Mausam perfect hai, Aura +500.";
+
+    const emoji = {
+      Clear: "☀️",
+      Clouds: "☁️",
+      Rain: "🌧️",
+      Thunderstorm: "⛈️",
+      Drizzle: "🌦️",
+      Snow: "❄️",
+      Mist: "🌫️"
+    };
+
+    const statusEmoji = emoji[weather] || "🌍";
+
+    let msg = `🌍 **WEATHER REPORT: ${data.name}, ${country}** ${statusEmoji}\n`;
+    msg += `──────────────────\n`;
+    msg += `🌡️ **Temp:** ${temp}°C\n`;
+    msg += `🤔 **Feels Like:** ${feelsLike}°C\n`;
+    msg += `☁️ **Condition:** ${weather}\n`;
+    msg += `💧 **Humidity:** ${humidity}%\n`;
+    msg += `💨 **Wind Speed:** ${wind} m/s\n`;
+    msg += `──────────────────\n`;
+    msg += `💡 **WEATHER Status:** ${auraMsg}\n`;
+    msg += `🦅 AHMAD RDX SYSTEM`;
+
+    return api.sendMessage(msg, threadID, messageID);
+
+  } catch (e) {
+    if (e.response && e.response.status === 404) {
+      return api.sendMessage("❌ Shehar ka naam ghalat hai ya nahi mila.", threadID, messageID);
     }
-
-    const data = res.data[0];
-    const { location: loc, current, forecast } = data;
-
-    if (!forecast || forecast.length === 0) {
-      return api.sendMessage("⚝──⭒─⭑─⭒──⚝\n\n**No weather forecast data available for this location.**\n\n⚝──⭒─⭑─⭒──⚝", event.threadID);
-    }
-
-    let message = `≿━━━━༺❀༻━━━━≾\n\n**Current weather in ${loc.name}:**\n` +
-                  `🌡 **Temperature:** ${current.temperature}°C\n` +
-                  `🤲 **Feels Like:** ${current.feelslike}°C\n` +
-                  `🗺️ **Condition:** ${translateWeather(current.skytext)}\n` +
-                  `♒ **Humidity:** ${current.humidity}%\n` +
-                  `💨 **Wind:** ${current.winddisplay}\n\n` +
-                  `❤ **React with heart to view the 3-day forecast.**\n\n≿━━━━༺❀༻━━━━≾`;
-
-    api.sendMessage(message, event.threadID, (err, info) => {
-      if (err) return;
-      if (!global.client.handleReaction) {
-        global.client.handleReaction = [];
-      }
-      global.client.handleReaction.push({
-        name: this.config.name,
-        messageID: info.messageID,
-        location: loc.name,
-        forecast: forecast,
-        author: event.senderID
-      });
-    });
-
-  } catch (err) {
-    api.sendMessage(`༻﹡﹡﹡﹡﹡﹡﹡༺\n\n**An error occurred while fetching weather data: ${err.message}**\n\n༻﹡﹡﹡﹡﹡﹡﹡༺`, event.threadID);
-  }
-};
-
-module.exports.handleReaction = async function({ event, api, handleReaction: reaction, Users }) {
-  if (event.userID != reaction.author) return;
-  if (event.reaction != "❤") return; 
-
-  const { location, forecast } = reaction;
-
-  const today = new Date();
-  const nextFiveDays = [];
-  for (let i = 0; i < forecast.length; i++) {
-    const forecastDate = new Date(forecast[i].date);
-    if (forecastDate >= today && nextFiveDays.length < 5) {
-      nextFiveDays.push(forecast[i]);
-    }
-  }
-
-  if (nextFiveDays.length === 0) {
-    return api.sendMessage("⚝──⭒─⭑─⭒──⚝\n\n**No forecast data available for the next 3 days.**\n\n⚝──⭒─⭑─⭒──⚝", event.threadID);
-  }
-
-  let message = `≿━━━━༺❀༻━━━━≾\n\n**3-Day Weather Forecast for ${location}:**\n`;
-
-  for (let i = 0; i < nextFiveDays.length; i++) {
-    const day = dayTranslations[nextFiveDays[i].day] || nextFiveDays[i].day;
-    const weather = translateWeather(nextFiveDays[i].skytextday);
-    const date = formatDate(nextFiveDays[i].date);
-
-    message += `${i + 1}. **${day} - ${date}**\n` +
-               `🌡 **Temperature:** ${nextFiveDays[i].low}°C ➝ ${nextFiveDays[i].high}°C\n` +
-               `🗺️ **Forecast:** ${weather}\n` +
-               `🌧 **Precipitation:** ${nextFiveDays[i].precip}%\n\n`;
-  }
-
-  message += "≿━━━━༺❀༻━━━━≾";
-
-  api.sendMessage(message, event.threadID);
-  
-  // Unsend the old current weather message
-  try {
-    api.unsendMessage(reaction.messageID);
-  } catch (err) {
-    console.error('Failed to unsend old weather message:', err);
+    return api.sendMessage("❌ API Error: Mausam ka hal nahi mil saka.", threadID, messageID);
   }
 };

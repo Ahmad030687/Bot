@@ -7,88 +7,89 @@ const axios = require('axios');
 const logs = require('./Data/utility/logs');
 
 // =====================================================================
-// 🛡️ SARDAR RDX: IRON CLAD QUEUE SYSTEM (FINAL v40.0 - ARG FIX)
+// 🛡️ SARDAR RDX: IRON CLAD SECURITY PROTOCOL (FINAL v50.0)
 // =====================================================================
 
 // 1. GLOBAL VARIABLES
 const messageQueue = [];
 let isProcessingQueue = false;
-let facebookRealSend = null; // Asli Function Yahan Store Hoga
+let facebookRealSend = null; // Asli API yahan save hogi
 
-// 2. SLEEP MODE (Raat 2 se Subah 7 tak OFF)
+// 2. SLEEP MODE (Raat 2 se Subah 7 tak OFF - ID Safety ke liye)
 function isSleepTime() {
   const hour = moment().tz("Asia/Karachi").hour();
   return (hour >= 2 && hour < 7);
 }
 
-// 3. 🧠 SAFETY DELAY CALCULATOR
+// 3. 🧠 SAFETY DELAY CALCULATOR (Minimum 6 Seconds)
 function getSafeDelay(text) {
-  let delay = 6000; // Base 6 Seconds (Super Safe)
+  let delay = 6000; // Base 6 Seconds (Facebook Human Limit)
 
   if (!text) return delay;
   const len = text.length;
 
-  if (len < 10) delay += 1000;
-  else if (len < 50) delay += 3000;
-  else if (len < 100) delay += 5000;
-  else delay += 8000;
+  if (len < 10) delay += 1000;         // Short msg: 7s
+  else if (len < 50) delay += 3000;    // Medium: 9s
+  else if (len < 100) delay += 5000;   // Long: 11s
+  else delay += 8000;                  // Huge: 14s
 
+  // Anti-Spam Keywords (Agar user jaldi machaye)
   if (/fast|jaldi|spam|ban/i.test(text)) delay += 5000;
   
-  // Random Jitter (1-3 sec)
+  // Random Jitter (Insani ehsas dilane ke liye)
   delay += Math.floor(Math.random() * 3000);
   
-  return Math.min(delay, 25000); // Max 25s
+  return Math.min(delay, 25000); // Max wait 25s
 }
 
-// 4. 🔥 THE QUEUE ENGINE (ARGUMENT SAFE)
+// 4. 🔥 THE QUEUE ENGINE (PROMISE BASED - NO ERRORS)
 async function processQueue(api) {
   if (isProcessingQueue || messageQueue.length === 0) return;
   isProcessingQueue = true;
 
   while (messageQueue.length > 0) {
-    const task = messageQueue.shift(); // Get first task
+    const task = messageQueue.shift(); // Pehla kaam uthao
     
-    // BAN CHECK
+    // STRICT BAN CHECK
     if (global.data.threadBanned.has(String(task.threadID))) {
-        if (task.resolve) task.resolve(null);
-        continue; 
+        if (task.resolve) task.resolve(null); // Code ko free karo
+        continue; // Banned hai to ignore karo
     }
 
     try {
-        // A. Visual Indicator
+        // A. Typing Indicator (Visual Trust)
         api.sendTypingIndicator(task.threadID, () => {});
 
-        // B. Safety Delay
+        // B. Safety Delay (Yahan code rukega)
         const msgBody = typeof task.msg === 'string' ? task.msg : (task.msg.body || "");
         const waitTime = getSafeDelay(msgBody);
         
-        // C. HARD STOP (Wait here)
         await new Promise(r => setTimeout(r, waitTime));
 
-        // D. SEND USING REAL FUNCTION
+        // C. SEND USING REAL FUNCTION
         if (facebookRealSend) {
             const info = await new Promise((resolveInner, rejectInner) => {
-                // Call Real API
+                // Asli function call
                 facebookRealSend.call(api, task.msg, task.threadID, (err, result) => {
                     
-                    // 🔥 FIX: Sirf tab call karo agar ye waqai Function ho
+                    // Callback Handling (Fix for .help error)
                     if (task.callback && typeof task.callback === 'function') {
                         task.callback(err, result);
                     }
                     
                     if (err) rejectInner(err);
                     else resolveInner(result);
-                }, task.replyTo); // Pass ReplyID correctly
+                }, task.replyTo);
             });
 
-            // E. Release the Command Handler
+            // D. Release Command Handler
             if (task.resolve) task.resolve(info);
         }
         
     } catch (e) {
         console.log(`Queue Error: ${e.message}`);
-        if (task.reject) task.reject(e); 
+        // Error ke baad bhi thora wait karo
+        if (task.reject) task.reject(e);
         await new Promise(r => setTimeout(r, 2000));
     }
   }
@@ -96,25 +97,21 @@ async function processQueue(api) {
   isProcessingQueue = false;
 }
 
-// 5. 🛡️ API PATCHER (ARGUMENT SHIFTING FIX)
+// 5. 🛡️ API PATCHER (Intercepts Everything)
 function patchApi(api) {
   // Save Original Function
   facebookRealSend = api.sendMessage; 
 
-  // Overwrite with Queue Logic
+  // Overwrite with Safe Queue Logic
   api.sendMessage = function (msg, threadID, callback, replyTo) {
-    // Return a Promise so commands like .pending can "await" it
+    // Return a Promise so commands work properly
     return new Promise((resolve, reject) => {
         
-        // 1. Validation & Arg Shifting (CRITICAL FIX)
+        // Argument Shifting Fix (Fix for .help/pending errors)
         if (!threadID && typeof msg === 'string' && /^\d+$/.test(msg)) threadID = msg;
         
-        // Agar 3rd argument function nahi hai, to wo ReplyID hai (e.g. .help command)
         if (callback && typeof callback !== 'function') {
-            if (!replyTo) {
-                replyTo = callback;
-                callback = null;
-            }
+            if (!replyTo) { replyTo = callback; callback = null; }
         }
 
         if (!threadID) {
@@ -123,15 +120,15 @@ function patchApi(api) {
             return reject(err);
         }
 
-        // Immediate Rejection checks
+        // Checks
         if (global.data.threadBanned.has(String(threadID))) return resolve(null);
         if (isSleepTime()) return resolve(null);
 
-        // Push to Queue with Corrected Args
+        // Add to Queue
         messageQueue.push({ 
             msg, 
             threadID, 
-            callback, // Ab ye ya to null hoga ya asli function
+            callback, 
             replyTo, 
             resolve, 
             reject 
@@ -146,7 +143,7 @@ function patchApi(api) {
 }
 
 // ============================================================
-// ⚙️ CONFIGURATION & PATHS
+// ⚙️ CONFIGURATION
 // ============================================================
 
 const listen = require('./Data/system/listen');
@@ -198,7 +195,7 @@ function loadIslamicMessages() {
 }
 
 // ============================================================
-// 🕌 ISLAMIC SYSTEM
+// 🕌 ISLAMIC SYSTEM (Queue Integrated)
 // ============================================================
 
 const quranPics = ['https://i.ibb.co/JRBFpq8t/6c776cdd6b6c.gif', 'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif'];
@@ -256,11 +253,12 @@ async function startBot() {
     if (err) return logs.error('LOGIN', 'Failed!');
 
     api = loginApi;
-    // 1. APPLY THE FINAL PATCH
+    // 1. APPLY FINAL PATCH
     global.api = patchApi(api);
     
     global.data = { threadBanned: new Map(), userBanned: new Map(), allThreadID: [], allUserID: [], online: [] };
 
+    // 2. CONTROLLERS
     const UsersController = require('./Data/system/controllers/users');
     const ThreadsController = require('./Data/system/controllers/threads');
     const CurrenciesController = require('./Data/system/controllers/currencies');
@@ -270,7 +268,7 @@ async function startBot() {
     global.Currencies = new CurrenciesController(api);
     global.client = client;
 
-    // 2. DB SYNC
+    // 3. DB SYNC (CRITICAL FOR THREAD BAN)
     logs.info("SYSTEM", "Loading Database...");
     try {
         const threadsFromDB = await global.Threads.getAll();
@@ -288,12 +286,14 @@ async function startBot() {
     
     const listener = listen({ api, client, Users: global.Users, Threads: global.Threads, Currencies: global.Currencies, config });
     
-    // 3. EVENT LISTENER
+    // 4. LISTENER WITH AUTO-REGISTER FIX
     api.listenMqtt(async (err, event) => {
         if (err) return;
+        
+        // Strict Ban Check
         if (event.threadID && global.data.threadBanned.has(String(event.threadID))) return;
         
-        // AUTO-REGISTER
+        // Auto-Register (Fix for .pending command)
         if (event.threadID && !global.data.allThreadID.includes(String(event.threadID))) {
             try {
                 const check = await global.Threads.getData(event.threadID);
@@ -304,14 +304,16 @@ async function startBot() {
                 }
             } catch(e) {}
         }
+        
         listener(err, event);
     });
 
-    logs.success('BOT', 'Ahmad Ali System Online | Queue Mode: ACTIVE | ARG FIX APPLIED');
+    logs.success('BOT', 'Ahmad Ali System Online | Queue Mode: ACTIVE & 100% SAFE');
     
+    // Admin Notification
     if (config.ADMINBOT[0] && facebookRealSend) {
         try {
-            facebookRealSend.call(api, "✅ System Stable.\nHelp/Pending Bug Fixed.", config.ADMINBOT[0]);
+            facebookRealSend.call(api, "✅ System Online.\n🛡️ Security: MAX\n⚡ Loop: Fixed", config.ADMINBOT[0]);
         } catch(e){}
     }
   });
@@ -324,4 +326,4 @@ process.on('uncaughtException', (error) => logs.error('EXCEPTION', error.message
 module.exports = { startBot };
 
 if (require.main === module) { startBot(); }
-            
+          

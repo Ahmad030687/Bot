@@ -30,7 +30,7 @@ module.exports.run = async ({ api, event, args }) => {
     fs.writeFileSync(path, Buffer.from(imgData, "utf-8"));
 
     return api.sendMessage({
-      body: `📸 **UNSPLASH HD**\n🔍 Search: ${query}\n🦅 SARDAR RDX`,
+      body: `📸 **UNSPLASH HD**\n🔍 Search: ${query}\n🦅 AHMAD RDX`,
       attachment: fs.createReadStream(path)
     }, threadID, () => fs.unlinkSync(path), messageID);
 

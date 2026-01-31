@@ -1,14 +1,14 @@
 /**
- * autoVideo.js - Corrected RapidAPI Implementation
- * Target: Social Media Video Downloader Premium
+ * autoVideo.js - 2026 Ultra-Stable Version
+ * Fixed: 404 Redirects & TikTok vt.tiktok
  */
 
 module.exports.config = {
   name: "autoVideo",
-  version: "9.0.0",
+  version: "10.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Premium Universal Downloader with RapidAPI",
+  description: "Final 404 Fix with Redirect Resolver",
 };
 
 module.exports.handleEvent = async ({ api, event }) => {
@@ -23,32 +23,40 @@ module.exports.handleEvent = async ({ api, event }) => {
   const linkMatch = body.match(/(https?:\/\/(?:www\.)?(?:tiktok\.com|vt\.tiktok\.com|instagram\.com|facebook\.com|fb\.watch|youtube\.com\/shorts|reels|x\.com|twitter\.com)\/\S+)/gi);
 
   if (linkMatch) {
-    const targetLink = linkMatch[0];
+    let targetLink = linkMatch[0];
     api.sendTypingIndicator(threadID);
 
-    // 🔥 CORRECTED ENDPOINT: Ye details nahi, seedha download link nikalega
-    const options = {
-      method: 'GET',
-      url: 'https://social-media-video-downloader.p.rapidapi.com/smvd/get/all',
-      params: { url: targetLink },
-      headers: {
-        'x-rapidapi-key': '6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618',
-        'x-rapidapi-host': 'social-media-video-downloader.p.rapidapi.com'
-      }
-    };
-
     try {
-      const res = await axios.request(options);
-      
-      // RapidAPI responses can be tricky, we handle all common paths
-      const videoUrl = res.data.url || (res.data.links && res.data.links[0]?.link);
+      // 🔥 STEP 1: RESOLVE REDIRECT (404 FIX)
+      // Ye hissa vt.tiktok ko asli link mein badal dega
+      const headReq = await axios.head(targetLink, { maxRedirects: 5 });
+      targetLink = headReq.request.res.responseUrl || targetLink;
 
-      if (!videoUrl) {
-         return console.log("Video URL not found in API response.");
+      // 🔥 STEP 2: TRY MULTIPLE POWERFUL SERVERS
+      const servers = [
+        `https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(targetLink)}`,
+        `https://kaiz-apis.gleeze.com/api/video-downloader?url=${encodeURIComponent(targetLink)}`,
+        `https://api.samir.site/download/aio?url=${encodeURIComponent(targetLink)}`
+      ];
+
+      let videoUrl = null;
+      let title = "SARDAR RDX VIDEO";
+
+      for (let server of servers) {
+        try {
+          const res = await axios.get(server, { timeout: 10000 });
+          videoUrl = res.data.video || res.data.data?.video || res.data.result?.url || res.data.data?.play || res.data.url;
+          if (videoUrl) {
+            title = res.data.title || res.data.data?.title || title;
+            break;
+          }
+        } catch (e) { continue; }
       }
 
-      const tempFile = path.join(os.tmpdir(), `rdx_premium_${Date.now()}.mp4`);
+      if (!videoUrl) return;
 
+      // 🔥 STEP 3: RENDER SAFE DOWNLOAD
+      const tempFile = path.join(os.tmpdir(), `rdx_v_${Date.now()}.mp4`);
       const response = await axios({ url: videoUrl, method: 'GET', responseType: 'stream' });
       const writer = fs.createWriteStream(tempFile);
       response.data.pipe(writer);
@@ -56,32 +64,24 @@ module.exports.handleEvent = async ({ api, event }) => {
       return new Promise((resolve) => {
         writer.on('finish', async () => {
           const stats = fs.statSync(tempFile);
-          if (stats.size > 26214400) {
+          if (stats.size > 26214400) { // 25MB Limit
             fs.unlinkSync(tempFile);
-            api.sendMessage("⚠️ Video 25MB se bari hai, FB limit!", threadID, messageID);
-            return resolve();
+            return api.sendMessage("⚠️ Video 25MB se bari hai, FB limit!", threadID, messageID);
           }
 
           api.sendMessage({
-            body: `🎬 **SARDAR RDX PREMIUM**\n✨ Server: RapidAPI Premium\n🦅 Aura: +9999`,
+            body: `🎬 **SARDAR RDX - 404 FIXED**\n✨ ${title}\n🦅 Aura: +9999`,
             attachment: fs.createReadStream(tempFile)
           }, threadID, () => {
             if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
           }, messageID);
           resolve();
         });
+        writer.on("error", () => resolve());
       });
 
     } catch (err) {
-      console.log("RapidAPI Error:", err.message);
-      // Agar Premium API fail ho, to ye automatically Free Public API par switch kar jayega
-      try {
-          const backup = await axios.get(`https://api.samir.site/download/aio?url=${encodeURIComponent(targetLink)}`);
-          const backupUrl = backup.data.result?.url || backup.data.data?.url;
-          if (backupUrl) {
-              // ... (download logic for backup)
-          }
-      } catch (e) { console.log("Backup also failed."); }
+      console.log("Global DL Error:", err.message);
     }
   }
 };

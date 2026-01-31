@@ -9,7 +9,7 @@ const axios = require('axios');
 // 🛡️ SARDAR RDX: ULTIMATE QUEUE SYSTEM (BAN PROOF v20.0)
 // =====================================================================
 
-// 1. GLOBAL VARIABLES
+// 1. GLOBAL VARIABLES (Queue Engine)
 const messageQueue = [];
 let isProcessingQueue = false;
 const threadCooldowns = new Map();
@@ -22,7 +22,7 @@ function isSleepTime() {
 
 // 3. 🧠 SMART DELAY CALCULATOR (Minimum 5 Seconds)
 function getSafeDelay(text) {
-  let delay = 5000; // Base Delay
+  let delay = 5000; // Base Delay (Strict)
 
   if (!text) return delay;
   const len = text.length;
@@ -43,19 +43,21 @@ function getSafeDelay(text) {
 
 // 4. 🔥 QUEUE PROCESSOR (Ye Engine Messages ko 1-by-1 bhejta hai)
 async function processQueue(api) {
+  // Agar engine pehle se chal raha hai ya line khali hai, to kuch mat karo
   if (isProcessingQueue || messageQueue.length === 0) return;
-  isProcessingQueue = true;
+  
+  isProcessingQueue = true; // Engine Start
 
   while (messageQueue.length > 0) {
-    const task = messageQueue.shift();
+    const task = messageQueue.shift(); // Pehla message uthao
     
-    // FINAL BAN CHECK
+    // FINAL BAN CHECK (Bhejne se pehle aakhri check)
     if (global.data.threadBanned.has(String(task.threadID))) {
-        continue; 
+        continue; // Banned hai to phenk do
     }
 
     try {
-        // A. Typing Indicator
+        // A. Typing Indicator (Visual Trust)
         api.sendTypingIndicator(task.threadID, () => {});
 
         // B. Calculate Logic
@@ -63,6 +65,7 @@ async function processQueue(api) {
         const waitTime = getSafeDelay(msgBody);
         
         // C. WAIT (Ye line ID ko Ban hone se bachati hai)
+        // Code yahan ruk jayega aur agla message process nahi karega jab tak time pura na ho
         await new Promise(resolve => setTimeout(resolve, waitTime));
 
         // D. Send
@@ -70,15 +73,16 @@ async function processQueue(api) {
         
     } catch (e) {
         console.log(`Queue Error: ${e.message}`);
-        // Error ke baad bhi thora wait karo
+        // Error ke baad bhi thora wait karo taake loop pagal na ho
         await new Promise(r => setTimeout(r, 2000));
     }
   }
 
-  isProcessingQueue = false;
+  isProcessingQueue = false; // Engine Stop
 }
 
 // 5. 🛡️ API INTERCEPTOR (Patch)
+// Ye function api.sendMessage ko hack karke Queue mein divert karta hai
 function patchApi(api) {
   const origSendMessage = api.sendMessage;
 
@@ -92,6 +96,8 @@ function patchApi(api) {
 
     // Push to Queue (Direct send nahi hoga)
     messageQueue.push({ msg, threadID, callback, replyTo });
+    
+    // Engine start karo
     processQueue(api);
   };
 
@@ -127,7 +133,8 @@ let client = {
 
 const quranPics = [
   'https://i.ibb.co/JRBFpq8t/6c776cdd6b6c.gif', 
-  'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif'
+  'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif',
+  'https://i.ibb.co/8nr8qyQ4/6bc620dedb70.gif'
 ];
 
 const quranAyats = [
@@ -166,6 +173,7 @@ async function sendIslamicBroadcast(type) {
       if (global.data.threadBanned.has(String(t.threadID))) continue;
       messageQueue.push({ msg, threadID: t.threadID });
     }
+    // Engine ko dhakka do
     processQueue(api);
 
   } catch (e) { logs.error("BROADCAST", e.message); }
@@ -201,7 +209,7 @@ async function startBot() {
     if (err) return logs.error('LOGIN', 'Failed!');
 
     api = loginApi;
-    // 1. APPLY QUEUE PATCH (Zaroori)
+    // 1. APPLY QUEUE PATCH (Ye sabse zaroori line hai)
     global.api = patchApi(api);
     
     global.data = { threadBanned: new Map(), userBanned: new Map(), allThreadID: [], allUserID: [], online: [] };
@@ -217,12 +225,13 @@ async function startBot() {
     global.client = client;
 
     // 3. 🔥 DATABASE SYNC (Thread Ban Fix)
+    // Ye hissa bot start hote hi check karta hai ke kon banned hai
     logs.info("SYSTEM", "Loading Database & Bans...");
     try {
         const threadsFromDB = await global.Threads.getAll();
         threadsFromDB.forEach(t => { 
             const tID = String(t.threadID);
-            // Sync Banned
+            // Sync Banned Status
             if (t.data && (t.data.banned == 1 || t.data.banned === true)) {
                 global.data.threadBanned.set(tID, 1);
             }
@@ -245,12 +254,13 @@ async function startBot() {
         if (err) return;
 
         // 🛡️ STRICT BAN CHECK (Incoming message ko yahin rok do)
+        // Agar group banned hai, to bot isay "Read" bhi nahi karega
         if (event.threadID && global.data.threadBanned.has(String(event.threadID))) {
             return; 
         }
         
         // ⚡ AUTO-REGISTER (Pending Command Fix)
-        // Agar naya group hai to DB mein daalo
+        // Agar naya group hai to DB mein daalo taake .pending mein show ho
         if (event.threadID && !global.data.allThreadID.includes(String(event.threadID))) {
             try {
                 const check = await global.Threads.getData(event.threadID);
@@ -258,9 +268,6 @@ async function startBot() {
                     await global.Threads.setData(event.threadID, { threadID: event.threadID, approved: 0, banned: 0 });
                     global.data.allThreadID.push(String(event.threadID));
                     logs.info("SYSTEM", `New Group Registered: ${event.threadID}`);
-                    
-                    // Optional: Send Welcome
-                    // api.sendMessage(`✅ Bot Connected.\nWait for Admin Approval.\nID: ${event.threadID}`, event.threadID);
                 }
             } catch(e) {
                 console.log("Auto-Reg Error: " + e.message);
@@ -271,6 +278,13 @@ async function startBot() {
     });
 
     logs.success('BOT', 'Ahmad Ali System Online | Queue Mode: ACTIVE');
+    
+    // Admin Notification
+    if (config.ADMINBOT[0]) {
+        try {
+            api.sendMessage("✅ Bot Restored.\n🛡️ Queue System: ON\n⚡ Anti-Ban: MAX", config.ADMINBOT[0]);
+        } catch(e){}
+    }
   });
 }
 
@@ -296,4 +310,4 @@ module.exports = {
 
 if (require.main === module) {
   startBot();
-}
+                      }

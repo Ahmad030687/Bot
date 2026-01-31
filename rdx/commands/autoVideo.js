@@ -1,14 +1,14 @@
 /**
- * autoVideo.js - 2026 Ultra-Stable Version
- * Fixed: 404 Redirects & TikTok vt.tiktok
+ * autoVideo.js - Premium RapidAPI (404 & Redirect Fixed)
+ * Credits: Ahmad Ali Safdar
  */
 
 module.exports.config = {
   name: "autoVideo",
-  version: "10.0.0",
+  version: "13.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Final 404 Fix with Redirect Resolver",
+  description: "Fixed Premium Downloader for vt.tiktok links",
 };
 
 module.exports.handleEvent = async ({ api, event }) => {
@@ -27,61 +27,46 @@ module.exports.handleEvent = async ({ api, event }) => {
     api.sendTypingIndicator(threadID);
 
     try {
-      // 🔥 STEP 1: RESOLVE REDIRECT (404 FIX)
-      // Ye hissa vt.tiktok ko asli link mein badal dega
-      const headReq = await axios.head(targetLink, { maxRedirects: 5 });
-      targetLink = headReq.request.res.responseUrl || targetLink;
+      // 🔥 SIGMA STEP: Resolve Redirect (vt.tiktok Fix)
+      // Ye line link ko follow karegi taake asli URL mil jaye
+      const resolve = await axios.head(targetLink, { maxRedirects: 5 });
+      const finalUrl = resolve.request.res.responseUrl || targetLink;
 
-      // 🔥 STEP 2: TRY MULTIPLE POWERFUL SERVERS
-      const servers = [
-        `https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(targetLink)}`,
-        `https://kaiz-apis.gleeze.com/api/video-downloader?url=${encodeURIComponent(targetLink)}`,
-        `https://api.samir.site/download/aio?url=${encodeURIComponent(targetLink)}`
-      ];
+      // 🚀 RapidAPI Premium Call
+      const options = {
+        method: 'GET',
+        url: 'https://social-media-video-downloader.p.rapidapi.com/smvd/get/all',
+        params: { url: finalUrl }, // Ab asli link API ko jayega
+        headers: {
+          'x-rapidapi-key': '6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618',
+          'x-rapidapi-host': 'social-media-video-downloader.p.rapidapi.com'
+        }
+      };
 
-      let videoUrl = null;
-      let title = "SARDAR RDX VIDEO";
+      const res = await axios.request(options);
+      const videoUrl = res.data.url || (res.data.links && res.data.links[0]?.link);
 
-      for (let server of servers) {
-        try {
-          const res = await axios.get(server, { timeout: 10000 });
-          videoUrl = res.data.video || res.data.data?.video || res.data.result?.url || res.data.data?.play || res.data.url;
-          if (videoUrl) {
-            title = res.data.title || res.data.data?.title || title;
-            break;
-          }
-        } catch (e) { continue; }
-      }
+      if (!videoUrl) throw new Error("API couldn't find video.");
 
-      if (!videoUrl) return;
-
-      // 🔥 STEP 3: RENDER SAFE DOWNLOAD
-      const tempFile = path.join(os.tmpdir(), `rdx_v_${Date.now()}.mp4`);
+      const tempFile = path.join(os.tmpdir(), `rdx_final_${Date.now()}.mp4`);
       const response = await axios({ url: videoUrl, method: 'GET', responseType: 'stream' });
       const writer = fs.createWriteStream(tempFile);
       response.data.pipe(writer);
 
       return new Promise((resolve) => {
         writer.on('finish', async () => {
-          const stats = fs.statSync(tempFile);
-          if (stats.size > 26214400) { // 25MB Limit
-            fs.unlinkSync(tempFile);
-            return api.sendMessage("⚠️ Video 25MB se bari hai, FB limit!", threadID, messageID);
-          }
-
           api.sendMessage({
-            body: `🎬 **SARDAR RDX - 404 FIXED**\n✨ ${title}\n🦅 Aura: +9999`,
+            body: `🎬 **SARDAR RDX PREMIUM**\n✨ Status: Redirection Fixed\n🦅 Aura: +9999`,
             attachment: fs.createReadStream(tempFile)
-          }, threadID, () => {
-            if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-          }, messageID);
+          }, threadID, () => fs.unlinkSync(tempFile), messageID);
           resolve();
         });
-        writer.on("error", () => resolve());
       });
 
     } catch (err) {
-      console.log("Global DL Error:", err.message);
+      console.log("Download Fail:", err.message);
+      // Backup for safety
+      api.sendMessage("❌ Error: API ne link reject kiya ya video private hai.", threadID, messageID);
     }
   }
 };

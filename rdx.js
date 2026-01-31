@@ -6,184 +6,113 @@ const moment = require('moment-timezone');
 const axios = require('axios');
 
 // =====================================================================
-// 🤖 AHMAD ALI "AI HUMAN" PROTOCOL (Smart Delay + Instant Typing)
+// 🛡️ SARDAR RDX: ULTIMATE QUEUE SYSTEM (BAN PROOF v20.0)
 // =====================================================================
 
-// Global Map to track spamming history
+// 1. GLOBAL VARIABLES
+const messageQueue = [];
+let isProcessingQueue = false;
 const threadCooldowns = new Map();
 
-// 1. SLEEP MODE (Raat 2 se Subah 7 tak OFF)
+// 2. SLEEP MODE (Raat 2 se Subah 7 tak OFF)
 function isSleepTime() {
   const hour = moment().tz("Asia/Karachi").hour();
   return (hour >= 2 && hour < 7);
 }
 
-// =====================================================================
-// 🧠 AI-BASED DELAY CALCULATOR (Aapka Diya Hua Logic)
-// =====================================================================
-function aiBasedDelay({ message, threadID, lastThreadTime }) {
-  let delay = 2000; // Minimum 2 Seconds (Safety Base)
+// 3. 🧠 SMART DELAY CALCULATOR (Minimum 5 Seconds)
+function getSafeDelay(text) {
+  let delay = 5000; // Base Delay
 
-  // Message text extract karo (Chahe string ho ya object)
-  const text = typeof message === "string" ? message : (message?.body || "");
-  const length = text.length;
+  if (!text) return delay;
+  const len = text.length;
 
-  // 📏 RULE 1: Length Based Thinking
-  if (length < 10) delay += 1000;         // "Hi" -> Fast
-  else if (length < 40) delay += 2000;    // Short sentence -> Normal
-  else if (length < 100) delay += 4000;   // Paragraph -> Slow
-  else delay += 6000;                     // Huge text -> Very Slow
+  if (len < 10) delay += 1000;
+  else if (len < 50) delay += 3000;
+  else if (len < 100) delay += 5000;
+  else delay += 8000;
 
-  // ❓ RULE 2: Question/Problem Detection (Thinking Time)
-  if (/\?|error|issue|masla|problem|code|help/i.test(text)) {
-      delay += 2000;
-  }
+  // Anti-Spam (Agar user jaldi macha raha ho)
+  if (/fast|jaldi|spam|reply/i.test(text)) delay += 4000;
 
-  // 😤 RULE 3: Aggressive Text Detection (Hesitation)
-  if (/!!!|\?\?|gali|bakwas|fast|jaldi/i.test(text)) {
-      delay += 3000; 
-  }
-
-  // 🙏 RULE 4: Polite/Short Text (Quick Reply)
-  if (/thanks|thx|ok|acha|done|👍|❤/i.test(text)) {
-      delay -= 1000;
-  }
-
-  // ⏱️ RULE 5: Thread Activity (Agar convo tez hai to slow ho jao)
-  if (lastThreadTime) {
-    const gap = Date.now() - lastThreadTime;
-    if (gap < 8000) delay += 2500; // Agar pichla msg 8 sec pehle tha, to slow ho jao
-  }
-
-  // 🌙 RULE 6: Late Night Fatigue (Raat ko slow)
-  const hour = new Date().getHours();
-  if (hour >= 0 && hour <= 6) delay += 3000;
-
-  // 🎲 RULE 7: Random Human Jitter (Natural feel)
-  delay += Math.floor(Math.random() * 1500);
-
-  // ⛔ Safety Limits
-  if (delay < 2000) delay = 2000;    // Kam se kam 2 sec
-  if (delay > 12000) delay = 12000;  // Zyada se zyada 12 sec
-
-  return delay;
+  // Random Jitter (Insani ehsas dilane ke liye)
+  delay += Math.floor(Math.random() * 2500);
+  
+  return Math.min(delay, 20000); // Max 20s wait
 }
 
-// =====================================================================
-// ⚡ TYPING INDICATOR LOOP (Instant Start)
-// =====================================================================
-function startTyping(api, threadID) {
-  if (!threadID) return null;
+// 4. 🔥 QUEUE PROCESSOR (Ye Engine Messages ko 1-by-1 bhejta hai)
+async function processQueue(api) {
+  if (isProcessingQueue || messageQueue.length === 0) return;
+  isProcessingQueue = true;
 
-  // 1. FORAN Start karo (No Waiting)
-  try { api.sendTypingIndicator(threadID, () => {}); } catch (e) {}
+  while (messageQueue.length > 0) {
+    const task = messageQueue.shift();
+    
+    // FINAL BAN CHECK
+    if (global.data.threadBanned.has(String(task.threadID))) {
+        continue; 
+    }
 
-  // 2. Interval set karo taake dots ghayab na hon
-  const interval = setInterval(() => {
-    try { api.sendTypingIndicator(threadID, () => {}); } catch (e) {}
-  }, 3000); // Har 3 sec baad refresh
+    try {
+        // A. Typing Indicator
+        api.sendTypingIndicator(task.threadID, () => {});
 
-  return interval;
+        // B. Calculate Logic
+        const msgBody = typeof task.msg === 'string' ? task.msg : (task.msg.body || "");
+        const waitTime = getSafeDelay(msgBody);
+        
+        // C. WAIT (Ye line ID ko Ban hone se bachati hai)
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+
+        // D. Send
+        await api.sendMessage(task.msg, task.threadID, task.callback, task.replyTo);
+        
+    } catch (e) {
+        console.log(`Queue Error: ${e.message}`);
+        // Error ke baad bhi thora wait karo
+        await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+
+  isProcessingQueue = false;
 }
 
-function stopTyping(interval) {
-  if (interval) clearInterval(interval);
-}
-
-// =====================================================================
-// 🛡️ API PATCHER (The Manager)
-// =====================================================================
+// 5. 🛡️ API INTERCEPTOR (Patch)
 function patchApi(api) {
   const origSendMessage = api.sendMessage;
 
-  api.sendMessage = async function (...args) {
-    const msg = args[0];
-    let threadID = args[1];
+  api.sendMessage = async function (msg, threadID, callback, replyTo) {
+    if (!threadID && typeof msg === 'string' && /^\d+$/.test(msg)) threadID = msg;
+    if (!threadID) return;
 
-    // ThreadID Safe Detection
-    if (!threadID && typeof args[0] === 'string' && /^\d+$/.test(args[0])) {
-        threadID = args[0];
-    }
-
-    // --- 🚫 CHECK 1: BANNED GROUP ---
-    if (threadID) {
-        const idStr = String(threadID);
-        // Agar memory mein ban hai, to RETURN (Kuch mat karo)
-        if (global.data && global.data.threadBanned && global.data.threadBanned.has(idStr)) {
-            return; 
-        }
-    }
-
-    // --- 🌙 CHECK 2: SLEEP MODE ---
+    // Strict Checks
+    if (global.data.threadBanned.has(String(threadID))) return;
     if (isSleepTime()) return;
 
-    // --- ⚡ CHECK 3: BURST PROTECTION ---
-    const lastSent = threadCooldowns.get(threadID) || 0;
-    if (threadID && Date.now() - lastSent < 2000) {
-        return; // Ignore machine gun spam
-    }
-
-    // ======================================================
-    // 🔥 STEP 4: INSTANT TYPING (Ye sabse pehle chalega)
-    // ======================================================
-    let typingInterval = null;
-    if (threadID) {
-        typingInterval = startTyping(api, threadID);
-    }
-
-    // ======================================================
-    // 🧠 STEP 5: AI DELAY CALCULATION
-    // ======================================================
-    const aiDelay = aiBasedDelay({
-      message: msg,
-      threadID: threadID,
-      lastThreadTime: lastSent
-    });
-
-    // ⏳ WAIT (Is doran Typing... chalta rahega)
-    await new Promise(r => setTimeout(r, aiDelay));
-
-    // Update Last Sent
-    if (threadID) threadCooldowns.set(threadID, Date.now());
-
-    // ======================================================
-    // 🚀 STEP 6: SEND MESSAGE
-    // ======================================================
-    let result;
-    try {
-      result = await origSendMessage.apply(api, args);
-    } catch (e) {
-      // Error handling
-    } finally {
-      // Message jane ke baad Typing Band
-      if (typingInterval) stopTyping(typingInterval);
-    }
-
-    return result;
+    // Push to Queue (Direct send nahi hoga)
+    messageQueue.push({ msg, threadID, callback, replyTo });
+    processQueue(api);
   };
 
   return api;
 }
 
 // ============================================================
-// ⚙️ SYSTEM CONFIGURATION
+// ⚙️ SYSTEM CONFIG & PATHS
 // ============================================================
 
 const logs = require('./Data/utility/logs');
 const listen = require('./Data/system/listen');
 const { loadCommands, loadEvents } = require('./Data/system/handle/handleRefresh');
-const UsersController = require('./Data/system/controllers/users');
-const ThreadsController = require('./Data/system/controllers/threads');
-const CurrenciesController = require('./Data/system/controllers/currencies');
 
 const configPath = path.join(__dirname, 'config.json');
 const appstatePath = path.join(__dirname, 'appstate.json');
-const islamicPath = path.join(__dirname, 'Data/config/islamic_messages.json');
 const commandsPath = path.join(__dirname, 'rdx/commands');
 const eventsPath = path.join(__dirname, 'rdx/events');
+const islamicPath = path.join(__dirname, 'Data/config/islamic_messages.json');
 
 let config = {};
-let islamicMessages = {};
 let api = null;
 let client = {
   commands: new Map(),
@@ -193,326 +122,159 @@ let client = {
 };
 
 // ============================================================
-// 🖼️ DATA ASSETS (Full List)
+// 🕌 ISLAMIC DATA & BROADCAST SYSTEM
 // ============================================================
 
 const quranPics = [
   'https://i.ibb.co/JRBFpq8t/6c776cdd6b6c.gif', 
-  'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif',
-  'https://i.ibb.co/8nr8qyQ4/6bc620dedb70.gif', 
-  'https://i.ibb.co/7dTJ6CDr/fb08a62a841c.jpg',
-  'https://i.ibb.co/6cPMkDjz/598fc7c4d477.jpg',
-  'https://i.ibb.co/Txn0TTps/7e729fcd56e1.jpg',
-  'https://i.ibb.co/5WQY7xCn/dd0f3964d6cf.jpg',
-  'https://i.ibb.co/X3h3F0r/quran-aesthetic.jpg'
-];
-
-const namazPics = [
-  'https://i.ibb.co/wZpyLkrY/dceaf4301489.jpg', 
-  'https://i.ibb.co/6xQbz5W/a6a8d577489d.jpg',
-  'https://i.ibb.co/DgKj8LNT/77b2f9b97b9e.jpg', 
-  'https://i.ibb.co/bg3PJH6v/f5056f9410d1.gif'
+  'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif'
 ];
 
 const quranAyats = [
   { arabic: "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ", urdu: "اللہ کے نام سے جو بڑا مہربان نہایت رحم والا ہے", surah: "Surah Al-Fatiha: 1" },
   { arabic: "إِنَّ مَعَ الْعُسْرِ يُسْرًا", urdu: "بے شک مشکل کے ساتھ آسانی ہے", surah: "Surah Ash-Sharh: 6" },
   { arabic: "وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ", urdu: "اور جو اللہ پر توکل کرے تو وہ اسے کافی ہے", surah: "Surah At-Talaq: 3" },
-  { arabic: "فَاذْكُرُونِي أَذْكُرْكُمْ", urdu: "پس تم مجھے یاد کرو میں تمہیں یاد کروں گا", surah: "Surah Al-Baqarah: 152" },
-  { arabic: "وَاصْبِرْ وَمَا صَبْرُكَ إِلَّا بِاللَّهِ", urdu: "اور صبر کرو اور تمہارا صبر اللہ ہی کی توفیق سے ہے", surah: "Surah An-Nahl: 127" },
-  { arabic: "إِنَّ اللَّهَ مَعَ الصَّابِرِينَ", urdu: "بے شک اللہ صبر کرنے والوں کے ساتھ ہے", surah: "Surah Al-Baqarah: 153" },
-  { arabic: "وَلَا تَيْأَسُوا مِن رَّوْحِ اللَّهِ", urdu: "اور اللہ کی رحمت سے مایوس نہ ہو", surah: "Surah Yusuf: 87" },
-  { arabic: "رَبِّ اشْرَحْ لِي صَدْرِي", urdu: "اے میرے رب میرے سینے کو کھول دے", surah: "Surah Ta-Ha: 25" },
-  { arabic: "حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ", urdu: "اللہ ہمیں کافی ہے اور وہ بہترین کارساز ہے", surah: "Surah Al-Imran: 173" },
-  { arabic: "وَقُل رَّبِّ زِدْنِي عِلْمًا", urdu: "اور کہو کہ اے میرے رب میرے علم میں اضافہ فرما", surah: "Surah Ta-Ha: 114" },
-  { arabic: "إِنَّ اللَّهَ لَا يُضِيعُ أَجْرَ الْمُحْسِنِينَ", urdu: "بے شک اللہ نیکی کرنے والوں کا اجر ضائع نہیں کرتا", surah: "Surah Yusuf: 90" },
-  { arabic: "وَتُوبُوا إِلَى اللَّهِ جَمِيعًا أَيُّهَ الْمُؤْمِنُونَ", urdu: "اور اے مومنو تم سب اللہ کے حضور توبہ کرو", surah: "Surah An-Nur: 31" }
+  { arabic: "فَاذْكُرُونِي أَذْكُرْكُمْ", urdu: "پس تم مجھے یاد کرو میں تمہیں یاد کروں گا", surah: "Surah Al-Baqarah: 152" }
 ];
-
-// ============================================================
-// 🛠️ LOADING FUNCTIONS
-// ============================================================
-
-function loadConfig() {
-  try {
-    config = fs.readJsonSync(configPath);
-    global.config = config;
-  } catch (error) {
-    logs.error('CONFIG', 'Failed to load config. Using default.');
-    config = {
-      BOTNAME: 'SARDAR RDX',
-      PREFIX: '.',
-      ADMINBOT: ['100009012838085'],
-      TIMEZONE: 'Asia/Karachi',
-      PREFIX_ENABLED: true,
-      REACT_DELETE_EMOJI: '😡',
-      ADMIN_ONLY_MODE: false,
-      AUTO_ISLAMIC_POST: true,
-      AUTO_GROUP_MESSAGE: true
-    };
-    global.config = config;
-  }
-}
-
-function loadIslamicMessages() {
-  try {
-    islamicMessages = fs.readJsonSync(islamicPath);
-  } catch (error) {
-    logs.error('ISLAMIC', 'Failed to load islamic messages:', error.message);
-    islamicMessages = { posts: [], groupMessages: [] };
-  }
-}
-
-function saveConfig() {
-  try {
-    fs.writeJsonSync(configPath, config, { spaces: 2 });
-    global.config = config;
-  } catch (error) {
-    logs.error('CONFIG', 'Failed to save config:', error.message);
-  }
-}
 
 async function downloadImage(url, filePath) {
   try {
-    const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
+    const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
     fs.writeFileSync(filePath, Buffer.from(response.data));
     return true;
-  } catch (e) {
-    // Silent fail for download
-    return false;
-  }
+  } catch (e) { return false; }
 }
 
-// ============================================================
-// 📡 FIXED BROADCAST FUNCTIONS (No 'Approved' Check)
-// ============================================================
-
-async function sendQuranAyat() {
-  if (!api || !config.AUTO_ISLAMIC_POST) return;
-  
-  try {
-    const threads = require('./Data/system/database/models/threads').getAll();
-    
-    // 🔥 FILTER: Approved check removed. Only Banned check remains.
-    const validThreads = threads.filter(t => t.banned !== 1 && t.banned !== true);
-    
-    if (validThreads.length === 0) return;
-    
-    logs.info('BROADCAST', `Starting Quran Post to ${validThreads.length} groups...`);
-
-    const randomAyat = quranAyats[Math.floor(Math.random() * quranAyats.length)];
-    const randomPic = quranPics[Math.floor(Math.random() * quranPics.length)];
-    const time = moment().tz('Asia/Karachi').format('hh:mm A');
-    
-    const message = `📖 𝐐𝐔𝐑𝐀𝐍 𝐀𝐘𝐀𝐓\n\n${randomAyat.arabic}\n\n𝐔𝐫𝐝𝐮 𝐓𝐫𝐚𝐧𝐬𝐥𝐚𝐭𝐢𝐨𝐧:\n${randomAyat.urdu}\n\n📍 ${randomAyat.surah}\n\n🕌 ${config.BOTNAME} | ${time} PKT`;
-    
-    const cacheDir = path.join(__dirname, 'rdx/commands/cache');
-    fs.ensureDirSync(cacheDir);
-    const imgPath = path.join(cacheDir, `quran_${Date.now()}.jpg`);
-    
-    const downloaded = await downloadImage(randomPic, imgPath);
-    
-    for (const thread of validThreads) {
-      // Memory check for banned groups
-      if (global.data.threadBanned.has(String(thread.threadID))) continue;
-
-      try {
-        if (downloaded && fs.existsSync(imgPath)) {
-          await api.sendMessage({ body: message, attachment: fs.createReadStream(imgPath) }, thread.threadID);
-        } else {
-          await api.sendMessage(message, thread.threadID);
-        }
-        
-        // 20 Seconds Gap for Broadcasting (Safe)
-        await new Promise(r => setTimeout(r, 20000));
-        
-      } catch (e) {}
-    }
-    
-    try { fs.unlinkSync(imgPath); } catch {}
-    logs.success('QURAN_POST', `Broadcast Finished.`);
-  } catch (error) {
-    logs.error('QURAN_POST', error.message);
-  }
-}
-
-async function sendNamazAlert(namazName) {
+async function sendIslamicBroadcast(type) {
   if (!api) return;
-  
   try {
-    const threads = require('./Data/system/database/models/threads').getAll();
-    // 🔥 FILTER: Only check banned status
-    const validThreads = threads.filter(t => t.banned !== 1 && t.banned !== true);
+    const all = await global.Threads.getAll();
+    // Banned groups ko nikal do
+    const targets = all.filter(t => t.data && t.data.banned !== 1);
     
-    if (validThreads.length === 0) return;
-    
-    const randomPic = namazPics[Math.floor(Math.random() * namazPics.length)];
+    if (targets.length === 0) return;
+
+    logs.info("BROADCAST", `Queueing ${type} for ${targets.length} groups...`);
+
+    const ayat = quranAyats[Math.floor(Math.random() * quranAyats.length)];
     const time = moment().tz('Asia/Karachi').format('hh:mm A');
-    
-    const message = `🕌 𝐍𝐀𝐌𝐀𝐙 𝐀𝐋𝐄𝐑𝐓\n\n⏰ ${namazName.toUpperCase()} کا وقت ہو گیا!\n\n"إِنَّ الصَّلَاةَ كَانَتْ عَلَى الْمُؤْمِنِينَ كِتَابًا مَّوْقُوتًا"\n\n📍 نماز پڑھیں - جنت کی چابی\n\n🕌 ${config.BOTNAME} | ${time} PKT`;
-    
-    const cacheDir = path.join(__dirname, 'rdx/commands/cache');
-    fs.ensureDirSync(cacheDir);
-    const imgPath = path.join(cacheDir, `namaz_${Date.now()}.jpg`);
-    
-    const downloaded = await downloadImage(randomPic, imgPath);
-    
-    for (const thread of validThreads) {
-      if (global.data.threadBanned.has(String(thread.threadID))) continue;
+    let title = type === 'namaz' ? '🕌 𝐍𝐀𝐌𝐀𝐙 𝐀𝐋𝐄𝐑𝐓' : '📖 𝐐𝐔𝐑𝐀𝐍 𝐀𝐘𝐀𝐓';
+    let msg = `${title}\n\n${ayat.arabic}\n\nUrdu: ${ayat.urdu}\n\n📍 ${config.BOTNAME} | ${time}`;
 
-      try {
-        if (downloaded && fs.existsSync(imgPath)) {
-          await api.sendMessage({ body: message, attachment: fs.createReadStream(imgPath) }, thread.threadID);
-        } else {
-          await api.sendMessage(message, thread.threadID);
-        }
-        
-        await new Promise(r => setTimeout(r, 20000));
-
-      } catch (e) {}
+    // Sabko Queue mein daal do
+    for (const t of targets) {
+      if (global.data.threadBanned.has(String(t.threadID))) continue;
+      messageQueue.push({ msg, threadID: t.threadID });
     }
-    
-    try { fs.unlinkSync(imgPath); } catch {}
-    logs.success('NAMAZ_ALERT', `Finished ${namazName} alert.`);
-  } catch (error) {
-    logs.error('NAMAZ_ALERT', error.message);
-  }
+    processQueue(api);
+
+  } catch (e) { logs.error("BROADCAST", e.message); }
 }
 
 function setupSchedulers() {
-  cron.schedule('0 9,21 * * *', () => {
-    logs.info('SCHEDULER', 'Twice Daily Quran Ayat triggered');
-    sendQuranAyat();
-  }, { timezone: 'Asia/Karachi' });
+  // Quran: 9 AM & 9 PM
+  cron.schedule('0 9,21 * * *', () => sendIslamicBroadcast('quran'), { timezone: 'Asia/Karachi' });
   
   // Namaz: Fixed Timings
-  cron.schedule('43 5 * * *', () => sendNamazAlert('Fajr'), { timezone: 'Asia/Karachi' });
-  cron.schedule('23 12 * * *', () => sendNamazAlert('Dhuhr'), { timezone: 'Asia/Karachi' });
-  cron.schedule('7 16 * * *', () => sendNamazAlert('Asr'), { timezone: 'Asia/Karachi' });
-  cron.schedule('43 17 * * *', () => sendNamazAlert('Maghrib'), { timezone: 'Asia/Karachi' });
-  cron.schedule('4 19 * * *', () => sendNamazAlert('Isha'), { timezone: 'Asia/Karachi' });
+  const namazTimes = ['43 5', '23 12', '7 16', '43 17', '4 19']; 
+  namazTimes.forEach(t => {
+      cron.schedule(`${t} * * *`, () => sendIslamicBroadcast('namaz'), { timezone: 'Asia/Karachi' });
+  });
 }
 
 // ============================================================
-// 🚀 MAIN START FUNCTION (SYNC LOGIC INCLUDED)
+// 🚀 MAIN START FUNCTION
 // ============================================================
 
 async function startBot() {
   logs.banner();
-  loadConfig();
-  loadIslamicMessages();
   
+  try { config = fs.readJsonSync(configPath); global.config = config; } catch (e) {
+    config = { BOTNAME: "SARDAR RDX", PREFIX: ".", ADMINBOT: ["100009012838085"] };
+    global.config = config;
+  }
+
   let appstate;
-  try {
-    appstate = fs.readJsonSync(appstatePath);
-  } catch (error) {
-    logs.error('APPSTATE', 'Failed to load appstate.json. Please upload a valid appstate.');
-    return;
-  }
-  
-  logs.info('BOT', 'Initializing AI Human Protocol...');
-  
-  const loginOptions = {
-    listenEvents: true,
-    selfListen: false,
-    autoMarkRead: true,
-    autoMarkDelivery: false,
-    forceLogin: true,
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-  };
+  try { appstate = fs.readJsonSync(appstatePath); } catch (e) { return logs.error('APPSTATE', 'Not Found!'); }
 
-  ws3fca.login(appstate, loginOptions, async (err, loginApi) => {
-    if (err) {
-      logs.error('LOGIN', `Login Failed: ${err.error || err}`);
-      return;
-    }
-    
+  ws3fca.login(appstate, { listenEvents: true, selfListen: false, autoMarkRead: true, forceLogin: true }, async (err, loginApi) => {
+    if (err) return logs.error('LOGIN', 'Failed!');
+
     api = loginApi;
-    
-    // ✅ Initialize Global Memory
-    global.data = {
-      threadBanned: new Map(),
-      userBanned: new Map(),
-      allThreadID: [],
-      allUserID: [],
-      online: []
-    };
-
-    // 🔹 Initialize Controllers
-global.Users = new (require('./Data/system/controllers/users'))(api);
-global.Currencies = new (require('./Data/system/controllers/currencies'))(api);
-global.client = client;
-
-// 🔹 Threads Controller Initialization + Async Load
-const ThreadsController = require('./Data/system/controllers/threads');
-
-async function initThreads() {
-  if (!api) throw new Error("API not initialized yet.");
-
-  global.Threads = new ThreadsController(api);
-
-  // 🔹 Load all threads and sync banned
-  try {
-    const allThreads = await global.Threads.getAll();
-    let bannedCount = 0;
-
-    allThreads.forEach(thread => {
-      const tID = String(thread.threadID || thread.id);
-      if (thread.data && (thread.data.banned === 1 || thread.data.banned === true)) {
-        global.data.threadBanned.set(tID, 1);
-        bannedCount++;
-      }
-    });
-
-    console.log(`[SYSTEM] Threads Loaded: ${allThreads.length}, Banned: ${bannedCount}`);
-  } catch (err) {
-    console.error("[SYSTEM] Failed to fetch threads:", err);
-  }
-}
-
-// 🔹 Call Async Threads Init
-await initThreads();
-
-    // ✅ APPLY THE AI PATCH
+    // 1. APPLY QUEUE PATCH (Zaroori)
     global.api = patchApi(api);
-    global.startTime = Date.now();
     
-    logs.success('LOGIN', 'Logged In! AI Delay + Instant Typing Active.');
+    global.data = { threadBanned: new Map(), userBanned: new Map(), allThreadID: [], allUserID: [], online: [] };
+
+    // 2. INIT CONTROLLERS
+    const UsersController = require('./Data/system/controllers/users');
+    const ThreadsController = require('./Data/system/controllers/threads');
+    const CurrenciesController = require('./Data/system/controllers/currencies');
     
+    global.Users = new UsersController(api);
+    global.Threads = new ThreadsController(api);
+    global.Currencies = new CurrenciesController(api);
+    global.client = client;
+
+    // 3. 🔥 DATABASE SYNC (Thread Ban Fix)
+    logs.info("SYSTEM", "Loading Database & Bans...");
+    try {
+        const threadsFromDB = await global.Threads.getAll();
+        threadsFromDB.forEach(t => { 
+            const tID = String(t.threadID);
+            // Sync Banned
+            if (t.data && (t.data.banned == 1 || t.data.banned === true)) {
+                global.data.threadBanned.set(tID, 1);
+            }
+            // Sync All IDs
+            if (tID) global.data.allThreadID.push(tID);
+        });
+        logs.success("SYSTEM", `Sync Complete. ${global.data.threadBanned.size} Groups Banned.`);
+    } catch (e) {
+        logs.error("DB", "Database Error: " + e.message);
+    }
+
     await loadCommands(client, commandsPath);
     await loadEvents(client, eventsPath);
-    
     setupSchedulers();
     
-    const listener = listen({
-      api,
-      client,
-      Users: global.Users,
-      Threads: global.Threads,
-      Currencies: global.Currencies,
-      config
+    const listener = listen({ api, client, Users: global.Users, Threads: global.Threads, Currencies: global.Currencies, config });
+    
+    // 4. EVENT LISTENER (Pending & Ban Logic)
+    api.listenMqtt(async (err, event) => {
+        if (err) return;
+
+        // 🛡️ STRICT BAN CHECK (Incoming message ko yahin rok do)
+        if (event.threadID && global.data.threadBanned.has(String(event.threadID))) {
+            return; 
+        }
+        
+        // ⚡ AUTO-REGISTER (Pending Command Fix)
+        // Agar naya group hai to DB mein daalo
+        if (event.threadID && !global.data.allThreadID.includes(String(event.threadID))) {
+            try {
+                const check = await global.Threads.getData(event.threadID);
+                if (!check) {
+                    await global.Threads.setData(event.threadID, { threadID: event.threadID, approved: 0, banned: 0 });
+                    global.data.allThreadID.push(String(event.threadID));
+                    logs.info("SYSTEM", `New Group Registered: ${event.threadID}`);
+                    
+                    // Optional: Send Welcome
+                    // api.sendMessage(`✅ Bot Connected.\nWait for Admin Approval.\nID: ${event.threadID}`, event.threadID);
+                }
+            } catch(e) {
+                console.log("Auto-Reg Error: " + e.message);
+            }
+        }
+        
+        listener(err, event);
     });
-    
-    api.listenMqtt(listener);
-    
-    logs.success('BOT', `${config.BOTNAME} is Online & Protected.`);
-    
-    const adminID = config.ADMINBOT[0];
-    if (adminID) {
-      try {
-        await api.sendMessage(
-            `${config.BOTNAME} Online!\n` + 
-            `🧠 Logic: AI Based Human\n` +
-            `⚡ Typing: Instant Trigger\n` + 
-            `🚫 Bans: Synced`, 
-            adminID
-        );
-      } catch (e) {}
-    }
+
+    logs.success('BOT', 'Ahmad Ali System Online | Queue Mode: ACTIVE');
   });
 }
 
-// Global Error Handlers
+// Global Error Handlers (Taake bot crash na ho)
 process.on('unhandledRejection', (reason, promise) => {
   logs.warn('UNHANDLED', 'Unhandled Promise Rejection (Ignored)');
 });

@@ -7,13 +7,13 @@ const axios = require('axios');
 const logs = require('./Data/utility/logs');
 
 // =====================================================================
-// 🛡️ SARDAR RDX: QUEUE SYSTEM FIXED (NO LOOP v22.0)
+// 🛡️ SARDAR RDX: IRON CLAD QUEUE SYSTEM (FINAL v30.0)
 // =====================================================================
 
 // 1. GLOBAL VARIABLES
 const messageQueue = [];
 let isProcessingQueue = false;
-let facebookRealSend = null; // 🔥 YE HAI ASLI SOLUTION (Real Function Store Karega)
+let facebookRealSend = null; // Asli Function Yahan Store Hoga
 
 // 2. SLEEP MODE (Raat 2 se Subah 7 tak OFF)
 function isSleepTime() {
@@ -21,9 +21,9 @@ function isSleepTime() {
   return (hour >= 2 && hour < 7);
 }
 
-// 3. 🧠 SMART DELAY CALCULATOR
+// 3. 🧠 SAFETY DELAY CALCULATOR
 function getSafeDelay(text) {
-  let delay = 5000; // 5 Seconds Minimum
+  let delay = 6000; // Base 6 Seconds (Super Safe)
 
   if (!text) return delay;
   const len = text.length;
@@ -33,74 +33,108 @@ function getSafeDelay(text) {
   else if (len < 100) delay += 5000;
   else delay += 8000;
 
-  if (/fast|jaldi|spam/i.test(text)) delay += 4000;
-  delay += Math.floor(Math.random() * 2000);
+  if (/fast|jaldi|spam|ban/i.test(text)) delay += 5000;
   
-  return Math.min(delay, 20000);
+  // Random Jitter (1-3 sec)
+  delay += Math.floor(Math.random() * 3000);
+  
+  return Math.min(delay, 25000); // Max 25s
 }
 
-// 4. 🔥 QUEUE PROCESSOR (FIXED: Uses facebookRealSend)
+// 4. 🔥 THE QUEUE ENGINE (PROMISE BASED)
 async function processQueue(api) {
   if (isProcessingQueue || messageQueue.length === 0) return;
   isProcessingQueue = true;
 
   while (messageQueue.length > 0) {
-    const task = messageQueue.shift();
+    const task = messageQueue.shift(); // Get first task
     
     // BAN CHECK
-    if (global.data.threadBanned.has(String(task.threadID))) continue;
+    if (global.data.threadBanned.has(String(task.threadID))) {
+        if (task.resolve) task.resolve(null); // Resolve empty to prevent stuck code
+        continue; 
+    }
 
     try {
-        // A. Typing Indicator
+        // A. Visual Indicator
         api.sendTypingIndicator(task.threadID, () => {});
 
-        // B. Delay Logic
+        // B. Safety Delay
         const msgBody = typeof task.msg === 'string' ? task.msg : (task.msg.body || "");
         const waitTime = getSafeDelay(msgBody);
         
-        // C. WAIT
-        await new Promise(resolve => setTimeout(resolve, waitTime));
+        // C. HARD STOP (Wait here)
+        await new Promise(r => setTimeout(r, waitTime));
 
-        // D. SEND (Using REAL Function, Not the Patched one)
-        // 🛑 Yahan pichli baar ghalti thi, ab fix hai:
+        // D. SEND USING REAL FUNCTION
         if (facebookRealSend) {
-            await facebookRealSend.call(api, task.msg, task.threadID, task.callback, task.replyTo);
-        } else {
-            console.log("CRITICAL: Real Send Function Missing!");
+            // Hum asli function ko call kar rahe hain aur uska result wait kar rahe hain
+            const info = await new Promise((resolveInner, rejectInner) => {
+                facebookRealSend.call(api, task.msg, task.threadID, (err, result) => {
+                    // Call original callback if exists
+                    if (task.callback) task.callback(err, result);
+                    
+                    if (err) rejectInner(err);
+                    else resolveInner(result);
+                }, task.replyTo);
+            });
+
+            // E. Release the Command Handler (Fixes .pending/.help issue)
+            if (task.resolve) task.resolve(info);
         }
         
     } catch (e) {
         console.log(`Queue Error: ${e.message}`);
-        await new Promise(r => setTimeout(r, 2000));
+        if (task.reject) task.reject(e); // Notify command handler of error
+        await new Promise(r => setTimeout(r, 2000)); // Error cooldown
     }
   }
 
   isProcessingQueue = false;
 }
 
-// 5. 🛡️ API PATCHER (Stores Real Function First)
+// 5. 🛡️ API PATCHER (Intercepts & Returns Promise)
 function patchApi(api) {
-  // Save the ORIGINAL function before overwriting
+  // Save Original Function
   facebookRealSend = api.sendMessage; 
 
-  // Overwrite
-  api.sendMessage = async function (msg, threadID, callback, replyTo) {
-    if (!threadID && typeof msg === 'string' && /^\d+$/.test(msg)) threadID = msg;
-    if (!threadID) return;
+  // Overwrite with Queue Logic
+  api.sendMessage = function (msg, threadID, callback, replyTo) {
+    // Return a Promise so commands like .pending can "await" it
+    return new Promise((resolve, reject) => {
+        // Validation
+        if (!threadID && typeof msg === 'string' && /^\d+$/.test(msg)) threadID = msg;
+        
+        if (!threadID) {
+            const err = "No Thread ID";
+            if(callback) callback(err, null);
+            return reject(err);
+        }
 
-    if (global.data.threadBanned.has(String(threadID))) return;
-    if (isSleepTime()) return;
+        // Immediate Rejection checks
+        if (global.data.threadBanned.has(String(threadID))) return resolve(null);
+        if (isSleepTime()) return resolve(null);
 
-    // Push to Queue
-    messageQueue.push({ msg, threadID, callback, replyTo });
-    processQueue(api);
+        // Push to Queue with Resolvers
+        messageQueue.push({ 
+            msg, 
+            threadID, 
+            callback, 
+            replyTo, 
+            resolve, 
+            reject 
+        });
+        
+        // Start Engine
+        processQueue(api);
+    });
   };
 
   return api;
 }
 
 // ============================================================
-// ⚙️ SYSTEM CONFIG & PATHS
+// ⚙️ CONFIGURATION & PATHS
 // ============================================================
 
 const listen = require('./Data/system/listen');
@@ -121,16 +155,13 @@ let client = {
   cooldowns: new Map()
 };
 
-// ============================================================
-// 🛠️ CONFIG HELPERS
-// ============================================================
-
+// 🛠️ CONFIG FUNCTIONS (Fixed)
 function loadConfig() {
   try {
     config = fs.readJsonSync(configPath);
     global.config = config;
   } catch (error) {
-    logs.error('CONFIG', 'Using Default Config');
+    logs.error('CONFIG', 'Using Defaults');
     config = {
       BOTNAME: 'SARDAR RDX',
       PREFIX: '.',
@@ -155,11 +186,10 @@ function loadIslamicMessages() {
 }
 
 // ============================================================
-// 🕌 ISLAMIC SYSTEM
+// 🕌 ISLAMIC SYSTEM (Queue Integrated)
 // ============================================================
 
 const quranPics = ['https://i.ibb.co/JRBFpq8t/6c776cdd6b6c.gif', 'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif'];
-
 const quranAyats = [
   { arabic: "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ", urdu: "اللہ کے نام سے جو بڑا مہربان نہایت رحم والا ہے", surah: "Surah Al-Fatiha: 1" },
   { arabic: "إِنَّ مَعَ الْعُسْرِ يُسْرًا", urdu: "بے شک مشکل کے ساتھ آسانی ہے", surah: "Surah Ash-Sharh: 6" },
@@ -181,6 +211,7 @@ async function sendIslamicBroadcast(type) {
     let title = type === 'namaz' ? '🕌 𝐍𝐀𝐌𝐀𝐙 𝐀𝐋𝐄𝐑𝐓' : '📖 𝐐𝐔𝐑𝐀𝐍 𝐀𝐘𝐀𝐓';
     let msg = `${title}\n\n${ayat.arabic}\n\nUrdu: ${ayat.urdu}\n\n📍 ${config.BOTNAME} | ${time}`;
 
+    // Broadcast tasks mein hum 'resolve' ka wait nahi karte taake loop chalta rahe
     for (const t of targets) {
       if (global.data.threadBanned.has(String(t.threadID))) continue;
       messageQueue.push({ msg, threadID: t.threadID });
@@ -204,6 +235,8 @@ function setupSchedulers() {
 
 async function startBot() {
   logs.banner();
+  
+  // 1. CONFIG LOAD
   loadConfig();
   loadIslamicMessages();
 
@@ -214,12 +247,12 @@ async function startBot() {
     if (err) return logs.error('LOGIN', 'Failed!');
 
     api = loginApi;
-    // 1. APPLY PATCH (Real Function Saved Here)
+    // 2. APPLY THE FINAL PATCH
     global.api = patchApi(api);
     
     global.data = { threadBanned: new Map(), userBanned: new Map(), allThreadID: [], allUserID: [], online: [] };
 
-    // 2. INIT CONTROLLERS
+    // 3. CONTROLLERS
     const UsersController = require('./Data/system/controllers/users');
     const ThreadsController = require('./Data/system/controllers/threads');
     const CurrenciesController = require('./Data/system/controllers/currencies');
@@ -229,7 +262,7 @@ async function startBot() {
     global.Currencies = new CurrenciesController(api);
     global.client = client;
 
-    // 3. DB SYNC
+    // 4. DB SYNC (Restoring Bans)
     logs.info("SYSTEM", "Loading Database...");
     try {
         const threadsFromDB = await global.Threads.getAll();
@@ -247,38 +280,44 @@ async function startBot() {
     
     const listener = listen({ api, client, Users: global.Users, Threads: global.Threads, Currencies: global.Currencies, config });
     
+    // 5. LISTENER WITH AUTO-REGISTER
     api.listenMqtt(async (err, event) => {
         if (err) return;
+        
+        // Strict Ban Check
         if (event.threadID && global.data.threadBanned.has(String(event.threadID))) return;
         
-        // AUTO-REGISTER
+        // Auto-Register for .pending command
         if (event.threadID && !global.data.allThreadID.includes(String(event.threadID))) {
             try {
                 const check = await global.Threads.getData(event.threadID);
                 if (!check) {
                     await global.Threads.setData(event.threadID, { threadID: event.threadID, approved: 0, banned: 0 });
                     global.data.allThreadID.push(String(event.threadID));
-                    logs.info("SYSTEM", `New Group: ${event.threadID}`);
+                    logs.info("SYSTEM", `New Group Registered: ${event.threadID}`);
                 }
             } catch(e) {}
         }
+        
         listener(err, event);
     });
 
-    logs.success('BOT', 'Ahmad Ali System Online | Queue Mode: ACTIVE & FIXED');
+    logs.success('BOT', 'Ahmad Ali System Online | Queue Mode: ACTIVE | 100% SAFE');
     
-    if (config.ADMINBOT[0]) {
+    // Admin Notification via Real Send
+    if (config.ADMINBOT[0] && facebookRealSend) {
         try {
-            // Use Real Send for startup msg
-            if(facebookRealSend) facebookRealSend.call(api, "✅ System Online.\nLoop Fixed.\nQueue Active.", config.ADMINBOT[0]);
+            facebookRealSend.call(api, "✅ System Online.\n🛡️ Queue: Active\n⚡ Commands: Fixed", config.ADMINBOT[0]);
         } catch(e){}
     }
   });
 }
 
+// HANDLERS
 process.on('unhandledRejection', (reason, promise) => logs.warn('UNHANDLED', 'Ignored'));
 process.on('uncaughtException', (error) => logs.error('EXCEPTION', error.message));
 
 module.exports = { startBot };
 
 if (require.main === module) { startBot(); }
+                                                                                  

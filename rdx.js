@@ -7,7 +7,7 @@ const axios = require('axios');
 const logs = require('./Data/utility/logs');
 
 // =====================================================================
-// 🛡️ SARDAR RDX: IRON CLAD QUEUE SYSTEM (FINAL v30.0)
+// 🛡️ SARDAR RDX: IRON CLAD QUEUE SYSTEM (FINAL v40.0 - ARG FIX)
 // =====================================================================
 
 // 1. GLOBAL VARIABLES
@@ -41,7 +41,7 @@ function getSafeDelay(text) {
   return Math.min(delay, 25000); // Max 25s
 }
 
-// 4. 🔥 THE QUEUE ENGINE (PROMISE BASED)
+// 4. 🔥 THE QUEUE ENGINE (ARGUMENT SAFE)
 async function processQueue(api) {
   if (isProcessingQueue || messageQueue.length === 0) return;
   isProcessingQueue = true;
@@ -51,7 +51,7 @@ async function processQueue(api) {
     
     // BAN CHECK
     if (global.data.threadBanned.has(String(task.threadID))) {
-        if (task.resolve) task.resolve(null); // Resolve empty to prevent stuck code
+        if (task.resolve) task.resolve(null);
         continue; 
     }
 
@@ -68,32 +68,35 @@ async function processQueue(api) {
 
         // D. SEND USING REAL FUNCTION
         if (facebookRealSend) {
-            // Hum asli function ko call kar rahe hain aur uska result wait kar rahe hain
             const info = await new Promise((resolveInner, rejectInner) => {
+                // Call Real API
                 facebookRealSend.call(api, task.msg, task.threadID, (err, result) => {
-                    // Call original callback if exists
-                    if (task.callback) task.callback(err, result);
+                    
+                    // 🔥 FIX: Sirf tab call karo agar ye waqai Function ho
+                    if (task.callback && typeof task.callback === 'function') {
+                        task.callback(err, result);
+                    }
                     
                     if (err) rejectInner(err);
                     else resolveInner(result);
-                }, task.replyTo);
+                }, task.replyTo); // Pass ReplyID correctly
             });
 
-            // E. Release the Command Handler (Fixes .pending/.help issue)
+            // E. Release the Command Handler
             if (task.resolve) task.resolve(info);
         }
         
     } catch (e) {
         console.log(`Queue Error: ${e.message}`);
-        if (task.reject) task.reject(e); // Notify command handler of error
-        await new Promise(r => setTimeout(r, 2000)); // Error cooldown
+        if (task.reject) task.reject(e); 
+        await new Promise(r => setTimeout(r, 2000));
     }
   }
 
   isProcessingQueue = false;
 }
 
-// 5. 🛡️ API PATCHER (Intercepts & Returns Promise)
+// 5. 🛡️ API PATCHER (ARGUMENT SHIFTING FIX)
 function patchApi(api) {
   // Save Original Function
   facebookRealSend = api.sendMessage; 
@@ -102,12 +105,21 @@ function patchApi(api) {
   api.sendMessage = function (msg, threadID, callback, replyTo) {
     // Return a Promise so commands like .pending can "await" it
     return new Promise((resolve, reject) => {
-        // Validation
+        
+        // 1. Validation & Arg Shifting (CRITICAL FIX)
         if (!threadID && typeof msg === 'string' && /^\d+$/.test(msg)) threadID = msg;
         
+        // Agar 3rd argument function nahi hai, to wo ReplyID hai (e.g. .help command)
+        if (callback && typeof callback !== 'function') {
+            if (!replyTo) {
+                replyTo = callback;
+                callback = null;
+            }
+        }
+
         if (!threadID) {
             const err = "No Thread ID";
-            if(callback) callback(err, null);
+            if(callback && typeof callback === 'function') callback(err, null);
             return reject(err);
         }
 
@@ -115,11 +127,11 @@ function patchApi(api) {
         if (global.data.threadBanned.has(String(threadID))) return resolve(null);
         if (isSleepTime()) return resolve(null);
 
-        // Push to Queue with Resolvers
+        // Push to Queue with Corrected Args
         messageQueue.push({ 
             msg, 
             threadID, 
-            callback, 
+            callback, // Ab ye ya to null hoga ya asli function
             replyTo, 
             resolve, 
             reject 
@@ -155,7 +167,7 @@ let client = {
   cooldowns: new Map()
 };
 
-// 🛠️ CONFIG FUNCTIONS (Fixed)
+// 🛠️ CONFIG FUNCTIONS
 function loadConfig() {
   try {
     config = fs.readJsonSync(configPath);
@@ -186,7 +198,7 @@ function loadIslamicMessages() {
 }
 
 // ============================================================
-// 🕌 ISLAMIC SYSTEM (Queue Integrated)
+// 🕌 ISLAMIC SYSTEM
 // ============================================================
 
 const quranPics = ['https://i.ibb.co/JRBFpq8t/6c776cdd6b6c.gif', 'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif'];
@@ -211,7 +223,6 @@ async function sendIslamicBroadcast(type) {
     let title = type === 'namaz' ? '🕌 𝐍𝐀𝐌𝐀𝐙 𝐀𝐋𝐄𝐑𝐓' : '📖 𝐐𝐔𝐑𝐀𝐍 𝐀𝐘𝐀𝐓';
     let msg = `${title}\n\n${ayat.arabic}\n\nUrdu: ${ayat.urdu}\n\n📍 ${config.BOTNAME} | ${time}`;
 
-    // Broadcast tasks mein hum 'resolve' ka wait nahi karte taake loop chalta rahe
     for (const t of targets) {
       if (global.data.threadBanned.has(String(t.threadID))) continue;
       messageQueue.push({ msg, threadID: t.threadID });
@@ -235,8 +246,6 @@ function setupSchedulers() {
 
 async function startBot() {
   logs.banner();
-  
-  // 1. CONFIG LOAD
   loadConfig();
   loadIslamicMessages();
 
@@ -247,12 +256,11 @@ async function startBot() {
     if (err) return logs.error('LOGIN', 'Failed!');
 
     api = loginApi;
-    // 2. APPLY THE FINAL PATCH
+    // 1. APPLY THE FINAL PATCH
     global.api = patchApi(api);
     
     global.data = { threadBanned: new Map(), userBanned: new Map(), allThreadID: [], allUserID: [], online: [] };
 
-    // 3. CONTROLLERS
     const UsersController = require('./Data/system/controllers/users');
     const ThreadsController = require('./Data/system/controllers/threads');
     const CurrenciesController = require('./Data/system/controllers/currencies');
@@ -262,7 +270,7 @@ async function startBot() {
     global.Currencies = new CurrenciesController(api);
     global.client = client;
 
-    // 4. DB SYNC (Restoring Bans)
+    // 2. DB SYNC
     logs.info("SYSTEM", "Loading Database...");
     try {
         const threadsFromDB = await global.Threads.getAll();
@@ -280,14 +288,12 @@ async function startBot() {
     
     const listener = listen({ api, client, Users: global.Users, Threads: global.Threads, Currencies: global.Currencies, config });
     
-    // 5. LISTENER WITH AUTO-REGISTER
+    // 3. EVENT LISTENER
     api.listenMqtt(async (err, event) => {
         if (err) return;
-        
-        // Strict Ban Check
         if (event.threadID && global.data.threadBanned.has(String(event.threadID))) return;
         
-        // Auto-Register for .pending command
+        // AUTO-REGISTER
         if (event.threadID && !global.data.allThreadID.includes(String(event.threadID))) {
             try {
                 const check = await global.Threads.getData(event.threadID);
@@ -298,16 +304,14 @@ async function startBot() {
                 }
             } catch(e) {}
         }
-        
         listener(err, event);
     });
 
-    logs.success('BOT', 'Ahmad Ali System Online | Queue Mode: ACTIVE | 100% SAFE');
+    logs.success('BOT', 'Ahmad Ali System Online | Queue Mode: ACTIVE | ARG FIX APPLIED');
     
-    // Admin Notification via Real Send
     if (config.ADMINBOT[0] && facebookRealSend) {
         try {
-            facebookRealSend.call(api, "✅ System Online.\n🛡️ Queue: Active\n⚡ Commands: Fixed", config.ADMINBOT[0]);
+            facebookRealSend.call(api, "✅ System Stable.\nHelp/Pending Bug Fixed.", config.ADMINBOT[0]);
         } catch(e){}
     }
   });
@@ -320,4 +324,4 @@ process.on('uncaughtException', (error) => logs.error('EXCEPTION', error.message
 module.exports = { startBot };
 
 if (require.main === module) { startBot(); }
-                                                                                  
+            

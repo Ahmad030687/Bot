@@ -4,16 +4,16 @@ const path = require('path');
 const cron = require('node-cron');
 const moment = require('moment-timezone');
 const axios = require('axios');
-const logs = require('./Data/utility/logs'); // Logs ko upar le aya hoon taake error na aaye
+const logs = require('./Data/utility/logs');
 
 // =====================================================================
-// 🛡️ SARDAR RDX: ULTIMATE QUEUE SYSTEM (BAN PROOF v21.0)
+// 🛡️ SARDAR RDX: QUEUE SYSTEM FIXED (NO LOOP v22.0)
 // =====================================================================
 
 // 1. GLOBAL VARIABLES
 const messageQueue = [];
 let isProcessingQueue = false;
-const threadCooldowns = new Map();
+let facebookRealSend = null; // 🔥 YE HAI ASLI SOLUTION (Real Function Store Karega)
 
 // 2. SLEEP MODE (Raat 2 se Subah 7 tak OFF)
 function isSleepTime() {
@@ -23,7 +23,7 @@ function isSleepTime() {
 
 // 3. 🧠 SMART DELAY CALCULATOR
 function getSafeDelay(text) {
-  let delay = 5000; // Base Delay (Strict)
+  let delay = 5000; // 5 Seconds Minimum
 
   if (!text) return delay;
   const len = text.length;
@@ -33,16 +33,13 @@ function getSafeDelay(text) {
   else if (len < 100) delay += 5000;
   else delay += 8000;
 
-  // Anti-Spam Keywords
-  if (/fast|jaldi|spam|reply/i.test(text)) delay += 4000;
-
-  // Random Jitter
-  delay += Math.floor(Math.random() * 2500);
+  if (/fast|jaldi|spam/i.test(text)) delay += 4000;
+  delay += Math.floor(Math.random() * 2000);
   
-  return Math.min(delay, 20000); // Max 20s wait
+  return Math.min(delay, 20000);
 }
 
-// 4. 🔥 QUEUE PROCESSOR
+// 4. 🔥 QUEUE PROCESSOR (FIXED: Uses facebookRealSend)
 async function processQueue(api) {
   if (isProcessingQueue || messageQueue.length === 0) return;
   isProcessingQueue = true;
@@ -50,24 +47,27 @@ async function processQueue(api) {
   while (messageQueue.length > 0) {
     const task = messageQueue.shift();
     
-    // FINAL BAN CHECK
-    if (global.data.threadBanned.has(String(task.threadID))) {
-        continue; 
-    }
+    // BAN CHECK
+    if (global.data.threadBanned.has(String(task.threadID))) continue;
 
     try {
         // A. Typing Indicator
         api.sendTypingIndicator(task.threadID, () => {});
 
-        // B. Calculate Logic
+        // B. Delay Logic
         const msgBody = typeof task.msg === 'string' ? task.msg : (task.msg.body || "");
         const waitTime = getSafeDelay(msgBody);
         
-        // C. WAIT (Strict)
+        // C. WAIT
         await new Promise(resolve => setTimeout(resolve, waitTime));
 
-        // D. Send
-        await api.sendMessage(task.msg, task.threadID, task.callback, task.replyTo);
+        // D. SEND (Using REAL Function, Not the Patched one)
+        // 🛑 Yahan pichli baar ghalti thi, ab fix hai:
+        if (facebookRealSend) {
+            await facebookRealSend.call(api, task.msg, task.threadID, task.callback, task.replyTo);
+        } else {
+            console.log("CRITICAL: Real Send Function Missing!");
+        }
         
     } catch (e) {
         console.log(`Queue Error: ${e.message}`);
@@ -78,15 +78,16 @@ async function processQueue(api) {
   isProcessingQueue = false;
 }
 
-// 5. 🛡️ API INTERCEPTOR
+// 5. 🛡️ API PATCHER (Stores Real Function First)
 function patchApi(api) {
-  const origSendMessage = api.sendMessage;
+  // Save the ORIGINAL function before overwriting
+  facebookRealSend = api.sendMessage; 
 
+  // Overwrite
   api.sendMessage = async function (msg, threadID, callback, replyTo) {
     if (!threadID && typeof msg === 'string' && /^\d+$/.test(msg)) threadID = msg;
     if (!threadID) return;
 
-    // Strict Checks
     if (global.data.threadBanned.has(String(threadID))) return;
     if (isSleepTime()) return;
 
@@ -121,7 +122,7 @@ let client = {
 };
 
 // ============================================================
-// 🛠️ CONFIG FUNCTIONS (Ye Missing Thay - Ab Added Hain)
+// 🛠️ CONFIG HELPERS
 // ============================================================
 
 function loadConfig() {
@@ -129,7 +130,7 @@ function loadConfig() {
     config = fs.readJsonSync(configPath);
     global.config = config;
   } catch (error) {
-    logs.error('CONFIG', 'Failed to load config. Using default.');
+    logs.error('CONFIG', 'Using Default Config');
     config = {
       BOTNAME: 'SARDAR RDX',
       PREFIX: '.',
@@ -140,61 +141,35 @@ function loadConfig() {
       AUTO_ISLAMIC_POST: true
     };
     global.config = config;
-    // Save default if missing
     fs.writeJsonSync(configPath, config, { spaces: 2 });
   }
 }
 
-// 🔥 YE HAI WO FUNCTION JO MISSING THA
 function saveConfig() {
-  try {
-    fs.writeJsonSync(configPath, global.config, { spaces: 2 });
-  } catch (error) {
-    logs.error('CONFIG', 'Failed to save config: ' + error.message);
-  }
+  try { fs.writeJsonSync(configPath, global.config, { spaces: 2 }); } catch (e) {}
 }
 
 function loadIslamicMessages() {
-  try {
-    if (fs.existsSync(islamicPath)) {
-        return fs.readJsonSync(islamicPath);
-    }
-  } catch (error) {
-    logs.error('ISLAMIC', 'Failed to load islamic messages.');
-  }
-  return { posts: [], groupMessages: [] };
+  try { return fs.existsSync(islamicPath) ? fs.readJsonSync(islamicPath) : { posts: [] }; } 
+  catch (e) { return { posts: [] }; }
 }
 
 // ============================================================
-// 🕌 ISLAMIC DATA & BROADCAST SYSTEM
+// 🕌 ISLAMIC SYSTEM
 // ============================================================
 
-const quranPics = [
-  'https://i.ibb.co/JRBFpq8t/6c776cdd6b6c.gif', 
-  'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif',
-  'https://i.ibb.co/8nr8qyQ4/6bc620dedb70.gif'
-];
+const quranPics = ['https://i.ibb.co/JRBFpq8t/6c776cdd6b6c.gif', 'https://i.ibb.co/TDy4gPY3/3c32c5aa9c1d.gif'];
 
 const quranAyats = [
   { arabic: "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ", urdu: "اللہ کے نام سے جو بڑا مہربان نہایت رحم والا ہے", surah: "Surah Al-Fatiha: 1" },
   { arabic: "إِنَّ مَعَ الْعُسْرِ يُسْرًا", urdu: "بے شک مشکل کے ساتھ آسانی ہے", surah: "Surah Ash-Sharh: 6" },
-  { arabic: "وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ", urdu: "اور جو اللہ پر توکل کرے تو وہ اسے کافی ہے", surah: "Surah At-Talaq: 3" },
-  { arabic: "فَاذْكُرُونِي أَذْكُرْكُمْ", urdu: "پس تم مجھے یاد کرو میں تمہیں یاد کروں گا", surah: "Surah Al-Baqarah: 152" }
+  { arabic: "وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ", urdu: "اور جو اللہ پر توکل کرے تو وہ اسے کافی ہے", surah: "Surah At-Talaq: 3" }
 ];
 
-async function downloadImage(url, filePath) {
-  try {
-    const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
-    fs.writeFileSync(filePath, Buffer.from(response.data));
-    return true;
-  } catch (e) { return false; }
-}
-
 async function sendIslamicBroadcast(type) {
-  if (!api) return;
+  if (!api || !facebookRealSend) return;
   try {
     const all = await global.Threads.getAll();
-    // Banned groups ko nikal do
     const targets = all.filter(t => t.data && t.data.banned !== 1);
     
     if (targets.length === 0) return;
@@ -206,22 +181,17 @@ async function sendIslamicBroadcast(type) {
     let title = type === 'namaz' ? '🕌 𝐍𝐀𝐌𝐀𝐙 𝐀𝐋𝐄𝐑𝐓' : '📖 𝐐𝐔𝐑𝐀𝐍 𝐀𝐘𝐀𝐓';
     let msg = `${title}\n\n${ayat.arabic}\n\nUrdu: ${ayat.urdu}\n\n📍 ${config.BOTNAME} | ${time}`;
 
-    // Sabko Queue mein daal do
     for (const t of targets) {
       if (global.data.threadBanned.has(String(t.threadID))) continue;
       messageQueue.push({ msg, threadID: t.threadID });
     }
-    // Engine ko dhakka do
     processQueue(api);
 
   } catch (e) { logs.error("BROADCAST", e.message); }
 }
 
 function setupSchedulers() {
-  // Quran: 9 AM & 9 PM
   cron.schedule('0 9,21 * * *', () => sendIslamicBroadcast('quran'), { timezone: 'Asia/Karachi' });
-  
-  // Namaz: Fixed Timings
   const namazTimes = ['43 5', '23 12', '7 16', '43 17', '4 19']; 
   namazTimes.forEach(t => {
       cron.schedule(`${t} * * *`, () => sendIslamicBroadcast('namaz'), { timezone: 'Asia/Karachi' });
@@ -234,8 +204,6 @@ function setupSchedulers() {
 
 async function startBot() {
   logs.banner();
-  
-  // ✅ LOAD CONFIG FIRST
   loadConfig();
   loadIslamicMessages();
 
@@ -246,7 +214,7 @@ async function startBot() {
     if (err) return logs.error('LOGIN', 'Failed!');
 
     api = loginApi;
-    // 1. APPLY QUEUE PATCH (Ye sabse zaroori line hai)
+    // 1. APPLY PATCH (Real Function Saved Here)
     global.api = patchApi(api);
     
     global.data = { threadBanned: new Map(), userBanned: new Map(), allThreadID: [], allUserID: [], online: [] };
@@ -261,23 +229,17 @@ async function startBot() {
     global.Currencies = new CurrenciesController(api);
     global.client = client;
 
-    // 3. 🔥 DATABASE SYNC (Thread Ban Fix)
-    logs.info("SYSTEM", "Loading Database & Bans...");
+    // 3. DB SYNC
+    logs.info("SYSTEM", "Loading Database...");
     try {
         const threadsFromDB = await global.Threads.getAll();
         threadsFromDB.forEach(t => { 
             const tID = String(t.threadID);
-            // Sync Banned Status
-            if (t.data && (t.data.banned == 1 || t.data.banned === true)) {
-                global.data.threadBanned.set(tID, 1);
-            }
-            // Sync All IDs
+            if (t.data && (t.data.banned == 1 || t.data.banned === true)) global.data.threadBanned.set(tID, 1);
             if (tID) global.data.allThreadID.push(tID);
         });
-        logs.success("SYSTEM", `Sync Complete. ${global.data.threadBanned.size} Groups Banned.`);
-    } catch (e) {
-        logs.error("DB", "Database Error: " + e.message);
-    }
+        logs.success("SYSTEM", `Loaded. Banned: ${global.data.threadBanned.size}`);
+    } catch (e) { logs.error("DB", e.message); }
 
     await loadCommands(client, commandsPath);
     await loadEvents(client, eventsPath);
@@ -285,64 +247,38 @@ async function startBot() {
     
     const listener = listen({ api, client, Users: global.Users, Threads: global.Threads, Currencies: global.Currencies, config });
     
-    // 4. EVENT LISTENER (Pending & Ban Logic)
     api.listenMqtt(async (err, event) => {
         if (err) return;
-
-        // 🛡️ STRICT BAN CHECK (Incoming message ko yahin rok do)
-        // Agar group banned hai, to bot isay "Read" bhi nahi karega
-        if (event.threadID && global.data.threadBanned.has(String(event.threadID))) {
-            return; 
-        }
+        if (event.threadID && global.data.threadBanned.has(String(event.threadID))) return;
         
-        // ⚡ AUTO-REGISTER (Pending Command Fix)
+        // AUTO-REGISTER
         if (event.threadID && !global.data.allThreadID.includes(String(event.threadID))) {
             try {
                 const check = await global.Threads.getData(event.threadID);
                 if (!check) {
                     await global.Threads.setData(event.threadID, { threadID: event.threadID, approved: 0, banned: 0 });
                     global.data.allThreadID.push(String(event.threadID));
-                    logs.info("SYSTEM", `New Group Registered: ${event.threadID}`);
+                    logs.info("SYSTEM", `New Group: ${event.threadID}`);
                 }
-            } catch(e) {
-                console.log("Auto-Reg Error: " + e.message);
-            }
+            } catch(e) {}
         }
-        
         listener(err, event);
     });
 
-    logs.success('BOT', 'Ahmad Ali System Online | Queue Mode: ACTIVE');
+    logs.success('BOT', 'Ahmad Ali System Online | Queue Mode: ACTIVE & FIXED');
     
-    // Admin Notification
     if (config.ADMINBOT[0]) {
         try {
-            api.sendMessage("✅ Bot Restored.\n🛡️ Queue System: ON\n⚡ Anti-Ban: MAX", config.ADMINBOT[0]);
+            // Use Real Send for startup msg
+            if(facebookRealSend) facebookRealSend.call(api, "✅ System Online.\nLoop Fixed.\nQueue Active.", config.ADMINBOT[0]);
         } catch(e){}
     }
   });
 }
 
-// Global Error Handlers (Taake bot crash na ho)
-process.on('unhandledRejection', (reason, promise) => {
-  logs.warn('UNHANDLED', 'Unhandled Promise Rejection (Ignored)');
-});
+process.on('unhandledRejection', (reason, promise) => logs.warn('UNHANDLED', 'Ignored'));
+process.on('uncaughtException', (error) => logs.error('EXCEPTION', error.message));
 
-process.on('uncaughtException', (error) => {
-  logs.error('EXCEPTION', `Uncaught Exception: ${error.message}`);
-});
+module.exports = { startBot };
 
-module.exports = {
-  startBot,
-  getApi: () => api,
-  getClient: () => client,
-  getConfig: () => config,
-  saveConfig, // AB YE EXIST KARTA HAI
-  loadConfig,
-  reloadCommands: () => loadCommands(client, commandsPath),
-  reloadEvents: () => loadEvents(client, eventsPath)
-};
-
-if (require.main === module) {
-  startBot();
-      }
+if (require.main === module) { startBot(); }

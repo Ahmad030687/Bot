@@ -4,12 +4,13 @@ const path = require('path');
 const cron = require('node-cron');
 const moment = require('moment-timezone');
 const axios = require('axios');
+const logs = require('./Data/utility/logs'); // Logs ko upar le aya hoon taake error na aaye
 
 // =====================================================================
-// 🛡️ SARDAR RDX: ULTIMATE QUEUE SYSTEM (BAN PROOF v20.0)
+// 🛡️ SARDAR RDX: ULTIMATE QUEUE SYSTEM (BAN PROOF v21.0)
 // =====================================================================
 
-// 1. GLOBAL VARIABLES (Queue Engine)
+// 1. GLOBAL VARIABLES
 const messageQueue = [];
 let isProcessingQueue = false;
 const threadCooldowns = new Map();
@@ -20,7 +21,7 @@ function isSleepTime() {
   return (hour >= 2 && hour < 7);
 }
 
-// 3. 🧠 SMART DELAY CALCULATOR (Minimum 5 Seconds)
+// 3. 🧠 SMART DELAY CALCULATOR
 function getSafeDelay(text) {
   let delay = 5000; // Base Delay (Strict)
 
@@ -32,40 +33,37 @@ function getSafeDelay(text) {
   else if (len < 100) delay += 5000;
   else delay += 8000;
 
-  // Anti-Spam (Agar user jaldi macha raha ho)
+  // Anti-Spam Keywords
   if (/fast|jaldi|spam|reply/i.test(text)) delay += 4000;
 
-  // Random Jitter (Insani ehsas dilane ke liye)
+  // Random Jitter
   delay += Math.floor(Math.random() * 2500);
   
   return Math.min(delay, 20000); // Max 20s wait
 }
 
-// 4. 🔥 QUEUE PROCESSOR (Ye Engine Messages ko 1-by-1 bhejta hai)
+// 4. 🔥 QUEUE PROCESSOR
 async function processQueue(api) {
-  // Agar engine pehle se chal raha hai ya line khali hai, to kuch mat karo
   if (isProcessingQueue || messageQueue.length === 0) return;
-  
-  isProcessingQueue = true; // Engine Start
+  isProcessingQueue = true;
 
   while (messageQueue.length > 0) {
-    const task = messageQueue.shift(); // Pehla message uthao
+    const task = messageQueue.shift();
     
-    // FINAL BAN CHECK (Bhejne se pehle aakhri check)
+    // FINAL BAN CHECK
     if (global.data.threadBanned.has(String(task.threadID))) {
-        continue; // Banned hai to phenk do
+        continue; 
     }
 
     try {
-        // A. Typing Indicator (Visual Trust)
+        // A. Typing Indicator
         api.sendTypingIndicator(task.threadID, () => {});
 
         // B. Calculate Logic
         const msgBody = typeof task.msg === 'string' ? task.msg : (task.msg.body || "");
         const waitTime = getSafeDelay(msgBody);
         
-        // C. WAIT (Ye line ID ko Ban hone se bachati hai)
-        // Code yahan ruk jayega aur agla message process nahi karega jab tak time pura na ho
+        // C. WAIT (Strict)
         await new Promise(resolve => setTimeout(resolve, waitTime));
 
         // D. Send
@@ -73,16 +71,14 @@ async function processQueue(api) {
         
     } catch (e) {
         console.log(`Queue Error: ${e.message}`);
-        // Error ke baad bhi thora wait karo taake loop pagal na ho
         await new Promise(r => setTimeout(r, 2000));
     }
   }
 
-  isProcessingQueue = false; // Engine Stop
+  isProcessingQueue = false;
 }
 
-// 5. 🛡️ API INTERCEPTOR (Patch)
-// Ye function api.sendMessage ko hack karke Queue mein divert karta hai
+// 5. 🛡️ API INTERCEPTOR
 function patchApi(api) {
   const origSendMessage = api.sendMessage;
 
@@ -94,10 +90,8 @@ function patchApi(api) {
     if (global.data.threadBanned.has(String(threadID))) return;
     if (isSleepTime()) return;
 
-    // Push to Queue (Direct send nahi hoga)
+    // Push to Queue
     messageQueue.push({ msg, threadID, callback, replyTo });
-    
-    // Engine start karo
     processQueue(api);
   };
 
@@ -108,7 +102,6 @@ function patchApi(api) {
 // ⚙️ SYSTEM CONFIG & PATHS
 // ============================================================
 
-const logs = require('./Data/utility/logs');
 const listen = require('./Data/system/listen');
 const { loadCommands, loadEvents } = require('./Data/system/handle/handleRefresh');
 
@@ -126,6 +119,51 @@ let client = {
   replies: new Map(),
   cooldowns: new Map()
 };
+
+// ============================================================
+// 🛠️ CONFIG FUNCTIONS (Ye Missing Thay - Ab Added Hain)
+// ============================================================
+
+function loadConfig() {
+  try {
+    config = fs.readJsonSync(configPath);
+    global.config = config;
+  } catch (error) {
+    logs.error('CONFIG', 'Failed to load config. Using default.');
+    config = {
+      BOTNAME: 'SARDAR RDX',
+      PREFIX: '.',
+      ADMINBOT: ['100009012838085'],
+      TIMEZONE: 'Asia/Karachi',
+      PREFIX_ENABLED: true,
+      ADMIN_ONLY_MODE: false,
+      AUTO_ISLAMIC_POST: true
+    };
+    global.config = config;
+    // Save default if missing
+    fs.writeJsonSync(configPath, config, { spaces: 2 });
+  }
+}
+
+// 🔥 YE HAI WO FUNCTION JO MISSING THA
+function saveConfig() {
+  try {
+    fs.writeJsonSync(configPath, global.config, { spaces: 2 });
+  } catch (error) {
+    logs.error('CONFIG', 'Failed to save config: ' + error.message);
+  }
+}
+
+function loadIslamicMessages() {
+  try {
+    if (fs.existsSync(islamicPath)) {
+        return fs.readJsonSync(islamicPath);
+    }
+  } catch (error) {
+    logs.error('ISLAMIC', 'Failed to load islamic messages.');
+  }
+  return { posts: [], groupMessages: [] };
+}
 
 // ============================================================
 // 🕌 ISLAMIC DATA & BROADCAST SYSTEM
@@ -197,10 +235,9 @@ function setupSchedulers() {
 async function startBot() {
   logs.banner();
   
-  try { config = fs.readJsonSync(configPath); global.config = config; } catch (e) {
-    config = { BOTNAME: "SARDAR RDX", PREFIX: ".", ADMINBOT: ["100009012838085"] };
-    global.config = config;
-  }
+  // ✅ LOAD CONFIG FIRST
+  loadConfig();
+  loadIslamicMessages();
 
   let appstate;
   try { appstate = fs.readJsonSync(appstatePath); } catch (e) { return logs.error('APPSTATE', 'Not Found!'); }
@@ -225,7 +262,6 @@ async function startBot() {
     global.client = client;
 
     // 3. 🔥 DATABASE SYNC (Thread Ban Fix)
-    // Ye hissa bot start hote hi check karta hai ke kon banned hai
     logs.info("SYSTEM", "Loading Database & Bans...");
     try {
         const threadsFromDB = await global.Threads.getAll();
@@ -260,7 +296,6 @@ async function startBot() {
         }
         
         // ⚡ AUTO-REGISTER (Pending Command Fix)
-        // Agar naya group hai to DB mein daalo taake .pending mein show ho
         if (event.threadID && !global.data.allThreadID.includes(String(event.threadID))) {
             try {
                 const check = await global.Threads.getData(event.threadID);
@@ -302,7 +337,7 @@ module.exports = {
   getApi: () => api,
   getClient: () => client,
   getConfig: () => config,
-  saveConfig,
+  saveConfig, // AB YE EXIST KARTA HAI
   loadConfig,
   reloadCommands: () => loadCommands(client, commandsPath),
   reloadEvents: () => loadEvents(client, eventsPath)
@@ -310,4 +345,4 @@ module.exports = {
 
 if (require.main === module) {
   startBot();
-                      }
+      }

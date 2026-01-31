@@ -1,84 +1,64 @@
 module.exports.config = {
   name: "pending",
   version: "3.0",
-  hasPermssion: 2, // Sirf Admin Use Kare
-  credits: "Ahmad Ali Safdar",
-  description: "Approve new groups (Database Linked)",
+  hasPermssion: 2, // Only Admin
+  credits: "Ahmad Ali",
+  description: "Approve pending groups",
   commandCategory: "system",
   usages: "pending",
   cooldowns: 0
 };
 
-module.exports.run = async ({ api, event, send, Threads }) => {
+module.exports.run = async ({ api, event, Threads }) => {
     try {
-        const { threadID, senderID } = event;
-
-        // 1. Database se saare groups mangwao
+        const { threadID, messageID } = event;
+        
+        // Database se groups lo
         const allThreads = await Threads.getAll();
         
-        // 2. Filter karo: Jo Approved NAHI hain aur Banned bhi NAHI hain
-        const pendingList = allThreads.filter(t => {
-            // Data check (kabhi kabhi data null hota hai)
-            if (!t.data) return true; 
-            return t.data.approved !== 1 && t.data.banned !== 1;
-        });
+        // Filter: Jo Approved nahi hain aur Banned bhi nahi hain
+        const pending = allThreads.filter(t => t.data && t.data.approved !== 1 && t.data.banned !== 1);
 
-        if (pendingList.length === 0) {
-            return api.sendMessage("✅ Sab All-Right hai! Koi naya group pending nahi hai.", threadID);
+        if (pending.length === 0) {
+            return api.sendMessage("✅ Koi pending request nahi hai.", threadID, null, messageID);
         }
 
-        // 3. List banao
-        let msg = "📋 **PENDING REQUESTS**\nReply with number to approve:\n══════════════════\n";
-        
-        pendingList.forEach((t, i) => {
-            const name = t.name || "Unknown Group";
-            msg += `${i + 1}. ${name}\n🆔 ID: ${t.threadID}\n\n`;
+        let msg = "📋 **PENDING GROUPS LIST**\n\n";
+        pending.forEach((t, i) => {
+            msg += `${i + 1}. ${t.name || "Unnamed Group"}\n🆔 ID: ${t.threadID}\n\n`;
         });
+        msg += "👉 Reply with number to approve.";
 
-        msg += "══════════════════\nReply with the number (e.g., 1) to activate bot.";
-
-        // 4. Message bhejo aur Reply ka intezar karo
         return api.sendMessage(msg, threadID, (err, info) => {
             global.client.replies.set(info.messageID, {
                 commandName: 'pending',
-                author: senderID,
-                pendingList: pendingList
+                author: event.senderID,
+                pendingList: pending
             });
-        });
+        }, messageID); // Yahan bhi Reply to User logic lagayi hai
 
     } catch (e) {
-        return api.sendMessage(`❌ Error: ${e.message}`, event.threadID);
+        return api.sendMessage("❌ Error: " + e.message, event.threadID);
     }
 };
 
 module.exports.handleReply = async ({ api, event, handleReply, Threads }) => {
-    const { threadID, senderID, body } = event;
-
-    // Security: Sirf wahi reply kare jisne command chalayi thi
-    if (senderID !== handleReply.author) return;
+    const { threadID, messageID, body } = event;
+    if (event.senderID !== handleReply.author) return;
 
     const num = parseInt(body);
-    const targetGroup = handleReply.pendingList[num - 1];
+    const target = handleReply.pendingList[num - 1];
 
-    if (!targetGroup) {
-        return api.sendMessage("❌ Ghalat number bhai! List dobara check karein.", threadID);
-    }
+    if (!target) return api.sendMessage("❌ Ghalat number.", threadID, null, messageID);
 
-    try {
-        // 1. Database Update
-        await Threads.setData(targetGroup.threadID, { approved: 1 });
-        
-        // 2. Admin ko confirmation
-        api.sendMessage(`✅ **Success!**\nGroup: ${targetGroup.name || targetGroup.threadID}\nStatus: APPROVED`, threadID);
-        
-        // 3. Us naye Group mein Welcome Message (Taake unhein pata chale bot on ho gaya)
-        api.sendMessage(
-            `✅ **BOT ACTIVATED!**\n\nApproved By: Ahmad Ali Safdar\nPrefix: ${global.config.PREFIX}\n\nType ${global.config.PREFIX}help to start.`, 
-            targetGroup.threadID
-        );
-
-    } catch (e) {
-        console.log(e);
-        api.sendMessage("❌ Error updating database.", threadID);
-    }
+    // Approve
+    await Threads.setData(target.threadID, { approved: 1 });
+    
+    api.sendMessage(`✅ Group Approved!\nID: ${target.threadID}`, threadID, null, messageID);
+    
+    // Send Welcome
+    api.sendMessage(
+        `✅ **BOT ACTIVATED!**\nApproved by Ahmad Ali.\nPrefix: ${global.config.PREFIX}`, 
+        target.threadID
+    );
 };

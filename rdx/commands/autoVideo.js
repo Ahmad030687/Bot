@@ -1,14 +1,14 @@
 /**
- * autoVideo.js - Premium RapidAPI (404 & Redirect Fixed)
- * Credits: Ahmad Ali Safdar
+ * autoVideo.js - Smart Limit Handler (2026 Ready)
+ * Optimized for Ahmad Ali Safdar
  */
 
 module.exports.config = {
   name: "autoVideo",
-  version: "13.0.0",
+  version: "21.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Fixed Premium Downloader for vt.tiktok links",
+  description: "Bypasses 429 errors by switching sources",
 };
 
 module.exports.handleEvent = async ({ api, event }) => {
@@ -20,53 +20,56 @@ module.exports.handleEvent = async ({ api, event }) => {
   const { body, threadID, messageID, senderID } = event;
   if (senderID == api.getCurrentUserID() || !body) return;
 
-  const linkMatch = body.match(/(https?:\/\/(?:www\.)?(?:tiktok\.com|vt\.tiktok\.com|instagram\.com|facebook\.com|fb\.watch|youtube\.com\/shorts|reels|x\.com|twitter\.com)\/\S+)/gi);
+  const tiktokRegex = /(https?:\/\/(?:www\.|vm\.|vt\.)?tiktok\.com\/\S+)/gi;
+  const match = body.match(tiktokRegex);
 
-  if (linkMatch) {
-    let targetLink = linkMatch[0];
+  if (match) {
+    let targetLink = match[0];
     api.sendTypingIndicator(threadID);
 
-    try {
-      // 🔥 SIGMA STEP: Resolve Redirect (vt.tiktok Fix)
-      // Ye line link ko follow karegi taake asli URL mil jaye
-      const resolve = await axios.head(targetLink, { maxRedirects: 5 });
-      const finalUrl = resolve.request.res.responseUrl || targetLink;
+    let videoUrl = null;
 
-      // 🚀 RapidAPI Premium Call
-      const options = {
-        method: 'GET',
-        url: 'https://social-media-video-downloader.p.rapidapi.com/smvd/get/all',
-        params: { url: finalUrl }, // Ab asli link API ko jayega
+    // --- STRATEGY 1: RapidAPI V4 (Ahmad's Key) ---
+    try {
+      const res = await axios.get('https://tiktok-video-audio-downloader4.p.rapidapi.com/', {
+        params: { url: targetLink },
         headers: {
           'x-rapidapi-key': '6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618',
-          'x-rapidapi-host': 'social-media-video-downloader.p.rapidapi.com'
-        }
-      };
-
-      const res = await axios.request(options);
-      const videoUrl = res.data.url || (res.data.links && res.data.links[0]?.link);
-
-      if (!videoUrl) throw new Error("API couldn't find video.");
-
-      const tempFile = path.join(os.tmpdir(), `rdx_final_${Date.now()}.mp4`);
-      const response = await axios({ url: videoUrl, method: 'GET', responseType: 'stream' });
-      const writer = fs.createWriteStream(tempFile);
-      response.data.pipe(writer);
-
-      return new Promise((resolve) => {
-        writer.on('finish', async () => {
-          api.sendMessage({
-            body: `🎬 **SARDAR RDX PREMIUM**\n✨ Status: Redirection Fixed\n🦅 Aura: +9999`,
-            attachment: fs.createReadStream(tempFile)
-          }, threadID, () => fs.unlinkSync(tempFile), messageID);
-          resolve();
-        });
+          'x-rapidapi-host': 'tiktok-video-audio-downloader4.p.rapidapi.com'
+        },
+        timeout: 5000
       });
-
+      videoUrl = res.data.data?.play || res.data.url;
     } catch (err) {
-      console.log("Download Fail:", err.message);
-      // Backup for safety
-      api.sendMessage("❌ Error: API ne link reject kiya ya video private hai.", threadID, messageID);
+      console.log("RapidAPI 429 or Timeout. Moving to Strategy 2...");
+    }
+
+    // --- STRATEGY 2: Global Public API (Fallback) ---
+    if (!videoUrl) {
+      try {
+        const backup = await axios.get(`https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(targetLink)}`);
+        videoUrl = backup.data.video?.no_watermark || backup.data.url;
+      } catch (e) {
+        return api.sendMessage("❌ Ahmad bhai, saare servers ki limit full ho chuki hai!", threadID, messageID);
+      }
+    }
+
+    if (videoUrl) {
+      const tempFile = path.join(os.tmpdir(), `rdx_smart_${Date.now()}.mp4`);
+      try {
+        const response = await axios({ url: videoUrl, method: 'GET', responseType: 'stream' });
+        const writer = fs.createWriteStream(tempFile);
+        response.data.pipe(writer);
+
+        writer.on('finish', () => {
+          api.sendMessage({
+            body: "🦅 **SARDAR RDX SMART DL**\n✨ Server: Auto-Switched",
+            attachment: fs.createReadStream(tempFile)
+          }, threadID, () => {
+            if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+          }, messageID);
+        });
+      } catch (e) { console.log("Stream error."); }
     }
   }
 };

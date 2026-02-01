@@ -62,5 +62,5 @@ module.exports.run = async ({ api, event, args }) => {
     return api.sendMessage("❌ Font nahi mila! Use #fonts for list.", threadID, messageID);
   }
 
-  api.sendMessage(`🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐅𝐎𝐍𝐓𝐒**\n\n${result}`, threadID, messageID);
+  api.sendMessage(`🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐅𝐎𝐍𝐓𝐒**\n\n${result}`, threadID, messageID);
 };

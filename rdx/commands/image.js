@@ -1,96 +1,61 @@
 /**
- * t2i.js — SIGMA Gemini Text-to-Image Generator
- * Author: Ahmad Ali Safdar
- * 2026 | Works with prompt like #t2i black honda civic 2025
+ * image.js - Gemini Brain + Pollinations PRO Artist
+ * Credits: Ahmad Ali Safdar | 2026 Stable
  */
-
-const axios = require("axios");
-const fs = require("fs-extra");
-const path = require("path");
-
-const API_KEY = "AIzaSyC5IsvCSC-p5MFbhwQQZ7h-aYvCMlAuU3Q";
 
 module.exports.config = {
   name: "image",
-  version: "1.0.0",
+  version: "6.0.0",
   hasPermssion: 0,
-  credits: "Ahmad Ali Safdar",
-  description: "Generate AI images from text using Gemini API",
+  credits: "Ahmad Ali",
+  description: "Pro Image Generation using Pollinations AI & Gemini",
   commandCategory: "graphics",
-  usages: "t2i [prompt]",
-  cooldowns: 10
+  usages: "image [prompt]",
+  cooldowns: 5
 };
 
 module.exports.run = async ({ api, event, args }) => {
+  const axios = require("axios");
+  const fs = require("fs-extra");
+  const path = require("path");
   const { threadID, messageID } = event;
-  const prompt = args.join(" ");
 
-  if (!prompt)
-    return api.sendMessage(
-      "⚠️ Ahmad bhai, image ke liye prompt do!\nExample: #t2i black honda civic 2025",
-      threadID,
-      messageID
-    );
+  const userPrompt = args.join(" ");
+  if (!userPrompt) return api.sendMessage("⚠️ Ahmad bhai, kuch likhein jo AI banaye!", threadID, messageID);
 
-  const cacheDir = path.join(__dirname, 'cache');
-  if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
+  const GEMINI_KEY = "AIzaSyC5IsvCSC-p5MFbhwQQZ7h-aYvCMlAuU3Q";
+  const POLLIN_KEY = "sk_SGvmco1IBlYC16NW2SJKcmDDKzUMvTdX"; // Aapki New PRO Key
+  const tempPath = path.join(__dirname, `/cache/rdx_pro_${Date.now()}.png`);
 
-  const tempPath = path.join(cacheDir, `t2i_${Date.now()}.png`);
-
-  api.sendMessage("🎨 Gemini AI brain kaam kar rha hai... Thodi der...", threadID, messageID);
+  api.sendMessage("🎨 **𝐀𝐇𝐌𝐀𝐃 𝐁𝐎𝐒𝐒 - 𝐏𝐑𝐎 𝐄𝐃𝐈𝐓𝐈𝐎𝐍 𝐓𝐘𝐀𝐑 𝐊𝐑 𝐑𝐇𝐀 𝐇𝐀𝐈...**", threadID, messageID);
 
   try {
-    // --- STEP 1: Enhance prompt using Gemini ---
-    const geminiRes = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`,
-      {
-        contents: [
-          {
-            parts: [
-              {
-                text: `Expand this text prompt for high-quality AI image generation. Output ONLY the expanded prompt in English: ${prompt}`
-              }
-            ]
-          }
-        ]
-      }
-    );
+    // --- STEP 1: Gemini Brain (Prompt Enhancing) ---
+    const geminiRes = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`, {
+      contents: [{ parts: [{ text: `Act as a professional prompt engineer. Expand this into a cinematic, hyper-realistic, 8k image prompt: ${userPrompt}. Output only the new prompt.` }] }]
+    });
 
-    const enhancedPrompt = geminiRes.data.candidates?.[0]?.content?.parts?.[0]?.text || prompt;
-    console.log("Enhanced Prompt:", enhancedPrompt);
+    const proPrompt = geminiRes.data.candidates[0].content.parts[0].text || userPrompt;
 
-    // --- STEP 2: Generate image using Pollinations Flux ---
-    const imageUrl = `https://pollinations.ai/p/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&model=flux`;
+    // --- STEP 2: Pollinations PRO Engine ---
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(proPrompt)}?width=1024&height=1024&model=flux-pro&seed=${Math.floor(Math.random() * 1000000)}`;
 
-    const imgData = (await axios.get(imageUrl, { responseType: 'arraybuffer' })).data;
-    fs.writeFileSync(tempPath, Buffer.from(imgData, 'binary'));
+    const response = await axios({
+      url: imageUrl,
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${POLLIN_KEY}` }, // PRO Authentication
+      responseType: 'arraybuffer'
+    });
 
-    return api.sendMessage(
-      {
-        body: `🦅 **SIGMA AI STUDIO**\n✨ Original: ${prompt}\n🧠 Enhanced: ${enhancedPrompt}\n🎨 Engine: Gemini + Flux`,
-        attachment: fs.createReadStream(tempPath)
-      },
-      threadID,
-      () => fs.existsSync(tempPath) && fs.unlinkSync(tempPath),
-      messageID
-    );
+    fs.writeFileSync(tempPath, Buffer.from(response.data, 'binary'));
 
-  } catch (err) {
-    console.error(err);
+    return api.sendMessage({
+      body: `🦅 **SARDAR RDX PRO STUDIO**\n✨ **Prompt:** ${userPrompt}\n💎 **Status:** PRO Active (No Limits)`,
+      attachment: fs.createReadStream(tempPath)
+    }, threadID, () => fs.unlinkSync(tempPath), messageID);
 
-    // --- FALLBACK ENGINE (Samir.site Flux) ---
-    try {
-      const fallbackUrl = `https://api.samir.site/gen/flux?prompt=${encodeURIComponent(prompt)}`;
-      const fbData = (await axios.get(fallbackUrl, { responseType: 'arraybuffer' })).data;
-      fs.writeFileSync(tempPath, Buffer.from(fbData, 'binary'));
-
-      return api.sendMessage(
-        { body: "🦅 **SIGMA AI Fallback Engine**", attachment: fs.createReadStream(tempPath) },
-        threadID,
-        () => fs.existsSync(tempPath) && fs.unlinkSync(tempPath)
-      );
-    } catch (err2) {
-      return api.sendMessage("❌ Ahmad bhai, server down hai ya API fail ho gayi. Thodi der baad try karein.", threadID, messageID);
-    }
+  } catch (e) {
+    console.error(e);
+    return api.sendMessage("❌ Error: PRO Key ya server mein masla hai.", threadID, messageID);
   }
 };

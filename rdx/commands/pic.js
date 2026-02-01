@@ -48,7 +48,7 @@ module.exports.run = async ({ api, event, args }) => {
     fs.writeFileSync(tempPath, Buffer.from(imgData, 'binary'));
 
     return api.sendMessage({
-      body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - 𝐔𝐍𝐒𝐏𝐋𝐀𝐒𝐇 𝐏𝐑𝐎**\n✅ Search: ${query}\n📸 Photographer: ${photographer}\n✨ Status: Fresh Official Result`,
+      body: `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 - 𝐔𝐍𝐒𝐏𝐋𝐀𝐒𝐇 𝐏𝐑𝐎**\n✅ Search: ${query}\n📸 Photographer: ${photographer}\n✨ Status: Fresh Official Result`,
       attachment: fs.createReadStream(tempPath)
     }, threadID, () => fs.unlinkSync(tempPath), messageID);
 

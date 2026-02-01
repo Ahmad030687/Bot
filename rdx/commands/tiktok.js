@@ -1,106 +1,62 @@
-const axios = require('axios');
-const fs = require('fs-extra');
-const path = require('path');
+/**
+ * tikAuto.js - Automatic TikTok Downloader
+ * Credits: Ahmad Ali Safdar | Sardar RDX
+ * Logic: Auto-detects TikTok links in any message
+ */
 
 module.exports.config = {
-    name: "tiktok",
-    version: "1.0.0",
-    permission: 0,
-    prefix: true,
-    premium: false,
-    category: "media",
-    credits: "SARDAR RDX",
-    description: "Download TikTok video",
-    commandCategory: "media",
-    usages: ".tiktok [TikTok URL]",
-    aliases: ["tt", "tik"],
-    cooldowns: 5
+  name: "tikAuto",
+  version: "1.0.0",
+  hasPermssion: 0,
+  credits: "Ahmad Ali",
+  description: "Automatically downloads TikTok videos from links",
+  commandCategory: "events",
+  usages: "Just send a TikTok link",
+  cooldowns: 5
 };
 
-const API_BASE = "https://yt-tt.onrender.com";
+module.exports.handleEvent = async ({ api, event }) => {
+  const axios = require("axios");
+  const fs = require("fs-extra");
+  const { threadID, messageID, body } = event;
 
-async function downloadTikTok(tiktokUrl) {
-    try {
-        const response = await axios.get(`${API_BASE}/api/tiktok/download`, {
-            params: { url: tiktokUrl },
-            timeout: 60000,
-            responseType: 'arraybuffer'
-        });
-        
-        if (response.data) {
-            return { success: true, data: response.data };
-        }
-        return null;
-    } catch (err) {
-        console.log("TikTok download failed:", err.message);
-        return null;
-    }
-}
+  // 1. TikTok Link Detect karne ka Regex
+  const tikTokLinkPattern = /https?:\/\/(www\.|v[mt]\.)?tiktok\.com\/[\w\.-]+\/?\S*/g;
+  const match = body?.match(tikTokLinkPattern);
 
-module.exports.run = async function ({ api, event, args }) {
-    const url = args[0];
-    
-    if (!url) {
-        return api.sendMessage("❌ Please provide a TikTok URL\n\nUsage: .tiktok [URL]", event.threadID, event.messageID);
-    }
-
-    const tiktokRegex = /(?:https?:\/\/)?(?:www\.|vm\.|vt\.)?(?:tiktok\.com)\/.+/i;
-    
-    if (!tiktokRegex.test(url)) {
-        return api.sendMessage("❌ Invalid TikTok URL. Please provide a valid TikTok link.", event.threadID, event.messageID);
-    }
-
-    const frames = [
-        "🩵▰▱▱▱▱▱▱▱▱▱ 10%",
-        "💙▰▰▱▱▱▱▱▱▱▱ 25%",
-        "💜▰▰▰▰▱▱▱▱▱▱ 45%",
-        "💖▰▰▰▰▰▰▱▱▱▱ 70%",
-        "💗▰▰▰▰▰▰▰▰▰▰ 100% 😍"
-    ];
-
-    const searchMsg = await api.sendMessage(`🎵 TikTok Downloader\n\n${frames[0]}`, event.threadID);
+  if (match) {
+    const url = match[0];
+    api.sendMessage("📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - Auto-Download Start...**", threadID);
 
     try {
-        await api.editMessage(`🎵 Fetching video...\n\n${frames[1]}`, searchMsg.messageID, event.threadID);
-        await api.editMessage(`🎵 Downloading...\n\n${frames[2]}`, searchMsg.messageID, event.threadID);
+      // 🍪 Ahmad Ali Bhai ki Cookies (Anti-Block)
+      const myCookies = "tt_csrf_token=m7WbJxOP-sSzn8pmFK4W1ZwjVbKA5gRTzPXo; ttwid=1%7C1wELVcxL4ClaheuKKmTNu_1R_f9mk18OWFVb7VlH5xQ%7C1769936826%7Ce7563e239d088b9f63235ff785be373b4172f316c7f406466559e9f031838b41; msToken=RrxaYTHZDKZaqne2p935r3fJ4zzWKha-pgoNFLSNMSVzuoT01MQMArtsiPHCf1sOXMfCHbeKZw3ohH8PRH36yGaftjn9GdDQC9XTzWfKVc2XjsTeE0XzwEEbnFY9ZnUce9HsgBvuw_6hZCt6Hl3_1Upy";
 
-        const downloadResult = await downloadTikTok(url);
-        
-        if (!downloadResult || !downloadResult.success) {
-            api.unsendMessage(searchMsg.messageID);
-            return api.sendMessage("❌ Download failed. Please check the URL and try again.", event.threadID, event.messageID);
-        }
+      // 🚀 High-Speed API (Watermark free)
+      const res = await axios.get(`https://api.tikwm.com/api/?url=${url}`, {
+        headers: { "Cookie": myCookies }
+      });
 
-        await api.editMessage(`🎵 Processing...\n\n${frames[3]}`, searchMsg.messageID, event.threadID);
+      const videoData = res.data.data;
+      const videoUrl = videoData.play; // Without Watermark
+      const title = videoData.title || "No Title";
 
-        const cacheDir = path.join(__dirname, "cache");
-        await fs.ensureDir(cacheDir);
+      const path = __dirname + `/cache/tik_${Date.now()}.mp4`;
+      const vidRes = await axios.get(videoUrl, { responseType: "arraybuffer" });
+      fs.writeFileSync(path, Buffer.from(vidRes.data, "binary"));
 
-        const videoPath = path.join(cacheDir, `${Date.now()}_tiktok.mp4`);
-        fs.writeFileSync(videoPath, Buffer.from(downloadResult.data));
+      return api.sendMessage({
+        body: `🦅 **SARDAR RDX AUTO-TIKTOK**\n📝 Title: ${title}\n👤 User: ${videoData.author.nickname}`,
+        attachment: fs.createReadStream(path)
+      }, threadID, () => fs.unlinkSync(path), messageID);
 
-        await api.editMessage(`🎵 Complete!\n\n${frames[4]}`, searchMsg.messageID, event.threadID);
-
-        await api.sendMessage(
-            {
-                body: `🎵 TikTok Video Downloaded`,
-                attachment: fs.createReadStream(videoPath)
-            },
-            event.threadID
-        );
-
-        setTimeout(() => {
-            try {
-                if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
-                api.unsendMessage(searchMsg.messageID);
-            } catch (err) {
-                console.log("Cleanup error:", err);
-            }
-        }, 15000);
-
-    } catch (error) {
-        console.error("TikTok command error:", error.message);
-        try { api.unsendMessage(searchMsg.messageID); } catch(e) {}
-        return api.sendMessage("❌ An error occurred. Please try again.", event.threadID, event.messageID);
+    } catch (e) {
+      console.log(e);
+      // api.sendMessage("❌ Error: Video download nahi ho saki.", threadID);
     }
+  }
+};
+
+module.exports.run = async ({ api, event }) => {
+   // Empty run function kyunki ye event base hai
 };

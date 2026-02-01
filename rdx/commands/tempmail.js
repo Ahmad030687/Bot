@@ -1,17 +1,17 @@
 /**
- * tempmail.js - Sardar RDX Power Suite (3-in-1)
+ * tempmail.js - Sardar RDX Final Fixed Suite
  * Credits: Ahmad Ali Safdar | Sardar RDX
- * Logic: One file for Domains, Generation, and OTP Checking
+ * Fix: Removed 'undefined' via Robust Data Extraction
  */
 
 const axios = require("axios");
 
 module.exports.config = {
   name: "tempmail",
-  version: "10.0.0",
+  version: "11.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Complete Flash Temp Mail Suite",
+  description: "Fixed Flash Temp Mail (No Undefined)",
   commandCategory: "utility",
   usages: "#tempmail [list | gen | check id]",
   cooldowns: 2
@@ -25,53 +25,66 @@ module.exports.run = async ({ api, event, args }) => {
   const API_HOST = "flash-temp-mail.p.rapidapi.com";
   const commonHeaders = {
     "x-rapidapi-key": API_KEY,
-    "x-rapidapi-host": API_HOST
+    "x-rapidapi-host": API_HOST,
+    "Content-Type": "application/json"
   };
 
-  // --- 1. DOMAINS LIST (#tempmail list) ---
-  if (sub === "list") {
-    api.sendMessage("📨 **𝐀𝐇𝐌𝐀𝐃 𝐏𝐇𝐎𝐓𝐎𝐒𝐓𝐀𝐓𝐄 - Loading Domains...**", threadID);
-    try {
-      const res = await axios.get(`https://${API_HOST}/mailbox/domains`, { headers: commonHeaders });
-      const domains = res.data;
-      if (!domains || domains.length === 0) return api.sendMessage("❌ No domains found.", threadID, messageID);
-
-      let msg = "🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐃𝐎𝐌𝐀𝐈𝐍𝐒**\n\n";
-      domains.slice(0, 15).forEach((d, i) => msg += `${i + 1}. ${d}\n`);
-      msg += `\n✅ Total: ${domains.length} | Use #tempmail gen to create!`;
-      return api.sendMessage(msg, threadID, messageID);
-    } catch (e) { return api.sendMessage("❌ Domain API error.", threadID); }
-  }
-
-  // --- 2. GENERATE EMAIL (#tempmail gen) ---
+  // --- 1. GENERATE EMAIL ---
   if (sub === "gen") {
-    api.sendMessage("✨ Generating Premium Temp-Mail...", threadID);
+    api.sendMessage("✨ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗s - Premium Access Verified. Creating...**", threadID);
     try {
       const res = await axios.post(`https://${API_HOST}/mailbox/create`, { not_required: "true" }, {
         params: { free_domains: "false" },
-        headers: { ...commonHeaders, "Content-Type": "application/json" }
+        headers: commonHeaders
       });
-      const { mailbox, id } = res.data;
-      return api.sendMessage(`🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐌𝐀𝐈𝐋**\n\n✉️ Email: ${mailbox}\n🆔 ID: ${id}\n\n💡 *Check OTP:* #tempmail check ${id}`, threadID, messageID);
-    } catch (e) { return api.sendMessage("❌ Error generating email.", threadID); }
+
+      // --- LOGGING FOR DEBUGGING ---
+      console.log("--- RAW API RESPONSE ---");
+      console.log(JSON.stringify(res.data, null, 2)); 
+
+      // --- ROBUST EXTRACTION ---
+      // Hum har jagah dhoondenge jahan email ho sakta hai
+      const mailbox = res.data?.mailbox || res.data?.email || res.data?.address || res.data?.data?.mailbox;
+      const id = res.data?.id || res.data?.token || res.data?.data?.id;
+
+      if (!mailbox || !id) {
+        return api.sendMessage("❌ API ne response diya par email/id nahi mili. Please check your Terminal logs!", threadID, messageID);
+      }
+
+      return api.sendMessage(`🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐌𝐀𝐈𝐋**\n\n✉️ **Email:** ${mailbox}\n🆔 **ID:** ${id}\n\n💡 *Check OTP:* #tempmail check ${id}`, threadID, messageID);
+    } catch (e) {
+      console.error(e.response ? e.response.data : e.message);
+      return api.sendMessage("❌ Error: API Connection Failed. Check RapidAPI Dashboard.", threadID);
+    }
   }
 
-  // --- 3. CHECK INBOX (#tempmail check id) ---
+  // --- 2. CHECK INBOX ---
   if (sub === "check") {
     const id = args[1];
     if (!id) return api.sendMessage("⚠️ Please provide the Mailbox ID!", threadID);
     try {
       const res = await axios.get(`https://${API_HOST}/mailbox/messages/${id}`, { headers: commonHeaders });
-      if (!res.data || res.data.length === 0) return api.sendMessage("📭 Inbox is empty.", threadID);
+      
+      const messages = res.data;
+      if (!messages || messages.length === 0) return api.sendMessage("📭 Inbox is empty. Waiting for OTP...", threadID, messageID);
 
       let msg = "📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐈𝐍𝐁𝐎𝐗**\n\n";
-      res.data.forEach((m, i) => {
-        msg += `${i+1}. From: ${m.from}\nSub: ${m.subject}\nBody: ${m.body_text}\n\n`;
+      messages.forEach((m, i) => {
+        msg += `${i+1}. 👤 **From:** ${m.from}\n📝 **Sub:** ${m.subject}\n💬 **Text:** ${m.body_text || "Click to view HTML content"}\n---\n`;
       });
       return api.sendMessage(msg, threadID, messageID);
-    } catch (e) { return api.sendMessage("❌ Error checking messages.", threadID); }
+    } catch (e) { return api.sendMessage("❌ Error checking inbox. ID shayad purani hai.", threadID); }
   }
 
-  // DEFAULT MENU
-  return api.sendMessage("🛠️ **𝐓𝐄𝐌𝐏𝐌𝐀𝐈𝐋 𝐌𝐄𝐍𝐔**\n\n#tempmail list - Show domains\n#tempmail gen - New email\n#tempmail check [id] - View OTP", threadID, messageID);
+  // --- 3. LIST DOMAINS ---
+  if (sub === "list") {
+    try {
+      const res = await axios.get(`https://${API_HOST}/mailbox/domains`, { headers: commonHeaders });
+      let list = "🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐃𝐎𝐌𝐀𝐈𝐍𝐒**\n\n";
+      res.data.slice(0, 15).forEach((d, i) => list += `${i+1}. ${d}\n`);
+      return api.sendMessage(list, threadID, messageID);
+    } catch (e) { return api.sendMessage("❌ Domain list unavailable.", threadID); }
+  }
+
+  return api.sendMessage("🛠️ **Usage:**\n#tempmail gen\n#tempmail check [id]\n#tempmail list", threadID, messageID);
 };

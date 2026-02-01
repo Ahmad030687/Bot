@@ -26,7 +26,7 @@ module.exports.run = async ({ api, event, args }) => {
     return api.sendMessage("⚠️ Ahmad bhai, TikTok video ka link to dein!\nUsage: #tiktok [link]", threadID, messageID);
   }
 
-  api.sendMessage("📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗s - Video download ho rahi hai...**", threadID);
+  api.sendMessage("📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 - Video download ho rahi hai...**", threadID);
 
   // 🛠️ RapidAPI Configuration
   const options = {
@@ -69,7 +69,7 @@ module.exports.run = async ({ api, event, args }) => {
     writer.on('finish', () => {
       // 3. Video Send karna
       api.sendMessage({
-        body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐓𝐈𝐊𝐓𝐎𝐊**\n✨ No Watermark Video`,
+        body: `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐓𝐈𝐊𝐓𝐎𝐊**\n✨ No Watermark Video`,
         attachment: fs.createReadStream(filePath)
       }, threadID, () => fs.unlinkSync(filePath), messageID);
     });

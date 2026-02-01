@@ -1,7 +1,7 @@
 /**
- * aio.js - Sardar RDX Universal Downloader
+ * aio.js - Sardar RDX Universal Downloader (POST Engine)
  * Credits: Ahmad Ali Safdar | Sardar RDX
- * Supports: TikTok, Instagram, Facebook (All-in-One)
+ * Logic: POST with x-www-form-urlencoded (High Stability)
  */
 
 const axios = require('axios');
@@ -10,10 +10,10 @@ const path = require('path');
 
 module.exports.config = {
   name: "aio",
-  version: "2.0.0",
+  version: "12.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Download Any Video (FB/Insta/TikTok)",
+  description: "Download Any Video (POST Method)",
   commandCategory: "media",
   usages: "#aio [link]",
   cooldowns: 5
@@ -24,41 +24,44 @@ module.exports.run = async ({ api, event, args }) => {
   const link = args.join(" ");
 
   if (!link) {
-    return api.sendMessage("⚠️ Ahmad bhai, Link to dein!\nUsage: #aio [video_link]", threadID, messageID);
+    return api.sendMessage("⚠️ Ahmad bhai, koi link to dein!\nUsage: #aio [link]", threadID, messageID);
   }
 
-  api.sendMessage("🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - Universal Engine Running...**", threadID);
+  api.sendMessage("📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - POST Engine se video fetch ho rahi hai...**", threadID);
 
-  // 🛠️ RapidAPI Configuration (Aapka diya hua code)
+  // 🛠️ POST Data tayyar karna
+  const encodedParams = new URLSearchParams();
+  encodedParams.append('url', link); // Aapka bheja hua link yahan fit hoga
+
   const options = {
-    method: 'GET',
-    url: 'https://all-in-one-video-downloader-api-tiktok-ig-fb.p.rapidapi.com/all-downloader',
-    params: { url: link }, // User ka link yahan aayega
+    method: 'POST',
+    url: 'https://best-all-in-one-video-downloader5.p.rapidapi.com/index.php',
     headers: {
       'x-rapidapi-key': '6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618',
-      'x-rapidapi-host': 'all-in-one-video-downloader-api-tiktok-ig-fb.p.rapidapi.com'
-    }
+      'x-rapidapi-host': 'best-all-in-one-video-downloader5.p.rapidapi.com',
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    data: encodedParams
   };
 
   try {
     const response = await axios.request(options);
     const data = response.data;
 
-    // console.log("API Response:", JSON.stringify(data, null, 2)); // Debugging ke liye
+    // console.log("Full Response:", JSON.stringify(data, null, 2)); // Debugging ke liye
 
-    // --- SMART EXTRACTION LOGIC ---
-    // Har API ka format alag hota hai, hum sab try karenge
-    // Ye API aksar 'videoUrl', 'url', ya 'data.play' deti hai
+    // --- DATA EXTRACTION ---
+    // POST APIs aksar 'result.url' ya 'links' ke andar HD URL deti hain
     const videoUrl = data.url || 
-                     data.videoUrl || 
-                     (data.data && data.data.play) || 
-                     (data.data && data.data.video_url);
+                     (data.result && data.result.url) || 
+                     (data.links && data.links[0]?.url) ||
+                     data.hd_url;
 
     if (!videoUrl) {
-      return api.sendMessage("❌ Ahmad bhai, is API ne video link nahi diya. Shayad private account hai.", threadID, messageID);
+      return api.sendMessage("❌ Ahmad bhai, API ne response to diya par video link nahi mila. Post public honi chahiye!", threadID, messageID);
     }
 
-    // --- DOWNLOAD PROCESS ---
+    // --- DOWNLOAD & SEND ---
     const filePath = path.join(__dirname, `/cache/aio_${Date.now()}.mp4`);
     const writer = fs.createWriteStream(filePath);
 
@@ -72,13 +75,13 @@ module.exports.run = async ({ api, event, args }) => {
 
     writer.on('finish', () => {
       api.sendMessage({
-        body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐀𝐈𝐎**\n✨ Download Complete`,
+        body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐔𝐍𝐈𝐕𝐄𝐑𝐒𝐀𝐋**\n✨ Engine: POST Stable`,
         attachment: fs.createReadStream(filePath)
       }, threadID, () => fs.unlinkSync(filePath), messageID);
     });
 
   } catch (error) {
     console.error(error);
-    api.sendMessage("❌ Error: Ye API shayad abhi busy hai ya link support nahi kar rahi.", threadID, messageID);
+    api.sendMessage("❌ Ahmad bhai, server ne link reject kar diya. Doosra link try karein.", threadID, messageID);
   }
 };

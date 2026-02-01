@@ -44,7 +44,7 @@ module.exports.run = async ({ api, event, args }) => {
     fs.writeFileSync(tempPath, Buffer.from(mediaData, "utf-8"));
 
     return api.sendMessage({
-      body: `🦅 **SARDAR RDX - PEXELS ${isVideo ? "VIDEO" : "HD"}**\n🔍 Query: ${query}\n✨ Quality: Premium`,
+      body: `🦅 **𝐀𝐇𝐌𝐀𝐃 RDX - PEXELS ${isVideo ? "VIDEO" : "HD"}**\n🔍 Query: ${query}\n✨ Quality: Premium`,
       attachment: fs.createReadStream(tempPath)
     }, threadID, () => fs.unlinkSync(tempPath), messageID);
 

@@ -1,5 +1,4 @@
-#link /**
- * fontpro.js - 1500+ Professional Font Renderer
+ /* fontpro.js - 1500+ Professional Font Renderer
  * Credits: Ahmad Ali Safdar | Sardar RDX
  */
 

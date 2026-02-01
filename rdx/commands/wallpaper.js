@@ -22,7 +22,7 @@ module.exports.run = async ({ api, event }) => {
     fs.writeFileSync(path, Buffer.from(imgData, "utf-8"));
 
     return api.sendMessage({
-      body: `🖼️ **SIGMA WALLPAPER**\n👤 Photographer: ${res.data.user.name}\n🔥 Aura: +100`,
+      body: `🖼️ **𝐀𝐇𝐌𝐀𝐃 WALLPAPER**\n👤 Photographer: ${res.data.user.name}\n🔥 Aura: +100`,
       attachment: fs.createReadStream(path)
     }, event.threadID, () => fs.unlinkSync(path), event.messageID);
   } catch (e) {

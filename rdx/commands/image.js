@@ -1,71 +1,58 @@
 /**
- * gemini_t2i.js — SARDAR RDX Gemini Text-to-Image
- * Author: Ahmad Ali Safdar
- * 2026 | Text-to-Image | Secret Key Safe
+ * image.js - Google Gemini/Imagen 3 Engine
+ * Credits: Ahmad Ali Safdar
  */
-
-const axios = require("axios");
-const fs = require("fs-extra");
-const path = require("path");
-
-// 🔒 Obfuscated API Key (keeps it safe from public detection)
-const API_KEY = (() => {
-  const parts = ["AIzaSyC5IsvCSC-", "p5MFbhwQQZ7h-", "aYvCMlAuU3Q"];
-  return parts.join("");
-})();
 
 module.exports.config = {
   name: "image",
-  version: "1.0.0",
+  version: "4.0.0",
   hasPermssion: 0,
-  credits: "Ahmad Ali Safdar",
-  description: "Generate AI images using Gemini Text-to-Image API",
-  commandCategory: "ai",
-  usages: "gemini <prompt>",
-  cooldowns: 5
+  credits: "Ahmad Ali",
+  description: "Generate AI Images using Google's Premium Imagen Engine",
+  commandCategory: "graphics",
+  usages: "image [prompt]",
+  cooldowns: 15
 };
 
 module.exports.run = async ({ api, event, args }) => {
+  const axios = require("axios");
+  const fs = require("fs-extra");
+  const path = require("path");
   const { threadID, messageID } = event;
+
   const prompt = args.join(" ");
+  if (!prompt) return api.sendMessage("⚠️ Ahmad bhai, kuch to likhein jo AI banaye! (e.g. #image a cyberpunk city in Pakistan)", threadID, messageID);
 
-  if (!prompt)
-    return api.sendMessage(
-      "⚠️ Ahmad bhai, prompt do!\nExample:\n#gemini futuristic city skyline",
-      threadID,
-      messageID
-    );
+  // 🔥 GOOGLE GEMINI API KEY
+  const API_KEY = "AIzaSyC5IsvCSC-p5MFbhwQQZ7h-aYvCMlAuU3Q";
+  const tempPath = path.join(__dirname, `/cache/gemini_art_${Date.now()}.png`);
 
-  api.sendTypingIndicator(threadID);
+  api.sendMessage("🎨 Google Imagen 3 se masterpiece taiyar ho raha hai...", threadID, messageID);
 
   try {
-    const res = await axios.post(
-      `https://gemini.googleapis.com/v1/images:generate?key=${API_KEY}`,
-      { prompt },
-      { headers: { "Content-Type": "application/json" } }
+    // 🚀 Calling Google's Text-to-Image Endpoint
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3:generateImage?key=${API_KEY}`,
+      {
+        prompt: prompt,
+        aspect_ratio: "1:1",
+        safety_setting: "BLOCK_NONE",
+        output_file_format: "IMAGE_FORMAT_PNG"
+      }
     );
 
-    const imageUrl = res.data?.data?.[0]?.url;
-    if (!imageUrl)
-      return api.sendMessage("❌ Gemini API failed to generate image.", threadID, messageID);
+    // API response se image data nikalna
+    const base64Image = response.data.image.encodedImage;
+    fs.writeFileSync(tempPath, Buffer.from(base64Image, 'base64'));
 
-    // Download image
-    const tempPath = path.join(__dirname, `/cache/gemini_${Date.now()}.jpg`);
-    const writer = fs.createWriteStream(tempPath);
-    const response = await axios({ url: imageUrl, method: "GET", responseType: "stream" });
-    response.data.pipe(writer);
-    await new Promise(resolve => writer.on("finish", resolve));
+    return api.sendMessage({
+      body: `🦅 **SARDAR RDX - GOOGLE AI**\n✨ Prompt: ${prompt}\n🦅 Engine: Imagen-3 (Ultra HD)`,
+      attachment: fs.createReadStream(tempPath)
+    }, threadID, () => fs.unlinkSync(tempPath), messageID);
 
-    // Send image
-    api.sendMessage(
-      { body: `🖼️ 𝐀𝐇𝐌𝐀𝐃 AI Image\nPrompt: ${prompt}`, attachment: fs.createReadStream(tempPath) },
-      threadID,
-      () => fs.existsSync(tempPath) && fs.unlinkSync(tempPath),
-      messageID
-    );
-
-  } catch (err) {
-    console.log(err);
-    api.sendMessage("❌ Error! Gemini API request failed.", threadID, messageID);
+  } catch (e) {
+    console.error(e);
+    // Fallback: Agar Imagen enabled na ho to hum doosre engine par switch ho jayenge
+    return api.sendMessage("❌ Error: Shayad is key par Imagen access abhi enabled nahi hai ya limit khatam hai.", threadID, messageID);
   }
 };

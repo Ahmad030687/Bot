@@ -1,87 +1,79 @@
 /**
- * aio.js - Sardar RDX Universal Downloader (POST Engine)
+ * ig.js - Instagram Video Downloader
  * Credits: Ahmad Ali Safdar | Sardar RDX
- * Logic: POST with x-www-form-urlencoded (High Stability)
  */
 
-const axios = require('axios');
-const fs = require('fs-extra');
-const path = require('path');
+const axios = require("axios");
+const fs = require("fs-extra");
+const path = require("path");
 
 module.exports.config = {
-  name: "aio",
-  version: "12.0.0",
+  name: "ig",
+  version: "1.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Download Any Video (POST Method)",
+  description: "Download Instagram reels/posts/videos",
   commandCategory: "media",
-  usages: "#aio [link]",
-  cooldowns: 5
+  usages: "#ig <instagram link>",
+  cooldowns: 8
 };
 
 module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID } = event;
-  const link = args.join(" ");
 
-  if (!link) {
-    return api.sendMessage("⚠️ Ahmad bhai, koi link to dein!\nUsage: #aio [link]", threadID, messageID);
+  const igUrl = args[0];
+  if (!igUrl) {
+    return api.sendMessage(
+      "⚠️ Instagram link do\nExample:\n#ig https://www.instagram.com/reel/xxxx/",
+      threadID,
+      messageID
+    );
   }
 
-  api.sendMessage("📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - POST Engine se video fetch ho rahi hai...**", threadID);
-
-  // 🛠️ POST Data tayyar karna
-  const encodedParams = new URLSearchParams();
-  encodedParams.append('url', link); // Aapka bheja hua link yahan fit hoga
-
-  const options = {
-    method: 'POST',
-    url: 'https://best-all-in-one-video-downloader5.p.rapidapi.com/index.php',
-    headers: {
-      'x-rapidapi-key': '6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618',
-      'x-rapidapi-host': 'best-all-in-one-video-downloader5.p.rapidapi.com',
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    data: encodedParams
-  };
+  api.sendMessage("📥 Instagram video fetch ho rahi hai...", threadID, messageID);
 
   try {
-    const response = await axios.request(options);
-    const data = response.data;
+    const encodedParams = new URLSearchParams();
+    encodedParams.append("url", igUrl);
 
-    // console.log("Full Response:", JSON.stringify(data, null, 2)); // Debugging ke liye
+    const options = {
+      method: "POST",
+      url: "https://instagram-video-downloader24.p.rapidapi.com/index.php",
+      headers: {
+        "x-rapidapi-key": "6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618",
+        "x-rapidapi-host": "instagram-video-downloader24.p.rapidapi.com",
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      data: encodedParams
+    };
 
-    // --- DATA EXTRACTION ---
-    // POST APIs aksar 'result.url' ya 'links' ke andar HD URL deti hain
-    const videoUrl = data.url || 
-                     (data.result && data.result.url) || 
-                     (data.links && data.links[0]?.url) ||
-                     data.hd_url;
+    const res = await axios.request(options);
 
+    const videoUrl = res.data?.video || res.data?.media?.[0]?.url;
     if (!videoUrl) {
-      return api.sendMessage("❌ Ahmad bhai, API ne response to diya par video link nahi mila. Post public honi chahiye!", threadID, messageID);
+      return api.sendMessage("❌ Video nahi mili, private ya invalid link ho sakta hai.", threadID, messageID);
     }
 
-    // --- DOWNLOAD & SEND ---
-    const filePath = path.join(__dirname, `/cache/aio_${Date.now()}.mp4`);
+    const filePath = path.join(__dirname, `/cache/ig_${Date.now()}.mp4`);
+    const videoData = await axios.get(videoUrl, { responseType: "stream" });
+
     const writer = fs.createWriteStream(filePath);
+    videoData.data.pipe(writer);
 
-    const videoStream = await axios({
-      url: videoUrl,
-      method: 'GET',
-      responseType: 'stream'
+    writer.on("finish", () => {
+      api.sendMessage(
+        {
+          body: "🎬 **Instagram Video Downloaded**",
+          attachment: fs.createReadStream(filePath)
+        },
+        threadID,
+        () => fs.unlinkSync(filePath),
+        messageID
+      );
     });
 
-    videoStream.data.pipe(writer);
-
-    writer.on('finish', () => {
-      api.sendMessage({
-        body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐔𝐍𝐈𝐕𝐄𝐑𝐒𝐀𝐋**\n✨ Engine: POST Stable`,
-        attachment: fs.createReadStream(filePath)
-      }, threadID, () => fs.unlinkSync(filePath), messageID);
-    });
-
-  } catch (error) {
-    console.error(error);
-    api.sendMessage("❌ Ahmad bhai, server ne link reject kar diya. Doosra link try karein.", threadID, messageID);
+  } catch (err) {
+    console.error(err);
+    api.sendMessage("❌ Instagram downloader API error a gaya.", threadID, messageID);
   }
 };

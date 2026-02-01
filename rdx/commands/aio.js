@@ -1,7 +1,7 @@
 /**
- * aio.js - All In One Social Media Downloader
+ * aio.js - Sardar RDX Universal Downloader
  * Credits: Ahmad Ali Safdar | Sardar RDX
- * Supports: Facebook, Instagram, TikTok, Twitter, Pinterest
+ * Supports: TikTok, Instagram, Facebook (All-in-One)
  */
 
 const axios = require('axios');
@@ -10,10 +10,10 @@ const path = require('path');
 
 module.exports.config = {
   name: "aio",
-  version: "1.0.0",
+  version: "2.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Download video from Any Social Media (FB, Insta, TikTok)",
+  description: "Download Any Video (FB/Insta/TikTok)",
   commandCategory: "media",
   usages: "#aio [link]",
   cooldowns: 5
@@ -21,23 +21,22 @@ module.exports.config = {
 
 module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID } = event;
-  const url = args.join(" ");
+  const link = args.join(" ");
 
-  if (!url) {
-    return api.sendMessage("⚠️ Ahmad bhai, koi link to dein!\nUsage: #aio [fb/insta/tiktok link]", threadID, messageID);
+  if (!link) {
+    return api.sendMessage("⚠️ Ahmad bhai, Link to dein!\nUsage: #aio [video_link]", threadID, messageID);
   }
 
-  api.sendMessage("🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - Universal Downloader Running...**", threadID);
+  api.sendMessage("🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - Universal Engine Running...**", threadID);
 
-  // 🛠️ RapidAPI Configuration (Corrected Endpoint)
-  // Hum '/progress' ki jagah '/api/download' use kar rahe hain
+  // 🛠️ RapidAPI Configuration (Aapka diya hua code)
   const options = {
     method: 'GET',
-    url: 'https://social-media-video-downloader-api1.p.rapidapi.com/api/download',
-    params: { url: url },
+    url: 'https://all-in-one-video-downloader-api-tiktok-ig-fb.p.rapidapi.com/all-downloader',
+    params: { url: link }, // User ka link yahan aayega
     headers: {
       'x-rapidapi-key': '6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618',
-      'x-rapidapi-host': 'social-media-video-downloader-api1.p.rapidapi.com'
+      'x-rapidapi-host': 'all-in-one-video-downloader-api-tiktok-ig-fb.p.rapidapi.com'
     }
   };
 
@@ -45,21 +44,21 @@ module.exports.run = async ({ api, event, args }) => {
     const response = await axios.request(options);
     const data = response.data;
 
-    // console.log("AIO Response:", JSON.stringify(data, null, 2)); // Debugging
+    // console.log("API Response:", JSON.stringify(data, null, 2)); // Debugging ke liye
 
-    // --- SMART LINK EXTRACTOR ---
-    // Ye API aksar 'url', 'video_url', ya 'download_url' mein link deti hai
-    // Hum sab check karenge taake miss na ho
+    // --- SMART EXTRACTION LOGIC ---
+    // Har API ka format alag hota hai, hum sab try karenge
+    // Ye API aksar 'videoUrl', 'url', ya 'data.play' deti hai
     const videoUrl = data.url || 
-                     (data.data && data.data.video_url) || 
-                     (data.data && data.data.url) ||
-                     data.link;
+                     data.videoUrl || 
+                     (data.data && data.data.play) || 
+                     (data.data && data.data.video_url);
 
     if (!videoUrl) {
-      return api.sendMessage("❌ Ahmad bhai, is link se video nahi mili. Privacy settings check karein.", threadID, messageID);
+      return api.sendMessage("❌ Ahmad bhai, is API ne video link nahi diya. Shayad private account hai.", threadID, messageID);
     }
 
-    // --- DOWNLOAD STREAM ---
+    // --- DOWNLOAD PROCESS ---
     const filePath = path.join(__dirname, `/cache/aio_${Date.now()}.mp4`);
     const writer = fs.createWriteStream(filePath);
 
@@ -73,14 +72,13 @@ module.exports.run = async ({ api, event, args }) => {
 
     writer.on('finish', () => {
       api.sendMessage({
-        body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐀𝐈𝐎**\n✨ Source: Social Media API`,
+        body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐀𝐈𝐎**\n✨ Download Complete`,
         attachment: fs.createReadStream(filePath)
       }, threadID, () => fs.unlinkSync(filePath), messageID);
     });
 
   } catch (error) {
     console.error(error);
-    api.sendMessage("❌ Error: Ye API link support nahi kar rahi ya server busy hai.", threadID, messageID);
+    api.sendMessage("❌ Error: Ye API shayad abhi busy hai ya link support nahi kar rahi.", threadID, messageID);
   }
 };
-

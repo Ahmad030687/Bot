@@ -1,21 +1,21 @@
 /**
- * ig.js - Instagram Stable Downloader
+ * ig.js - Instagram Downloader (Ahmad RDX Edition)
  * Credits: Ahmad Ali Safdar | Sardar RDX
- * Logic: Multi-Key Extraction & Enhanced Error Handling
+ * Logic: Uses instagram-video-image-downloader API
  */
 
-const axios = require("axios");
-const fs = require("fs-extra");
-const path = require("path");
+const axios = require('axios');
+const fs = require('fs-extra');
+const path = require('path');
 
 module.exports.config = {
   name: "ig",
-  version: "2.0.0",
+  version: "3.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Download Instagram Reels/Posts (Stable)",
+  description: "Download IG Reels/Posts via New API",
   commandCategory: "media",
-  usages: "#ig <instagram link>",
+  usages: "#ig [link]",
   cooldowns: 5
 };
 
@@ -24,65 +24,58 @@ module.exports.run = async ({ api, event, args }) => {
   const igUrl = args[0];
 
   if (!igUrl) {
-    return api.sendMessage("⚠️ Ahmad bhai, Link to dein!\nExample: #ig https://www.instagram.com/p/...", threadID, messageID);
+    return api.sendMessage("⚠️ Ahmad bhai, Instagram Reel ya Post ka link dein!\nUsage: #ig https://www.instagram.com/reel/xxx/", threadID, messageID);
   }
 
-  api.sendMessage("📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - Media fetch ho rahi hai...**", threadID);
+  api.sendMessage("📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 - Connecting to Server...**", threadID);
+
+  // 🛠️ Aapka diya hua Configuration
+  const options = {
+    method: 'GET',
+    url: 'https://instagram-video-image-downloader.p.rapidapi.com/igdl',
+    params: { url: igUrl },
+    headers: {
+      'x-rapidapi-key': '6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618',
+      'x-rapidapi-host': 'instagram-video-image-downloader.p.rapidapi.com'
+    }
+  };
 
   try {
-    const options = {
-      method: "GET",
-      // Humne endpoint badal diya hai jo 2026 mein zyada stable hai
-      url: "https://instagram-api39.p.rapidapi.com/instagram/", 
-      params: { url: igUrl },
-      headers: {
-        "x-rapidapi-key": "6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618",
-        "x-rapidapi-host": "instagram-api39.p.rapidapi.com"
-      }
-    };
+    const response = await axios.request(options);
+    const data = response.data;
 
-    const res = await axios.request(options);
-    const data = res.data;
-
-    // --- SMART PARSING ---
-    // Hum har us jagah dhoondenge jahan video link ho sakta hai
-    let videoUrl = data.url || data.download_url || (data.data && data.data[0]?.url);
-
-    if (!videoUrl) {
-      // Agar video nahi mili to shayad ye Photo ho
-      videoUrl = data.thumbnail || data.image; 
+    // --- DATA EXTRACTION ---
+    // Ye API aksar data ko aik array mein daiti hai
+    let mediaUrl = "";
+    if (data.links && data.links.length > 0) {
+        mediaUrl = data.links[0].link; // HD Link
+    } else if (data.url) {
+        mediaUrl = data.url;
     }
 
-    if (!videoUrl) {
-      return api.sendMessage("❌ Ahmad bhai, is link se media nahi mil saki. Profile public honi chahiye.", threadID, messageID);
+    if (!mediaUrl) {
+      console.log("Full Response:", JSON.stringify(data, null, 2));
+      return api.sendMessage("❌ Ahmad bhai, is API ne link return nahi kiya. Check if post is public.", threadID, messageID);
     }
 
-    const isVideo = videoUrl.includes(".mp4") || videoUrl.includes("video");
-    const ext = isVideo ? ".mp4" : ".jpg";
-    const filePath = path.join(__dirname, `/cache/ig_${Date.now()}${ext}`);
+    // Extension Check
+    const ext = mediaUrl.includes(".mp4") ? ".mp4" : ".jpg";
+    const filePath = path.join(__dirname, `/cache/ig_new_${Date.now()}${ext}`);
 
-    const resStream = await axios.get(videoUrl, { responseType: "stream" });
+    // --- DOWNLOAD & SEND ---
+    const resStream = await axios.get(mediaUrl, { responseType: 'stream' });
     const writer = fs.createWriteStream(filePath);
     resStream.data.pipe(writer);
 
-    writer.on("finish", () => {
-      api.sendMessage(
-        {
-          body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐈𝐍𝐒𝐓𝐀**\n✨ Quality: HD ${isVideo ? 'Video' : 'Photo'}`,
-          attachment: fs.createReadStream(filePath)
-        },
-        threadID,
-        () => fs.unlinkSync(filePath),
-        messageID
-      );
+    writer.on('finish', () => {
+      api.sendMessage({
+        body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐈𝐍𝐒𝐓𝐀**\n✨ Success: Media Downloaded`,
+        attachment: fs.createReadStream(filePath)
+      }, threadID, () => fs.unlinkSync(filePath), messageID);
     });
 
-  } catch (err) {
-    console.error(err);
-    // Agar 404 aaye to fallback message
-    const errorMsg = err.response?.status === 404 
-      ? "❌ API Endpoint (Host) Down hai Ahmad bhai. Main doosra server try kar raha hoon..." 
-      : "❌ Instagram API connection fail ho gaya.";
-    api.sendMessage(errorMsg, threadID, messageID);
+  } catch (error) {
+    console.error(error);
+    api.sendMessage("❌ Error: API ne response nahi diya (404/Limit).", threadID, messageID);
   }
 };

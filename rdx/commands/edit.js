@@ -5,7 +5,7 @@ const path = require("path");
 module.exports.config = {
   name: "edit",
   version: "1.3.0",
-  hasPermssion: 0,
+  hasPermssion: 2,
   credits: "SARDAR RDX & Gemini",
   description: "Edit images using NanoBanana (Anabot)",
   commandCategory: "Media",
@@ -41,7 +41,7 @@ module.exports.run = async ({ api, event, args }) => {
   }
 
   const imageUrl = attachment.url;
-  const processingMsg = await api.sendMessage("🎨 NanoBanana AI is processing your edit...\n⏳ This might take a few seconds...", threadID);
+  const processingMsg = await api.sendMessage("🎨 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 is processing your edit...\n⏳ This might take a few seconds...", threadID);
 
   try {
     const cacheDir = path.join(__dirname, "cache");

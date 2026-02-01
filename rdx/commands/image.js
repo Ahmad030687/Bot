@@ -15,7 +15,7 @@ const API_KEY = (() => {
 })();
 
 module.exports.config = {
-  name: "gemini",
+  name: "image",
   version: "1.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali Safdar",

@@ -1,66 +1,68 @@
 /**
- * font.js - Sardar RDX Unicode Font Engine (200+ Styles)
+ * font.js - Sardar RDX 200+ Professional Font Engine
  * Credits: Ahmad Ali Safdar | Sardar RDX
+ * Logic: Combinatorial Unicode Engine (1-200)
  */
 
 module.exports.config = {
   name: "font",
-  version: "10.0.0",
+  version: "20.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "200+ stylish Unicode text fonts",
+  description: "200+ Professional Styles using Numbers 1-200",
   commandCategory: "text",
-  usages: "#font [fontname] [text]",
+  usages: "#font [1-200] [text]",
   cooldowns: 0
 };
 
-const MAPS = {
-  bold: "𝐚𝐛𝐜𝐝𝐞𝐟𝐠𝐡𝐢𝐣𝐤𝐥𝐦𝐧𝐨𝐩𝐪𝐫𝐬𝐭𝐮𝐯𝐰𝐱𝐲𝐳𝐀𝐁𝐂𝐃𝐄𝐅𝐆𝐇𝐈𝐉𝐊𝐋𝐌𝐍𝐎𝐏𝐐𝐑𝐒𝐓𝐔𝐕𝐖𝐗𝐘𝐙𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖𝟗",
-  italic: "𝘢𝘣𝘤𝘥𝘦𝘧𝘨𝘩𝘪𝘫𝘬𝘭𝘮𝘯𝘰𝘱𝘲𝘳𝘴𝘵𝘶𝘷𝘸𝘹𝘺𝘻𝘈𝘉𝘊𝘋𝘌𝘍𝘎𝘏𝘐𝘑𝘒𝘓𝘔𝘕𝘖𝘗𝘘𝘙𝘚𝘛𝘜𝘝𝘞𝘟𝘠𝘡",
-  bolditalic: "𝙖𝙗𝙘𝙙𝙚𝙛𝙜𝙝𝙞𝙟𝙠𝙡𝙢𝙣𝙤𝙥𝙦𝙧𝙨𝙩𝙪𝙫𝙬𝙭𝙮𝙯𝘼𝘽𝘾𝘿𝙀𝙁𝙂𝙃𝙄𝙅𝙆𝙇𝙈𝙉𝙊𝙋𝙌𝙍𝙎𝙏𝙐𝙑𝙒𝙓𝙔𝙕",
-  mono: "𝚊𝚋𝚌𝚍𝚎𝚏𝚐𝚑𝚒𝚓𝚔𝚕𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣𝙰𝙱𝙲𝙳𝙴𝙵𝙶𝙷𝙸𝙹𝙺𝙻𝙼𝙽𝙾𝙿𝚀𝚁𝚂𝚃𝚄𝚅𝚆𝚇𝚈𝚉𝟶𝟷𝟸𝟹𝟺𝟻𝟼𝟽𝟾𝟿",
-  script: "𝒶𝒷𝒸𝒹𝑒𝒻𝑔𝒽𝒾𝒿𝓀𝓁𝓂𝓃𝑜𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏𝒜𝐵𝒞𝒟𝐸𝐹𝒢𝐻𝐼𝒥𝒦𝐿𝑀𝒩𝒪𝒫𝒬𝑅𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵",
-  boldscript: "𝓪𝓫𝓬𝓭𝓮𝓯𝓰𝓱𝓲𝓳𝓴𝓵𝓶𝓷𝓸𝓹𝓺𝓻𝓼𝓽𝓾𝓿𝔀𝔁𝔂𝔃𝓐𝓑𝓒𝓓𝓔𝓕𝓖𝓗𝓘𝓙𝓚𝓛𝓜𝓝𝓞𝓟𝓠𝓡𝓢𝓣𝓤𝓥𝓦𝓧𝓨𝓩",
-  gothic: "𝔞𝔔𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷𝔄𝔅ℭ𝔇𝔈𝔉𝔊ℌℑ𝔍𝔎𝔏𝔐𝔑𝔒𝔓𝔔ℜ𝔗𝔘𝔚𝔛𝔜ℨ",
-  double: "𝕒𝕓𝕔𝕕𝕖𝕗𝕘𝕙𝕚𝕛𝕜𝕝𝕞𝕟𝕠𝕡𝕢𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫𝔸𝔹ℂ𝔻𝔼𝔽𝔾ℍ𝕀𝕁𝕂𝕃𝕄ℕ𝕆ℙℚℝ𝕊𝕋𝕌𝕍𝕎𝕏𝕐ℤ𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡",
-  bubbles: "ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩⒶⒷⒸⒹⒺⒻⒼⒽⒾⒿⓀⓁⓂⓃⓄⓅⓆⓇⓈⓉⓊⓋⓌⓍⓎⓏ",
-  smallcaps: "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ",
-  squares: "🄰🄱🄲🄳🄴🄵🄿🄷🄸🄹🄺🄻🄼🄽🄾🄿🅀🅁🅂🅃🅄🅅🅆🅇🅈🅉🄰🄱🄲🄳🄴🄵🄶🄷🄸🄹🄺🄻🄼🄽🄾🄿🅀🅁🅂🅃🅄🅅🅆🅇🅈🅉",
-  // Decorations Engine (150+ combinations)
-  magic: "✨", heart: "❤", star: "⭐", king: "👑", eagle: "🦅", boss: "👔"
-};
-
-const NORMAL = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
 module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID } = event;
-  if (args.length < 2) return api.sendMessage("Usage: #font [fontname] [text]", threadID, messageID);
+  if (args.length < 2) return api.sendMessage("⚠️ Ahmad bhai, use karein: #font [number] [text]\nExample: #font 52 Sardar RDX", threadID, messageID);
 
-  const font = args[0].toLowerCase();
+  const num = parseInt(args[0]);
   const text = args.slice(1).join(" ");
-
-  // 1. Core Unicode Transformation
-  const transform = (str, map) => {
-    return str.split('').map(c => {
-      const i = NORMAL.indexOf(c);
-      return i !== -1 ? [...map][i] : c;
-    }).join('');
-  };
-
-  let result = text;
-
-  // Font Selection Logic
-  if (MAPS[font]) {
-    result = transform(text, MAPS[font]);
-  } else if (font.startsWith("dec")) {
-    // Custom Decorations (dec1, dec2, etc.)
-    const decNum = parseInt(font.replace("dec", ""));
-    const symbols = ["⚡", "🔥", "💎", "❄️", "🍀", "🎸", "🎯", "🎭", "🎮", "🛰️"];
-    const sym = symbols[decNum % symbols.length] || "✨";
-    result = `${sym} ${text} ${sym}`;
-  } else {
-    return api.sendMessage("❌ Font nahi mila! Use #fonts for list.", threadID, messageID);
+  
+  if (isNaN(num) || num < 1 || num > 200) {
+    return api.sendMessage("❌ Ahmad bhai, sirf 1 se 200 tak ka number likhein.", threadID, messageID);
   }
 
-  api.sendMessage(`🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐅𝐎𝐍𝐓𝐒**\n\n${result}`, threadID, messageID);
+  const getStyledText = (str, n) => {
+    const alpha = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const baseStyles = [
+      [0x1D41A, 0x1D400, 0x1D7CE], // Bold
+      [0x1D44E, 0x1D434, 0x30],    // Italic
+      [0x1D5EE, 0x1D5D4, 0x1D7EC], // Sans Bold
+      [0x1D622, 0x1D608, 0x30],    // Sans Italic
+      [0x1D4B6, 0x1D49C, 0x30],    // Script
+      [0x1D51E, 0x1D504, 0x30],    // Fraktur
+      [0x1D552, 0x1D538, 0x1D7D8], // Double-struck
+      [0x1D670, 0x1D670, 0x1D7F6], // Mono
+      [0x1D400, 0x1D400, 0x30],    // Serif Bold
+      [0x1D5BA, 0x1D5A0, 0x1D7E2]  // Sans Normal
+    ];
+
+    // Modifiers (Underlines, Dots, Strikes, etc.)
+    const mods = ["", "\u0332", "\u0336", "\u0333", "\u0305", "\u0338", "\u0323", "\u0330", "\u0337", "\u0331", "\u0334", "\u0324", "\u032D", "\u032E", "\u035A", "\u035B", "\u032B", "\u032C", "\u035D", "\u035E"];
+
+    let styleIdx = (n - 1) % baseStyles.length;
+    let modIdx = Math.floor((n - 1) / baseStyles.length);
+    
+    let res = "";
+    for (let char of str) {
+      let i = alpha.indexOf(char);
+      if (i !== -1) {
+        let code;
+        if (i < 26) code = baseStyles[styleIdx][0] + i;
+        else if (i < 52) code = baseStyles[styleIdx][1] + (i - 26);
+        else code = baseStyles[styleIdx][2] + (i - 52);
+        res += String.fromCodePoint(code) + (mods[modIdx] || "");
+      } else {
+        res += char;
+      }
+    }
+    return res;
+  };
+
+  const finalOutput = getStyledText(text, num);
+  return api.sendMessage(finalOutput, threadID, messageID);
 };

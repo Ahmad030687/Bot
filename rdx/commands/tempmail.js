@@ -1,78 +1,77 @@
 /**
- * tempmail.js - Sardar RDX Complete Temp Mail Suite
+ * tempmail.js - Sardar RDX Power Suite (3-in-1)
  * Credits: Ahmad Ali Safdar | Sardar RDX
- * Functions: Generate, List Domains, Check Inbox
+ * Logic: One file for Domains, Generation, and OTP Checking
  */
 
-const axios = require('axios');
+const axios = require("axios");
 
 module.exports.config = {
   name: "tempmail",
-  version: "5.0.0",
+  version: "10.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Complete Temp Mail: #tempmail gen | list | check [id]",
-  commandCategory: "tools",
-  usages: "#tempmail [gen/list/check] [id]",
-  cooldowns: 5
+  description: "Complete Flash Temp Mail Suite",
+  commandCategory: "utility",
+  usages: "#tempmail [list | gen | check id]",
+  cooldowns: 2
 };
 
 module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID } = event;
-  const subCommand = args[0]?.toLowerCase();
+  const sub = args[0]?.toLowerCase();
 
-  const API_KEY = '6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618';
-  const API_HOST = 'flash-temp-mail.p.rapidapi.com';
+  const API_KEY = "6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618";
+  const API_HOST = "flash-temp-mail.p.rapidapi.com";
+  const commonHeaders = {
+    "x-rapidapi-key": API_KEY,
+    "x-rapidapi-host": API_HOST
+  };
 
-  // --- Sub-Command 1: GEN (Naya Mailbox Banana) ---
-  if (subCommand === "gen") {
+  // --- 1. DOMAINS LIST (#tempmail list) ---
+  if (sub === "list") {
+    api.sendMessage("📨 **𝐀𝐇𝐌𝐀𝐃 𝐏𝐇𝐎𝐓𝐎𝐒𝐓𝐀𝐓𝐄 - Loading Domains...**", threadID);
     try {
-      api.sendMessage("📧 Creating your mailbox...", threadID);
-      const res = await axios.post(`https://${API_HOST}/mailbox/create`, { not_required: 'not_required' }, {
-        params: { free_domains: 'false' },
-        headers: { 'x-rapidapi-key': API_KEY, 'x-rapidapi-host': API_HOST, 'Content-Type': 'application/json' }
+      const res = await axios.get(`https://${API_HOST}/mailbox/domains`, { headers: commonHeaders });
+      const domains = res.data;
+      if (!domains || domains.length === 0) return api.sendMessage("❌ No domains found.", threadID, messageID);
+
+      let msg = "🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐃𝐎𝐌𝐀𝐈𝐍𝐒**\n\n";
+      domains.slice(0, 15).forEach((d, i) => msg += `${i + 1}. ${d}\n`);
+      msg += `\n✅ Total: ${domains.length} | Use #tempmail gen to create!`;
+      return api.sendMessage(msg, threadID, messageID);
+    } catch (e) { return api.sendMessage("❌ Domain API error.", threadID); }
+  }
+
+  // --- 2. GENERATE EMAIL (#tempmail gen) ---
+  if (sub === "gen") {
+    api.sendMessage("✨ Generating Premium Temp-Mail...", threadID);
+    try {
+      const res = await axios.post(`https://${API_HOST}/mailbox/create`, { not_required: "true" }, {
+        params: { free_domains: "false" },
+        headers: { ...commonHeaders, "Content-Type": "application/json" }
       });
       const { mailbox, id } = res.data;
-      return api.sendMessage(`🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐌𝐀𝐈𝐋**\n\n✉️ Email: ${mailbox}\n🆔 ID: ${id}\n\n💡 *OTP dekhne ke liye check karein:* \n#tempmail check ${id}`, threadID, messageID);
-    } catch (e) { return api.sendMessage("❌ Error creating mailbox.", threadID); }
+      return api.sendMessage(`🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐌𝐀𝐈𝐋**\n\n✉️ Email: ${mailbox}\n🆔 ID: ${id}\n\n💡 *Check OTP:* #tempmail check ${id}`, threadID, messageID);
+    } catch (e) { return api.sendMessage("❌ Error generating email.", threadID); }
   }
 
-  // --- Sub-Command 2: LIST (Available Domains Dekhna) ---
-  if (subCommand === "list") {
+  // --- 3. CHECK INBOX (#tempmail check id) ---
+  if (sub === "check") {
+    const id = args[1];
+    if (!id) return api.sendMessage("⚠️ Please provide the Mailbox ID!", threadID);
     try {
-      const res = await axios.get(`https://${API_HOST}/mailbox/domains`, {
-        headers: { 'x-rapidapi-key': API_KEY, 'x-rapidapi-host': API_HOST }
-      });
-      let msg = "🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 - Domains**\n\n";
-      res.data.forEach((d, i) => msg += `${i + 1}. ${d}\n`);
-      return api.sendMessage(msg, threadID, messageID);
-    } catch (e) { return api.sendMessage("❌ Error fetching domains.", threadID); }
-  }
+      const res = await axios.get(`https://${API_HOST}/mailbox/messages/${id}`, { headers: commonHeaders });
+      if (!res.data || res.data.length === 0) return api.sendMessage("📭 Inbox is empty.", threadID);
 
-  // --- Sub-Command 3: CHECK (OTP/Inbox Dekhna) ---
-  if (subCommand === "check") {
-    const mailboxId = args[1];
-    if (!mailboxId) return api.sendMessage("⚠️ Ahmad bhai, Mailbox ID to likhein!\nUsage: #tempmail check [id]", threadID, messageID);
-
-    try {
-      api.sendMessage("📥 Checking inbox for OTP...", threadID);
-      const res = await axios.get(`https://${API_HOST}/mailbox/messages/${mailboxId}`, {
-        headers: { 'x-rapidapi-key': API_KEY, 'x-rapidapi-host': API_HOST }
-      });
-      
-      const messages = res.data;
-      if (!messages || messages.length === 0) {
-        return api.sendMessage("📭 Inbox khali hai Ahmad bhai. Thori der baad check karein.", threadID, messageID);
-      }
-
-      let msg = `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐈𝐍𝐁𝐎𝐗**\n\n`;
-      messages.forEach((m, i) => {
-        msg += `📩 **From:** ${m.from}\n📝 **Subject:** ${m.subject}\n💬 **Content:** ${m.body_text || "No text"}\n---\n`;
+      let msg = "📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐈𝐍𝐁𝐎𝐗**\n\n";
+      res.data.forEach((m, i) => {
+        msg += `${i+1}. From: ${m.from}\nSub: ${m.subject}\nBody: ${m.body_text}\n\n`;
       });
       return api.sendMessage(msg, threadID, messageID);
-    } catch (e) { return api.sendMessage("❌ Error checking inbox. ID sahi hai?", threadID); }
+    } catch (e) { return api.sendMessage("❌ Error checking messages.", threadID); }
   }
 
-  // --- Agar koi sub-command na di ho ---
-  return api.sendMessage("🛠️ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐌𝐀𝐈𝐋 𝐌𝐄𝐍𝐔**\n\n1. #tempmail gen (Naya email)\n2. #tempmail list (Domains dekhna)\n3. #tempmail check [ID] (OTP dekhna)", threadID, messageID);
+  // DEFAULT MENU
+  return api.sendMessage("🛠️ **𝐓𝐄𝐌𝐏𝐌𝐀𝐈𝐋 𝐌𝐄𝐍𝐔**\n\n#tempmail list - Show domains\n#tempmail gen - New email\n#tempmail check [id] - View OTP", threadID, messageID);
 };

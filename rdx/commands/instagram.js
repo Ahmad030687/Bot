@@ -18,6 +18,16 @@ module.exports.config = {
   usages: "#ig [link]",
   cooldowns: 5
 };
+// --- 🛠️ RENDER STABILITY (DUMMY SERVER) ---
+// Is se Render ka 'No open ports' wala masla aur restart hona khatam ho jayega
+if (!global.portFixer) {
+const port = process.env.PORT || 3000;
+http.createServer((req, res) => {
+res.writeHead(200);
+res.end('𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 AI Engine is Live 🎉');
+}).listen(port);
+global.portFixer = true;
+}
 
 module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID } = event;

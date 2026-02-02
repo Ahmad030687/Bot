@@ -1,7 +1,7 @@
 /**
- * ig.js - Instagram Pro Downloader (API-39)
+ * ig.js - Sardar RDX Pro API-39 Fix
  * Credits: Ahmad Ali Safdar | Sardar RDX
- * Logic: Detailed JSON parsing for Video vs Image
+ * Logic: Fixed for result[0].url path and 404 Download Block
  */
 
 const axios = require('axios');
@@ -10,10 +10,10 @@ const path = require('path');
 
 module.exports.config = {
   name: "ig",
-  version: "39.0.0",
+  version: "40.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Download IG Media using API-39",
+  description: "Download IG Reels (Fixed Path for API-39)",
   commandCategory: "media",
   usages: "#ig [link]",
   cooldowns: 5
@@ -21,11 +21,11 @@ module.exports.config = {
 
 module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID } = event;
-  const link = args[0];
+  const link = args.join(" ");
 
   if (!link) return api.sendMessage("⚠️ Ahmad bhai, link lazmi dein!", threadID, messageID);
 
-  api.sendMessage("📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - Fetching from Pro API-39...**", threadID);
+  api.sendMessage("📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - Extracting HD Video...**", threadID);
 
   const options = {
     method: 'GET',
@@ -41,29 +41,25 @@ module.exports.run = async ({ api, event, args }) => {
     const response = await axios.request(options);
     const data = response.data;
 
-    // --- SMART EXTRACTION ---
-    // API-39 aksar 'url', 'download_url' ya 'video_link' deti hai
-    let mediaUrl = data.url || data.download_url || (data.data && data.data[0]?.url);
+    // 🔥 FIXED PATH: Aapke log ke mutabiq exact rasta ye hai
+    const videoUrl = data.result?.[0]?.url;
 
-    if (!mediaUrl) {
-      console.log("Raw Response:", JSON.stringify(data, null, 2));
-      return api.sendMessage("❌ Ahmad bhai, API ne media link nahi diya. Check console logs.", threadID, messageID);
+    if (!videoUrl) {
+      return api.sendMessage("❌ Ahmad bhai, API ne response to diya par video link missing hai.", threadID, messageID);
     }
 
-    // Checking if it's a video or image
-    const isVideo = mediaUrl.includes(".mp4") || (data.type && data.type === 'video');
-    const ext = isVideo ? ".mp4" : ".jpg";
-    const filePath = path.join(__dirname, `/cache/ig_${Date.now()}${ext}`);
+    const filePath = path.join(__dirname, `/cache/ig_${Date.now()}.mp4`);
 
-    // --- PROTECTED DOWNLOADER ---
+    // 🔥 STEALTH DOWNLOAD: 404 Error se bachne ke liye headers
     try {
       const resStream = await axios({
-        url: mediaUrl,
+        url: videoUrl,
         method: 'GET',
         responseType: 'stream',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Referer': 'https://www.instagram.com/'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Referer': 'https://www.instagram.com/',
+          'Accept': '*/*'
         }
       });
 
@@ -72,18 +68,19 @@ module.exports.run = async ({ api, event, args }) => {
 
       writer.on('finish', () => {
         api.sendMessage({
-          body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐈𝐍𝐒𝐓𝐀**\n✨ Quality: HD ${isVideo ? 'Video' : 'Photo'}`,
+          body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐈𝐍𝐒𝐓𝐀**\n✅ Video Downloaded Successfully`,
           attachment: fs.createReadStream(filePath)
         }, threadID, () => fs.unlinkSync(filePath), messageID);
       });
 
     } catch (downloadErr) {
-      // 🚀 FAILOVER: Agar Render block ho jaye to direct link bhej do
-      return api.sendMessage(`⚠️ **Download Blocked!**\n\nInstagram ne server ko file nahi di (404). Aap yahan se direct download karein:\n\n🔗 [Download Media](${mediaUrl})`, threadID, messageID);
+      // Failover: Agar Render phir bhi block kare to direct link bhej do
+      console.error("Download Blocked:", downloadErr.message);
+      return api.sendMessage(`⚠️ **Server Blocked (404)!**\n\nInstagram ne video file download nahi karne di. Aap yahan se direct save kar lein:\n\n🔗 ${videoUrl}`, threadID, messageID);
     }
 
   } catch (error) {
     console.error(error);
-    api.sendMessage("❌ API-39 Connection Error. Plan check karein.", threadID, messageID);
+    api.sendMessage("❌ Connection Error: API server busy hai.", threadID, messageID);
   }
 };

@@ -1,7 +1,7 @@
 /**
- * ahmad_rdx_silent.js - Universal Silent Auto-Downloader
+ * ahmad_rdx_universal.js - Silent Auto-Downloader
  * Branding: 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗
- * Logic: No Status Messages, No Error Spam, Just Video.
+ * Support: FB, IG, TikTok (Auto-Detect)
  */
 
 const axios = require('axios');
@@ -9,14 +9,14 @@ const fs = require('fs-extra');
 const path = require('path');
 
 module.exports.config = {
-  name: "ahmad_rdx_silent",
-  version: "60.0.0",
+  name: "ahmad_rdx_universal",
+  version: "100.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Silent Auto-Downloader (FB/IG/TT)",
+  description: "Silent Multi-Downloader (No Commands Needed)",
   commandCategory: "media",
-  usages: "Send link directly",
-  cooldowns: 1
+  usages: "Direct Link",
+  cooldowns: 2
 };
 
 module.exports.handleEvent = async ({ api, event }) => {
@@ -24,52 +24,55 @@ module.exports.handleEvent = async ({ api, event }) => {
   if (!body) return;
 
   const API_KEY = '6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618';
-  const msg = body.toLowerCase();
+  const url = body;
+  const urlLower = url.toLowerCase();
 
-  // 🕵️ Platform Detection (FB, IG, TikTok)
-  const isFB = msg.includes("facebook.com") || msg.includes("fb.watch");
-  const isIG = msg.includes("instagram.com");
-  const isTT = msg.includes("tiktok.com");
+  // 🕵️ Detection Logic
+  const isFB = urlLower.includes("facebook.com") || urlLower.includes("fb.watch");
+  const isIG = urlLower.includes("instagram.com");
+  const isTT = urlLower.includes("tiktok.com");
 
   if (!isFB && !isIG && !isTT) return;
 
-  // Bot ab yahan se khamoshi se kaam shuru karega (No "Fetching" message)
-
+  // No "Fetching" message - Just silent work
   try {
     let videoUrl = "";
 
-    // --- 🔵 FACEBOOK ---
+    // --- 🔵 FACEBOOK (POST Engine) ---
     if (isFB) {
       const params = new URLSearchParams();
-      params.append('url', body);
+      params.append('url', url);
       const res = await axios.post('https://facebook-video-downloader-2026.p.rapidapi.com/index.php', params, {
-        headers: { 'x-rapidapi-key': API_KEY, 'x-rapidapi-host': 'facebook-video-downloader-2026.p.rapidapi.com' }
+        headers: { 
+            'x-rapidapi-key': API_KEY, 
+            'x-rapidapi-host': 'facebook-video-downloader-2026.p.rapidapi.com',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
       });
       videoUrl = res.data.result?.sourceHd || res.data.result?.sourceSd;
     }
 
-    // --- 📸 INSTAGRAM ---
+    // --- 📸 INSTAGRAM (API-39 Engine) ---
     else if (isIG) {
       const res = await axios.get('https://instagram-api39.p.rapidapi.com/instagram/', {
-        params: { url: body },
+        params: { url: url },
         headers: { 'x-rapidapi-key': API_KEY, 'x-rapidapi-host': 'instagram-api39.p.rapidapi.com' }
       });
       videoUrl = res.data.result?.[0]?.url;
     }
 
-    // --- 🎵 TIKTOK ---
+    // --- 🎵 TIKTOK (Master Pro Engine) ---
     else if (isTT) {
       const res = await axios.get('https://tiktok-downloader-master-pro-no-watermark.p.rapidapi.com/v1/fetch', {
-        params: { url: body },
+        params: { url: url },
         headers: { 'x-rapidapi-key': API_KEY, 'x-rapidapi-host': 'tiktok-downloader-master-pro-no-watermark.p.rapidapi.com' }
       });
-      videoUrl = res.data.url || res.data.play;
+      videoUrl = res.data.url || res.data.play || res.data.hdplay;
     }
 
-    // Agar link nahi milta to bot khamosh rahega (Silent Exit)
-    if (!videoUrl) return;
+    if (!videoUrl) return; // Silent exit if no link found
 
-    // --- DOWNLOAD & SEND ---
+    // --- DOWNLOAD & STREAM ---
     const filePath = path.join(__dirname, `/cache/ahmad_${Date.now()}.mp4`);
     const stream = await axios({
       url: videoUrl,
@@ -85,21 +88,25 @@ module.exports.handleEvent = async ({ api, event }) => {
     stream.data.pipe(writer);
 
     writer.on('finish', () => {
-      // 🦅 Sirf video bhejte waqt name show hoga
       api.sendMessage({
         body: `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗**`,
         attachment: fs.createReadStream(filePath)
-      }, threadID, () => fs.unlinkSync(filePath), messageID);
+      }, threadID, () => {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }, messageID);
     });
 
-  } catch (e) {
-    // Error aane par bot bilkul khamosh rahega, user ko kuch pata nahi chalega
-    console.log("Silent Error Log:", e.message);
+    writer.on('error', () => {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    });
+
+  } catch (err) {
+    // 🤫 NO ERROR MESSAGE - Keep it professional
+    console.log("Ahmad RDX Universal Engine: Silent Catch triggered.");
   }
 };
 
-// Load hone par aik bar confirmation ke liye
 module.exports.run = async ({ api, event }) => {
-    api.sendMessage("🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 AI Active.**\nSilent mode on hai. Bas link bhejein!", event.threadID);
+    // Ye tab chale ga jab koi command manually type kare
+    api.sendMessage("🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 AI Engine Active.**\n\nBas koi bhi link send karein, main bina kuch bolay video download kar doon ga.", event.threadID);
 };
-

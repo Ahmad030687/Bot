@@ -72,7 +72,7 @@ module.exports.run = async ({ api, event, args }) => {
 
     writer.on('finish', () => {
       api.sendMessage({
-        body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐅𝐀𝐂𝐄𝐁𝐎𝐎𝐊**\n\n📝 **Title:** ${title}\n✨ **Quality:** HD Supported`,
+        body: `🦅 ***𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐅𝐀𝐂𝐄𝐁𝐎𝐎𝐊**\n\n📝 **Title:** ${title}\n✨ **Quality:** HD Supported`,
         attachment: fs.createReadStream(filePath)
       }, threadID, () => fs.unlinkSync(filePath), messageID);
     });

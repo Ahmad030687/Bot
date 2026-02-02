@@ -25,7 +25,7 @@ module.exports.run = async ({ api, event, args }) => {
 
   if (!link) return api.sendMessage("⚠️ Ahmad bhai, FB link to dein!", threadID, messageID);
 
-  api.sendMessage("📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - Fetching HD Video from FB...**", threadID);
+  api.sendMessage("📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 - Fetching HD Video from FB...**", threadID);
 
   const encodedParams = new URLSearchParams();
   encodedParams.append('url', link);

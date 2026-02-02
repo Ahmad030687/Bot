@@ -9,7 +9,7 @@ const fs = require('fs-extra');
 const path = require('path');
 
 module.exports.config = {
-  name: "ig",
+  name: "instagram",
   version: "40.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",

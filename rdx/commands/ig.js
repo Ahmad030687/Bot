@@ -1,7 +1,7 @@
 /**
- * ig.js - Sardar RDX Hybrid Downloader
+ * ig.js - Sardar RDX Anti-404 Hybrid
  * Credits: Ahmad Ali Safdar | Sardar RDX
- * Fix: Forced Video Extraction & 404 Failover
+ * Logic: Forced Video Extraction + Direct Link Fallback
  */
 
 const axios = require("axios");
@@ -10,10 +10,10 @@ const path = require("path");
 
 module.exports.config = {
   name: "ig",
-  version: "15.0.0",
+  version: "20.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Download IG Reels (Bypasses 404 & Thumbnail-only issues)",
+  description: "Download IG Reels (Fixes 404 & Thumbnail-only issues)",
   commandCategory: "media",
   usages: "#ig [link]",
   cooldowns: 5
@@ -23,77 +23,86 @@ module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID } = event;
   const igUrl = args[0];
 
-  if (!igUrl) return api.sendMessage("⚠️ Ahmad bhai, Reel link to dein!", threadID, messageID);
+  if (!igUrl) return api.sendMessage("⚠️ Ahmad bhai, Instagram Reel link to dein!", threadID, messageID);
 
-  api.sendMessage("📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - Engine Booting (Strict Video Mode)...**", threadID);
-
-  const cookies = "csrftoken=bGIDVDupMveNybZtdUnEtI; datr=uSKAadyUYea0BpWZdtL4f9Kx; ig_did=731C0210-4E78-4A23-B215-71BA1C49BF92; mid=aYAiuQABAAFPO0HzHIr7I-YaiHNX";
+  api.sendMessage("📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - Bypassing Instagram CDN...**", threadID);
 
   try {
-    // --- STEP 1: PRIMARY ENGINE (RapidAPI + Cookies) ---
-    const res = await axios.get('https://instagram-video-image-downloader.p.rapidapi.com/igdl', {
+    // --- ENGINE 1: RapidAPI (Ahmad's Key) ---
+    const options = {
+      method: 'GET',
+      url: 'https://instagram-video-image-downloader.p.rapidapi.com/igdl',
       params: { url: igUrl },
       headers: {
         'x-rapidapi-key': '6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618',
-        'x-rapidapi-host': 'instagram-video-image-downloader.p.rapidapi.com',
-        'Cookie': cookies
+        'x-rapidapi-host': 'instagram-video-image-downloader.p.rapidapi.com'
       }
-    });
+    };
 
-    let mediaUrl = "";
-    const results = res.data;
+    const res = await axios.request(options);
+    const data = res.data;
+    let videoUrl = "";
 
-    // --- STRICT VIDEO FILTER ---
-    // Hum sirf wo link uthayenge jis mein '.mp4' ho ya size bada ho
-    if (Array.isArray(results)) {
-        const videoObj = results.find(item => item.url.includes(".mp4") || item.filename?.includes(".mp4"));
-        mediaUrl = videoObj ? videoObj.url : results[0]?.url;
-    } else {
-        mediaUrl = results.url || results.download_url;
+    // --- STRICT VIDEO SCANNER ---
+    // Hum poore response mein sirf '.mp4' ya video file dhoondeinge
+    if (Array.isArray(data)) {
+        const videoObj = data.find(item => item.url.includes(".mp4") || item.type === "video");
+        videoUrl = videoObj ? videoObj.url : null;
+    } else if (data.links) {
+        const videoObj = data.links.find(l => l.link.includes(".mp4") || l.type === "video");
+        videoUrl = videoObj ? videoObj.link : null;
     }
 
-    // --- STEP 2: FALLBACK ENGINE (If Step 1 fails or returns thumbnail) ---
-    if (!mediaUrl || !mediaUrl.includes(".mp4")) {
-      console.log("RapidAPI failed/returned image. Switching to Backup Engine...");
+    // --- ENGINE 2: PUBLIC FALLBACK (If RapidAPI returns image or fails) ---
+    if (!videoUrl || !videoUrl.includes(".mp4")) {
+      console.log("RapidAPI failed to provide video. Switching to Backup...");
       const backup = await axios.get(`https://api.vkrhost.xyz/api/v1/instagram?url=${encodeURIComponent(igUrl)}`);
-      mediaUrl = backup.data.result?.[0]?.url;
+      videoUrl = backup.data.result?.[0]?.url;
     }
 
-    if (!mediaUrl) throw new Error("No video link found in any engine.");
+    if (!videoUrl) {
+      return api.sendMessage("❌ Ahmad bhai, Instagram ne is reel ka access block kar diya hai.", threadID, messageID);
+    }
 
-    // --- STEP 3: PROTECTED DOWNLOADER ---
-    const filePath = path.join(__dirname, `/cache/ig_rdx_${Date.now()}.mp4`);
+    // --- DOWNLOADER WITH MULTI-HEADERS ---
+    const filePath = path.join(__dirname, `/cache/ig_${Date.now()}.mp4`);
     
-    const videoStream = await axios({
-      url: mediaUrl,
-      method: 'GET',
-      responseType: 'stream',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
-        'Referer': 'https://www.instagram.com/',
-        'Cookie': cookies
-      }
-    });
+    try {
+      const resStream = await axios({
+        url: videoUrl,
+        method: 'GET',
+        responseType: 'stream',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': 'https://www.instagram.com/',
+          'Accept': 'video/webm,video/ogg,video/*;q=0.9,application/ogg;q=0.7,audio/*;q=0.6,*/*;q=0.5'
+        }
+      });
 
-    const writer = fs.createWriteStream(filePath);
-    videoStream.data.pipe(writer);
+      const writer = fs.createWriteStream(filePath);
+      resStream.data.pipe(writer);
 
-    writer.on('finish', () => {
-      const stats = fs.statSync(filePath);
-      // Agar file bohot choti hai (Thumbnail), to failover trigger karein
-      if (stats.size < 100000) { 
+      writer.on('finish', () => {
+        const stats = fs.statSync(filePath);
+        // Agar file bohot choti hai, to matlab ye thumbnail (image) hai
+        if (stats.size < 150000) {
           fs.unlinkSync(filePath);
-          return api.sendMessage("❌ Thumbnail block! Instagram video access nahi de raha.", threadID, messageID);
-      }
+          return api.sendMessage(`⚠️ **Render Server Block!**\n\nInstagram ne video file download nahi karne di. Aap yahan se direct download kar lein:\n\n🔗 Link: ${videoUrl}`, threadID, messageID);
+        }
 
-      api.sendMessage({
-        body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐈𝐍𝐒𝐓𝐀**\n✨ Engine: Hybrid Failover Active`,
-        attachment: fs.createReadStream(filePath)
-      }, threadID, () => fs.unlinkSync(filePath), messageID);
-    });
+        api.sendMessage({
+          body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐈𝐍𝐒𝐓𝐀**\n✨ Status: HD Video Downloaded`,
+          attachment: fs.createReadStream(filePath)
+        }, threadID, () => fs.unlinkSync(filePath), messageID);
+      });
+
+    } catch (downloadErr) {
+      // Agar 404 aaye to user ko direct link bhej do
+      return api.sendMessage(`🚀 **Direct Access Mode**\n\nBot download nahi kar pa raha, par link mil gaya hai:\n\n📥 [Download Video](${videoUrl})`, threadID, messageID);
+    }
 
   } catch (err) {
-    console.error(err.message);
-    api.sendMessage("❌ 404 Not Found: Instagram CDN ne bot ko block kar diya hai.", threadID, messageID);
+    console.error(err);
+    api.sendMessage("❌ Error: API Connection timeout.", threadID, messageID);
   }
 };

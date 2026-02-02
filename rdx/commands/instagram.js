@@ -25,7 +25,7 @@ module.exports.run = async ({ api, event, args }) => {
 
   if (!link) return api.sendMessage("⚠️ Ahmad bhai, link lazmi dein!", threadID, messageID);
 
-  api.sendMessage("📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - Extracting HD Video...**", threadID);
+  api.sendMessage("📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 - Extracting HD Video...**", threadID);
 
   const options = {
     method: 'GET',
@@ -68,7 +68,7 @@ module.exports.run = async ({ api, event, args }) => {
 
       writer.on('finish', () => {
         api.sendMessage({
-          body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐈𝐍𝐒𝐓𝐀**\n✅ Video Downloaded Successfully`,
+          body: `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐈𝐍𝐒𝐓𝐀**\n✅ Video Downloaded Successfully`,
           attachment: fs.createReadStream(filePath)
         }, threadID, () => fs.unlinkSync(filePath), messageID);
       });

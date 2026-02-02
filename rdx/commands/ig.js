@@ -1,7 +1,7 @@
 /**
- * ig.js - Sardar RDX Array-Fix Edition
- * Credits: Ahmad Ali Safdar | Sardar RDX
- * Logic: Fixed for Array-based JSON and Download Headers
+ * ig.js - Authenticated Instagram Downloader
+ * Credits: Sardar RDX | Ahmad Ali
+ * Logic: Uses provided session cookies to bypass 404/Thumbnail-only blocks.
  */
 
 const axios = require("axios");
@@ -10,55 +10,73 @@ const path = require("path");
 
 module.exports.config = {
   name: "ig",
-  version: "5.0.0",
+  version: "12.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Download Instagram Reels/Posts (Fixed Path)",
+  description: "Authenticated IG Downloader (Fixes 404 & Thumbnail-only issues)",
   commandCategory: "media",
-  usages: "#ig <link>",
-  cooldowns: 3
+  usages: "#ig [link]",
+  cooldowns: 5
 };
 
 module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID } = event;
   const igUrl = args[0];
 
-  if (!igUrl) return api.sendMessage("⚠️ Ahmad bhai, Link lazmi dein!", threadID, messageID);
+  if (!igUrl) return api.sendMessage("⚠️ Link lazmi dein!", threadID, messageID);
 
-  api.sendMessage("📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 - Array Path Scanning...**", threadID);
+  api.sendMessage("📥 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 - Authenticating Session...**", threadID);
 
-  const options = {
-    method: 'GET',
-    url: 'https://instagram-video-image-downloader.p.rapidapi.com/igdl',
-    params: { url: igUrl },
-    headers: {
-      'x-rapidapi-key': '6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618',
-      'x-rapidapi-host': 'instagram-video-image-downloader.p.rapidapi.com'
-    }
-  };
+  // 1. Convert JSON Cookies to a String
+  const cookieData = [
+    { name: "csrftoken", value: "bGIDVDupMveNybZtdUnEtI" },
+    { name: "datr", value: "uSKAadyUYea0BpWZdtL4f9Kx" },
+    { name: "ig_did", value: "731C0210-4E78-4A23-B215-71BA1C49BF92" },
+    { name: "mid", value: "aYAiuQABAAFPO0HzHIr7I-YaiHNX" }
+  ];
+  
+  const cookieString = cookieData.map(c => `${c.name}=${c.value}`).join("; ");
 
   try {
+    const options = {
+      method: 'GET',
+      url: 'https://instagram-video-image-downloader.p.rapidapi.com/igdl',
+      params: { url: igUrl },
+      headers: {
+        'x-rapidapi-key': '6f52b7d6a4msh63cfa1e9ad2f0bbp1c46a5jsna5344b9fe618',
+        'x-rapidapi-host': 'instagram-video-image-downloader.p.rapidapi.com',
+        'Cookie': cookieString, // Injecting the cookies
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    };
+
     const response = await axios.request(options);
     const data = response.data;
 
-    // 🔥 FIXED EXTRACTION: Aapka data Array hai, isliye data[0] use kiya hai
-    const mediaUrl = data[0]?.url || data[0]?.download_url;
+    // Deep scanning for the video link (Array or Object)
+    let mediaUrl = "";
+    if (Array.isArray(data)) {
+        mediaUrl = data[0]?.url || data[0]?.download_url;
+    } else {
+        mediaUrl = data.url || data.download_url || (data.links && data.links[0]?.link);
+    }
 
     if (!mediaUrl) {
-      console.log("Structure Check:", data);
-      return api.sendMessage("❌ Ahmad bhai, API ne response to diya par format match nahi kiya.", threadID, messageID);
+      return api.sendMessage("❌ Link nahi mila. Shayad video private hai.", threadID, messageID);
     }
 
     const ext = mediaUrl.includes(".mp4") ? ".mp4" : ".jpg";
-    const filePath = path.join(__dirname, `/cache/ig_${Date.now()}${ext}`);
+    const filePath = path.join(__dirname, `/cache/ig_auth_${Date.now()}${ext}`);
     
-    // 🔥 FIXED DOWNLOAD: Headers add kiye hain taake 404 Error na aaye
+    // 2. Download with Auth Headers
     const resStream = await axios({
       url: mediaUrl,
       method: 'GET',
       responseType: 'stream',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'Cookie': cookieString,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.instagram.com/'
       }
     });
 
@@ -67,13 +85,13 @@ module.exports.run = async ({ api, event, args }) => {
 
     writer.on('finish', () => {
       api.sendMessage({
-        body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐈𝐍𝐒𝐓𝐀**\n✅ Path: Array[0].url`,
+        body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐈𝐍𝐒𝐓𝐀 (Auth Mode)**\n✅ Session Verified`,
         attachment: fs.createReadStream(filePath)
       }, threadID, () => fs.unlinkSync(filePath), messageID);
     });
 
   } catch (error) {
-    console.error(error.message);
-    api.sendMessage("❌ Server Error: Link expire ho chuka hai ya API limit khatam.", threadID, messageID);
+    console.error("Auth Error:", error.message);
+    api.sendMessage("❌ Session expired ya 404 error. Naye cookies try karein.", threadID, messageID);
   }
 };

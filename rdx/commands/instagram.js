@@ -7,7 +7,7 @@
 const axios = require('axios');
 const fs = require('fs-extra');
 const path = require('path');
-
+const http = require("http");
 module.exports.config = {
   name: "instagram",
   version: "40.0.0",

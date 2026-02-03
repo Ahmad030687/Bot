@@ -1,5 +1,19 @@
 const fs = require('fs-extra');
 const path = require('path');
+const express = require('express'); // Express shamil kiya
+
+const app = express();
+const PORT = process.env.PORT || 10000;
+
+// Render ke health check ke liye aik route
+app.get('/', (req, res) => {
+  res.send('🦅 SARDAR RDX BOT is Active & Live!');
+});
+
+// Server start karein taake Render deploy "Live" ho jaye
+app.listen(PORT, () => {
+  console.log(`[SERVER] Health check server is running on port ${PORT}`);
+});
 
 const configPath = path.join(__dirname, 'config.json');
 const appstatePath = path.join(__dirname, 'appstate.json');
@@ -31,23 +45,6 @@ function getConfig() {
   }
 }
 
-function saveConfig(config) {
-  fs.writeJsonSync(configPath, config, { spaces: 2 });
-}
-
-function getAppstate() {
-  try {
-    return fs.readJsonSync(appstatePath);
-  } catch {
-    return null;
-  }
-}
-
-function saveAppstate(appstate) {
-  fs.writeJsonSync(appstatePath, appstate, { spaces: 2 });
-}
-
-// Start bot
 async function startBot() {
   try {
     if (!fs.existsSync(appstatePath)) {
@@ -81,5 +78,4 @@ async function startBot() {
   }
 }
 
-// Start the bot immediately
 startBot();

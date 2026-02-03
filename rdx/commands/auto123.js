@@ -16,7 +16,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 module.exports.config = {
-  name: "fb",
+  name: "auto",
   version: "6.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",

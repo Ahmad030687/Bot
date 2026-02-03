@@ -17,10 +17,10 @@ const path = require("path");
 
 module.exports.config = {
   name: "auto",
-  version: "4.0.0",
+  version: "4.5.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "AHMAD RDX Smart Multi-Downloader",
+  description: "AHMAD RDX Bypass Downloader",
   commandCategory: "downloader",
   usages: "[link]",
   cooldowns: 5
@@ -32,27 +32,9 @@ module.exports.run = async function ({ api, event, args }) {
 
   if (!link) return api.sendMessage("❌ Link to dein Ahmad bhai!", threadID, messageID);
 
-  // 🛡️ Platform Detection Logic
-  let platformName = "Universal";
-  let platformLogo = "🌐";
-
-  if (link.includes("facebook.com") || link.includes("fb.watch") || link.includes("fb.com")) {
-    platformName = "Facebook";
-    platformLogo = "🟦";
-  } else if (link.includes("instagram.com")) {
-    platformName = "Instagram";
-    platformLogo = "📸";
-  } else if (link.includes("tiktok.com")) {
-    platformName = "TikTok";
-    platformLogo = "🎵";
-  } else if (link.includes("youtube.com") || link.includes("youtu.be")) {
-    platformName = "YouTube";
-    platformLogo = "🟥";
-  }
-
   const RDX_API = `https://ahmad-rdx-api.onrender.com/ahmad-dl?url=${encodeURIComponent(link)}`;
 
-  api.sendMessage(`⏳ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗** - Detecting ${platformName} Link...`, threadID, messageID);
+  api.sendMessage("⏳ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗** - Bypassing Security & Downloading...", threadID, messageID);
 
   try {
     const res = await axios.get(RDX_API);
@@ -61,39 +43,41 @@ module.exports.run = async function ({ api, event, args }) {
 
     if (data && data.status && data.url) {
       const videoUrl = data.url;
-      const title = data.title || "No Title Provided";
+      const title = data.title || "No Title";
       const filePath = path.join(__dirname, `/cache/ahmad_rdx_${Date.now()}.mp4`);
 
+      // 🛡️ Bypass Headers: Ye TikTok 403 error ko khatam karega
       const response = await axios({
         method: 'get',
         url: videoUrl,
         responseType: 'stream',
-        headers: { 'User-Agent': 'Mozilla/5.0' }
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+          'Accept': '*/*',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+          'Referer': 'https://www.tiktok.com/' // TikTok bypass ke liye lazmi hai
+        }
       });
 
       const writer = fs.createWriteStream(filePath);
       response.data.pipe(writer);
 
       writer.on('finish', () => {
-        // 🦅 AHMAD RDX: Professional Multi-Platform Branding
         api.sendMessage({
-          body: `📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐔𝐋𝐓𝐑𝐀-𝐃𝐋**\n` +
-                `━━━━━━━━━━━━━━━━━━\n` +
-                `🌐 **𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦:** ${platformLogo} ${platformName}\n` +
-                `📝 **𝐓𝐢𝐭𝐥𝐞:** ${title}\n` +
-                `👤 **𝐃𝐞𝐬𝐢𝐠𝐧𝐞𝐝 𝐛𝐲:** Ahmad Ali\n` +
-                `⚡ **𝐒𝐭𝐚𝐭𝐮𝐬:** 1080p HD Quality\n` +
-                `━━━━━━━━━━━━━━━━━━`,
+          body: `📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐔𝐋𝐓𝐑𝐀-𝐃𝐋**\n━━━━━━━━━━━━━━━━━━\n📝 **𝐓𝐢𝐭𝐥𝐞:** ${title}\n👤 **𝐃𝐞𝐬𝐢𝐠𝐧𝐞𝐝 𝐛𝐲:** Ahmad Ali\n⚡ **𝐒𝐭𝐚𝐭𝐮𝐬:** Success via Python\n━━━━━━━━━━━━━━━━━━`,
           attachment: fs.createReadStream(filePath)
         }, threadID, () => {
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }, messageID);
       });
 
     } else {
-      api.sendMessage("❌ API ne response nahi diya. Link check karein!", threadID, messageID);
+      api.sendMessage("❌ API Error: Link private ho sakta hai.", threadID, messageID);
     }
   } catch (error) {
-    api.sendMessage(`❌ Connection Error: ${error.message}`, threadID, messageID);
+    // Detail error message taake pata chale kahan masla hai
+    const errorMsg = error.response ? `Status: ${error.response.status}` : error.message;
+    api.sendMessage(`❌ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐄𝐫𝐫𝐨𝐫:** ${errorMsg}`, threadID, messageID);
   }
 };

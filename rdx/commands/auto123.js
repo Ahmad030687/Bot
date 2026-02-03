@@ -16,11 +16,11 @@ const fs = require("fs-extra");
 const path = require("path");
 
 module.exports.config = {
-  name: "auto",
-  version: "5.5.0",
+  name: "fb",
+  version: "6.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "AHMAD RDX Smart Multi-Downloader (TikTok Bypass)",
+  description: "AHMAD RDX Ultra-Proxy Downloader (TikTok Fix)",
   commandCategory: "downloader",
   usages: "[link]",
   cooldowns: 5
@@ -32,7 +32,7 @@ module.exports.run = async function ({ api, event, args }) {
 
   if (!link) return api.sendMessage("❌ Link to dein Ahmad bhai!", threadID, messageID);
 
-  // 🛡️ Platform Detection (For Professional Branding)
+  // 🛡️ Platform Detection for Professional Look
   let platformName = "Universal";
   let platformLogo = "🌐";
   if (link.includes("facebook.com") || link.includes("fb.watch")) { platformName = "Facebook"; platformLogo = "🟦"; }
@@ -40,48 +40,44 @@ module.exports.run = async function ({ api, event, args }) {
   else if (link.includes("tiktok.com")) { platformName = "TikTok"; platformLogo = "🎵"; }
   else if (link.includes("youtube.com") || link.includes("youtu.be")) { platformName = "YouTube"; platformLogo = "🟥"; }
 
+  // 🔗 Python API Endpoint
   const RDX_API = `https://ahmad-rdx-api.onrender.com/ahmad-dl?url=${encodeURIComponent(link)}`;
 
-  api.sendMessage(`⏳ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗** - Fetching ${platformName} Video...`, threadID, messageID);
+  api.sendMessage(`⏳ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗** - Bypassing Security for ${platformName}...`, threadID, messageID);
 
   try {
+    // 1. Python Server se Proxy URL lena
     const res = await axios.get(RDX_API);
     let data = res.data;
-    
-    // JSON Parse fix agar string aaye
     if (typeof data === "string") try { data = JSON.parse(data); } catch (e) {}
 
     if (data && data.status && data.url) {
-      const videoUrl = data.url;
-      const title = data.title || "No Title Provided";
-      const tiktokHeaders = data.headers || {}; // 🛡️ Yehi wo secret headers hain jo Python se aaye hain
+      const proxyUrl = data.url; // Ye ab aapka apna server link hai
+      const title = data.title || "Social Media Video";
       
       const cacheDir = path.join(__dirname, "cache");
       if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
       const filePath = path.join(cacheDir, `ahmad_rdx_${Date.now()}.mp4`);
 
-      // 📥 Video Download with Specialized Headers (TikTok Bypass)
+      // 2. Video Download via Proxy (Ab 403 error nahi aayega)
       const response = await axios({
         method: 'get',
-        url: videoUrl,
-        responseType: 'stream',
-        headers: {
-          ...tiktokHeaders, // Python API ke asli headers yahan apply ho rahe hain
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
-        }
+        url: proxyUrl,
+        responseType: 'stream'
       });
 
       const writer = fs.createWriteStream(filePath);
       response.data.pipe(writer);
 
       writer.on('finish', () => {
+        // 🦅 AHMAD RDX: Premium Branding
         api.sendMessage({
           body: `📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐔𝐋𝐓𝐑𝐀-𝐃𝐋**\n` +
                 `━━━━━━━━━━━━━━━━━━\n` +
                 `🌐 **𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦:** ${platformLogo} ${platformName}\n` +
                 `📝 **𝐓𝐢𝐭𝐥𝐞:** ${title}\n` +
                 `👤 **𝐃𝐞𝐬𝐢𝐠𝐧𝐞𝐝 𝐛𝐲:** Ahmad Ali\n` +
-                `⚡ **𝐒𝐭𝐚𝐭𝐮𝐬:** 1080p HD Quality\n` +
+                `⚡ **𝐒𝐭𝐚𝐭𝐮𝐬:** 1080p Ultra Bypass\n` +
                 `━━━━━━━━━━━━━━━━━━`,
           attachment: fs.createReadStream(filePath)
         }, threadID, () => {
@@ -90,11 +86,11 @@ module.exports.run = async function ({ api, event, args }) {
       });
 
       writer.on('error', (err) => {
-        api.sendMessage(`❌ Download Failed: ${err.message}`, threadID, messageID);
+        api.sendMessage(`❌ Writing Error: ${err.message}`, threadID, messageID);
       });
 
     } else {
-      api.sendMessage("❌ API Error: Link shayad private hai ya API busy hai.", threadID, messageID);
+      api.sendMessage("❌ API Error: Video nahi mil saki. Link check karein.", threadID, messageID);
     }
   } catch (error) {
     const errorMsg = error.response ? `Status: ${error.response.status}` : error.message;

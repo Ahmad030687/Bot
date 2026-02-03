@@ -1,3 +1,16 @@
+const express = require('express');
+const app = express();
+const port = process.env.PORT || 10000;
+
+// Render ke liye Home Page taake 404 khatam ho jaye
+app.get('/', (req, res) => {
+  res.send('🦅 𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐁𝐎𝐓 is Active and Running!');
+});
+
+app.listen(port, () => {
+  console.log(`[RDX] Health Check is live on port ${port}`);
+});
+
 const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");

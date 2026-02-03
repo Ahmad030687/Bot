@@ -1,58 +1,56 @@
 module.exports.config = {
-	name: "thread",
-	version: "3.0",
-	hasPermssion: 2,
-	credits: "Ahmad Ali",
-	description: "Ban/Unban group immediately",
-	commandCategory: "system",
-	usages: "thread ban / thread unban",
-	cooldowns: 0
+  name: "thread",
+  version: "2.5.0",
+  hasPermssion: 2, // Sirf SARDAR RDX Admin ke liye
+  credits: "Ahmad Ali",
+  description: "Group ko Sleep ya Active mode mein dalein",
+  commandCategory: "admin",
+  usages: "ban/unban",
+  cooldowns: 2
 };
 
-module.exports.run = async ({ api, event, args, Threads }) => {
-    const { threadID, messageID } = event;
-    const type = args[0]?.toLowerCase();
-    
-    // Agar ID di hai to wo use karo, warna current group ID
-    const targetID = args[1] || threadID;
-    const targetStr = String(targetID);
+module.exports.run = async function ({ api, event, args, Threads }) {
+  const { threadID, messageID } = event;
+  const action = args[0]?.toLowerCase();
 
-    if (type === "ban") {
-        // 1. Database Update
-        await Threads.setData(targetID, { banned: 1 });
-        
-        // 2. MEMORY UPDATE (Immediate Effect)
-        global.data.threadBanned.set(targetStr, 1);
-        
-        return api.sendMessage(
-            `🚫 **BANNED!**\nGroup ID: ${targetID}\n\nAb bot yahan reply nahi karega.`, 
-            threadID, 
-            null, 
-            messageID // Reply to user message
-        );
-    }
+  if (action === "ban") {
+    // Database mein update
+    await Threads.setData(threadID, { banned: 1 });
+    // Runtime cache mein update taake foran asar ho
+    global.data.threadBanned.set(String(threadID), 1);
 
-    if (type === "unban") {
-        // 1. Database Update
-        await Threads.setData(targetID, { banned: 0 });
-        
-        // 2. Memory Update
-        if (global.data.threadBanned.has(targetStr)) {
-            global.data.threadBanned.delete(targetStr);
-        }
-        
-        return api.sendMessage(
-            `✅ **UNBANNED!**\nGroup ID: ${targetID}\n\nBot active ho gaya hai.`, 
-            threadID, 
-            null, 
-            messageID
-        );
-    }
+    return api.sendMessage({
+      body: `╔══════════════════════════╗\n` +
+            `║       🛡️ 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 🛡️       ║\n` +
+            `╠══════════════════════════╣\n` +
+            `║ 𝐒𝐓𝐀𝐓𝐔𝐒: 𝐁𝐀𝐍 𝐌𝐎𝐃𝐄     ║\n` +
+            `║ 𝐆𝐑𝐎𝐔𝐏: 𝐁𝐀𝐍𝐍𝐄𝐃           ║\n` +
+            `╠══════════════════════════╣\n` +
+            `║ Bot is now in sleep mode.    ║\n` +
+            `║ It will ignore everyone      ║\n` +
+            `║ except the Admin (RDX).      ║\n` +
+            `╚══════════════════════════╝`
+    }, threadID, messageID);
+  } 
+  
+  else if (action === "unban") {
+    await Threads.setData(threadID, { banned: 0 });
+    global.data.threadBanned.delete(String(threadID));
 
-    return api.sendMessage(
-        "⚠️ Usage:\n#thread ban\n#thread unban\n#thread ban [groupID]", 
-        threadID, 
-        null, 
-        messageID
-    );
+    return api.sendMessage({
+      body: `╔══════════════════════════╗\n` +
+            `║       🛡️ 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 🛡️       ║\n` +
+            `╠══════════════════════════╣\n` +
+            `║ 𝐒𝐓𝐀𝐓𝐔𝐒: ⚡ 𝐀𝐂𝐓𝐈𝐕𝐄 𝐌𝐎𝐃𝐄       ║\n` +
+            `║ 𝐆𝐑𝐎𝐔𝐏: 𝐔𝐍𝐁𝐀𝐍𝐍𝐄𝐃         ║\n` +
+            `╠══════════════════════════╣\n` +
+            `║ Bot is back online! Now all  ║\n` +
+            `║ members can use commands.    ║\n` +
+            `╚══════════════════════════╝`
+    }, threadID, messageID);
+  } 
+  
+  else {
+    return api.sendMessage("❌ Sahi tarika: #thread ban ya unban", threadID, messageID);
+  }
 };

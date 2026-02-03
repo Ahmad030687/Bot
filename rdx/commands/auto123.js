@@ -3,11 +3,11 @@ const fs = require("fs-extra");
 const path = require("path");
 
 module.exports.config = {
-  name: "auto",
-  version: "8.0.0",
+  name: "fb",
+  version: "9.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "AHMAD RDX Ultimate Bypass Fix",
+  description: "AHMAD RDX Ultimate Fix",
   commandCategory: "downloader",
   usages: "[link]",
   cooldowns: 5
@@ -28,68 +28,47 @@ module.exports.run = async function ({ api, event, args }) {
     const data = res.data;
 
     if (data && data.status && data.url) {
-      // 📂 Cache Folder Setup
       const cacheDir = path.join(__dirname, "cache");
       if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-      
       const filePath = path.join(cacheDir, `video_${Date.now()}.mp4`);
 
-      // 📥 Video Stream Download
       const response = await axios({
         method: 'get',
         url: data.url,
         responseType: 'stream',
-        timeout: 120000 // 2 Minutes
+        timeout: 300000 // 5 Minutes
       });
 
       const writer = fs.createWriteStream(filePath);
       response.data.pipe(writer);
 
-      writer.on('finish', async () => {
-        // 🛡️ Critical Check: Kya file waqayi bani?
-        if (!fs.existsSync(filePath)) {
-          return api.sendMessage("❌ Error: File save nahi ho saki!", threadID, messageID);
+      writer.on('finish', () => {
+        if (!fs.existsSync(filePath) || fs.statSync(filePath).size === 0) {
+          return api.sendMessage("❌ Error: API ne khali file bheji hai.", threadID, messageID);
         }
 
-        const stats = fs.statSync(filePath);
-        const sizeMB = stats.size / (1024 * 1024);
-        console.log(`[AHMAD RDX] File Downloaded: ${filePath} | Size: ${sizeMB.toFixed(2)}MB`);
-
-        // ❌ Agar file khali hai (0 bytes)
-        if (stats.size === 0) {
-          fs.unlinkSync(filePath);
-          return api.sendMessage("❌ Error: Video file khali (0 bytes) download hui.", threadID, messageID);
-        }
-
-        // ⚠️ Messenger Limit Check (25MB)
+        const sizeMB = fs.statSync(filePath).size / (1024 * 1024);
         if (sizeMB > 25) {
-          api.sendMessage(`⚠️ Size (${sizeMB.toFixed(2)}MB) zyada hai. Direct link se download karein:\n🔗 ${data.url}`, threadID, () => {
+          api.sendMessage(`⚠️ Size (${sizeMB.toFixed(2)}MB) Messenger limit se bara hai.\n🔗 Direct Link: ${data.url}`, threadID, () => {
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
           }, messageID);
           return;
         }
 
-        // ✅ Final Send Logic
-        try {
-          return api.sendMessage({
-            body: `📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐔𝐋𝐓𝐑𝐀-𝐃𝐋**\n━━━━━━━━━━━━━━━━━━\n📝 **𝐓𝐢𝐭𝐥𝐞:** ${data.title}\n👤 **𝐃𝐞𝐬𝐢𝐠𝐧𝐞𝐝 𝐛𝐲:** Ahmad Ali\n⚡ **𝐒𝐭𝐚𝐭𝐮𝐬:** Success via Proxy\n━━━━━━━━━━━━━━━━━━`,
-            attachment: fs.createReadStream(filePath)
-          }, threadID, (err) => {
-            if (err) console.error("[FCA ERROR]", err);
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-          }, messageID);
-        } catch (sendError) {
-          api.sendMessage("❌ Bot Attachment error! File format sahi nahi hai.", threadID, messageID);
+        api.sendMessage({
+          body: `📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐔𝐋𝐓𝐑𝐀-𝐃𝐋**\n━━━━━━━━━━━━━━━━━━\n📝 **𝐓𝐢𝐭𝐥𝐞:** ${data.title}\n👤 **𝐃𝐞𝐬𝐢𝐠𝐧𝐞𝐝 𝐛𝐲:** Ahmad Ali\n⚡ **𝐒𝐭𝐚𝐭𝐮𝐬:** Success via Proxy\n━━━━━━━━━━━━━━━━━━`,
+          attachment: fs.createReadStream(filePath)
+        }, threadID, () => {
           if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        }
+        }, messageID);
       });
 
       writer.on('error', (e) => api.sendMessage(`❌ Disk Error: ${e.message}`, threadID, messageID));
 
     } else {
-      api.sendMessage("❌ API ne link nahi diya ya TikTok private hai.", threadID, messageID);
+      api.sendMessage(`❌ API Error: ${data.error || "Video link nahi mila."}`, threadID, messageID);
     }
   } catch (error) {
-    api.sendMessage(`❌ API Connection Failed: ${error.message}`, threadID, messageID);
+    api.sendMessage(`❌ API Connection Failed! Tasalli karein ke Python API Live hai.`, threadID, messageID);
   }
 };

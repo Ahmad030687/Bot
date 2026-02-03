@@ -4,10 +4,10 @@ const path = require("path");
 
 module.exports.config = {
   name: "fb",
-  version: "16.0.0",
+  version: "20.0.0",
   hasPermssion: 0,
-  credits: "Ahmad Ali Safdar",
-  description: "𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 Universal Downloader (Bypass Fix)",
+  credits: "Ahmad Ali",
+  description: "Final Fix Downloader",
   commandCategory: "downloader",
   usages: "[link]",
   cooldowns: 5
@@ -15,68 +15,42 @@ module.exports.config = {
 
 module.exports.run = async function ({ api, event, args }) {
   const { threadID, messageID } = event;
-  const link = args.join(" ");
+  const link = args[0];
+  if (!link) return api.sendMessage("❌ Link dein Ahmad bhai.", threadID, messageID);
 
-  if (!link) return api.sendMessage("❌ Link to dein Ahmad bhai!", threadID, messageID);
-
-  const API = `https://ahmad-rdx-api.onrender.com/ahmad-dl?url=${encodeURIComponent(link)}`;
-  api.sendMessage("⏳ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗** Downloading & Bypassing...", threadID, messageID);
+  const API_URL = `https://ahmad-rdx-api.onrender.com/ahmad-dl?url=${encodeURIComponent(link)}`;
+  
+  api.sendMessage("⏳ Fetching video...", threadID, messageID);
 
   try {
-    const res = await axios.get(API, { timeout: 60000 });
+    const res = await axios.get(API_URL);
     const data = res.data;
 
-    if (!data || !data.status || !data.url) {
-      return api.sendMessage("❌ Video link nahi mila, link refresh karein.", threadID, messageID);
-    }
+    if (!data.status) return api.sendMessage("❌ API Error: Link nahi mila.", threadID, messageID);
 
-    // Cache setup
-    const cacheDir = path.join(__dirname, "cache");
-    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-    const filePath = path.join(cacheDir, `rdx_${Date.now()}.mp4`);
-
-    // 📥 Direct Download (Sab Platforms ke liye aik hi system)
-    const response = await axios({
-      url: data.url,
-      method: "GET",
-      responseType: "stream",
-      timeout: 300000,
-      headers: { "User-Agent": "Mozilla/5.0" }
+    const filePath = path.join(__dirname, "cache", `rdx_${Date.now()}.mp4`);
+    
+    // Download logic
+    const videoStream = await axios({
+      method: 'GET',
+      url: data.url, // Ye ab encoded proxy URL hai
+      responseType: 'stream'
     });
 
     const writer = fs.createWriteStream(filePath);
-    response.data.pipe(writer);
+    videoStream.data.pipe(writer);
 
-    writer.on("finish", () => {
-      // 🛡️ CRITICAL CHECK: Attachment error se bachne ke liye
-      if (!fs.existsSync(filePath) || fs.statSync(filePath).size === 0) {
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        return api.sendMessage("❌ Error: File khali (0 bytes) download hui.", threadID, messageID);
+    writer.on('finish', () => {
+      if (fs.statSync(filePath).size < 1000) { // Agar file 1KB se choti hai matlab error hai
+         return api.sendMessage("❌ Video download fail (404/403).", threadID, messageID);
       }
-
-      const sizeMB = fs.statSync(filePath).size / (1024 * 1024);
-      if (sizeMB > 25) {
-        const directLink = data.url;
-        api.sendMessage(`⚠️ Size (${sizeMB.toFixed(1)}MB) limit se bara hai.\n🔗 Link: ${directLink}`, threadID, () => {
-          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        }, messageID);
-        return;
-      }
-
-      // ✅ Final Message
       api.sendMessage({
-        body: `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗**\n━━━━━━━━━━━━━━\n📝 ${data.title}\n⚡ Status: Success`,
+        body: `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗**\n━━━━━━━━━━━━\n📝 ${data.title}`,
         attachment: fs.createReadStream(filePath)
-      }, threadID, () => {
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      }, messageID);
+      }, threadID, () => fs.unlinkSync(filePath), messageID);
     });
 
-    writer.on("error", (e) => {
-      api.sendMessage(`❌ Disk Error: ${e.message}`, threadID, messageID);
-    });
-
-  } catch (err) {
-    api.sendMessage(`❌ Connection Error: ${err.message}`, threadID, messageID);
+  } catch (e) {
+    api.sendMessage(`❌ Error: ${e.message}`, threadID, messageID);
   }
 };

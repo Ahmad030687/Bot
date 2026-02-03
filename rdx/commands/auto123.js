@@ -69,21 +69,21 @@ module.exports.run = async function ({ api, event, args }) {
       const writer = fs.createWriteStream(filePath);
       response.data.pipe(writer);
 
-      writer.on('finish', () => {
-        // 🦅 AHMAD RDX: Premium Branding
+            writer.on('finish', () => {
+        // 🛡️ Safety Check: Dekhein ke file waqayi mojud hai aur khali nahi hai
+        if (!fs.existsSync(filePath) || fs.statSync(filePath).size === 0) {
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          return api.sendMessage("❌ Error: Video file download nahi ho saki (Empty File).", threadID, messageID);
+        }
+
         api.sendMessage({
-          body: `📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐔𝐋𝐓𝐑𝐀-𝐃𝐋**\n` +
-                `━━━━━━━━━━━━━━━━━━\n` +
-                `🌐 **𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦:** ${platformLogo} ${platformName}\n` +
-                `📝 **𝐓𝐢𝐭𝐥𝐞:** ${title}\n` +
-                `👤 **𝐃𝐞𝐬𝐢𝐠𝐧𝐞𝐝 𝐛𝐲:** Ahmad Ali\n` +
-                `⚡ **𝐒𝐭𝐚𝐭𝐮𝐬:** 1080p Ultra Bypass\n` +
-                `━━━━━━━━━━━━━━━━━━`,
+          body: `📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐔𝐋𝐓𝐑𝐀-𝐃𝐋**\n━━━━━━━━━━━━━━━━━━\n🌐 **𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦:** ${platformLogo} ${platformName}\n📝 **𝐓𝐢𝐭𝐥𝐞:** ${title}\n👤 **𝐃𝐞𝐬𝐢𝐠𝐧𝐞𝐝 𝐛𝐲:** Ahmad Ali\n⚡ **𝐒𝐭𝐚𝐭𝐮𝐬:** 1080p Ultra Bypass\n━━━━━━━━━━━━━━━━━━`,
           attachment: fs.createReadStream(filePath)
         }, threadID, () => {
           if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }, messageID);
       });
+
 
       writer.on('error', (err) => {
         api.sendMessage(`❌ Writing Error: ${err.message}`, threadID, messageID);

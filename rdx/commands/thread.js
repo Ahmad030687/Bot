@@ -1,9 +1,9 @@
 module.exports.config = {
   name: "thread",
-  version: "2.5.0",
-  hasPermssion: 2, // Sirf SARDAR RDX Admin ke liye
+  version: "5.0.0",
+  hasPermssion: 2, 
   credits: "Ahmad Ali",
-  description: "Group ko Sleep ya Active mode mein dalein",
+  description: "Group ko Sleep/Active mode mein dalein",
   commandCategory: "admin",
   usages: "ban/unban",
   cooldowns: 2
@@ -14,26 +14,27 @@ module.exports.run = async function ({ api, event, args, Threads }) {
   const action = args[0]?.toLowerCase();
 
   if (action === "ban") {
-    // Database mein update
-    await Threads.setData(threadID, { banned: 1 });
-    // Runtime cache mein update taake foran asar ho
-    global.data.threadBanned.set(String(threadID), 1);
-
+    // 1. Pehle message bhejein
     return api.sendMessage({
       body: `╔══════════════════════════╗\n` +
             `║       🛡️ 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 🛡️       ║\n` +
             `╠══════════════════════════╣\n` +
-            `║ 𝐒𝐓𝐀𝐓𝐔𝐒: 𝐁𝐀𝐍 𝐌𝐎𝐃𝐄     ║\n` +
+            `║ 𝐒𝐓𝐀𝐓𝐔𝐒: 😴 𝐁𝐀𝐍 𝐌𝐎𝐃𝐄     ║\n` +
             `║ 𝐆𝐑𝐎𝐔𝐏: 𝐁𝐀𝐍𝐍𝐄𝐃           ║\n` +
             `╠══════════════════════════╣\n` +
-            `║ Bot is now in sleep mode.    ║\n` +
-            `║ It will ignore everyone      ║\n` +
-            `║ except the Admin (RDX).      ║\n` +
+            `║ Bot ab group mein ban ho gaya ║\n` +
+            `║ hai. Sirf Admin ki     ║\n` +
+            `║ commands kaam karengi.       ║\n` +
             `╚══════════════════════════╝`
-    }, threadID, messageID);
+    }, threadID, async () => {
+        // 2. Message bhejne ke BAAD database aur cache update karein
+        await Threads.setData(threadID, { banned: 1 });
+        global.data.threadBanned.set(String(threadID), 1);
+    }, messageID);
   } 
   
   else if (action === "unban") {
+    // Unban mein pehle status clear karein taake bot message bhej sake
     await Threads.setData(threadID, { banned: 0 });
     global.data.threadBanned.delete(String(threadID));
 
@@ -41,16 +42,17 @@ module.exports.run = async function ({ api, event, args, Threads }) {
       body: `╔══════════════════════════╗\n` +
             `║       🛡️ 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 🛡️       ║\n` +
             `╠══════════════════════════╣\n` +
-            `║ 𝐒𝐓𝐀𝐓𝐔𝐒: ⚡ 𝐀𝐂𝐓𝐈𝐕𝐄 𝐌𝐎𝐃𝐄       ║\n` +
+            `║ 𝐒𝐓𝐀𝐓𝐔𝐒: ⚡ 𝐔𝐍𝐁𝐀𝐍 𝐌𝐎𝐃𝐄       ║\n` +
             `║ 𝐆𝐑𝐎𝐔𝐏: 𝐔𝐍𝐁𝐀𝐍𝐍𝐄𝐃         ║\n` +
             `╠══════════════════════════╣\n` +
-            `║ Bot is back online! Now all  ║\n` +
-            `║ members can use commands.    ║\n` +
+            `║ Bot unban ho gaya hai! Ab sab    ║\n` +
+            `║ commands use kar     ║\n` +
+            `║ sakte hain.                  ║\n` +
             `╚══════════════════════════╝`
     }, threadID, messageID);
   } 
   
   else {
-    return api.sendMessage("❌ Sahi tarika: #thread ban ya unban", threadID, messageID);
+    return api.sendMessage("❌ AHMAD RDX: Sahi tarika #thread ban ya unban hai.", threadID, messageID);
   }
 };

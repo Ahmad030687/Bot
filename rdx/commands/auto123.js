@@ -16,11 +16,11 @@ const fs = require("fs-extra");
 const path = require("path");
 
 module.exports.config = {
-  name: "auto",
-  version: "4.5.0",
+  name: "fb",
+  version: "5.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "AHMAD RDX Bypass Downloader",
+  description: "AHMAD RDX Ultra-Bypass Downloader",
   commandCategory: "downloader",
   usages: "[link]",
   cooldowns: 5
@@ -34,7 +34,7 @@ module.exports.run = async function ({ api, event, args }) {
 
   const RDX_API = `https://ahmad-rdx-api.onrender.com/ahmad-dl?url=${encodeURIComponent(link)}`;
 
-  api.sendMessage("⏳ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗** - Bypassing Security & Downloading...", threadID, messageID);
+  api.sendMessage("⏳ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗** - Bypassing Security & Fetching Video...", threadID, messageID);
 
   try {
     const res = await axios.get(RDX_API);
@@ -43,20 +43,20 @@ module.exports.run = async function ({ api, event, args }) {
 
     if (data && data.status && data.url) {
       const videoUrl = data.url;
-      const title = data.title || "No Title";
+      const title = data.title || "TikTok/Social Video";
       const filePath = path.join(__dirname, `/cache/ahmad_rdx_${Date.now()}.mp4`);
 
-      // 🛡️ Bypass Headers: Ye TikTok 403 error ko khatam karega
+      // 🛡️ TRIPLE BYPASS HEADERS: Ye TikTok ko lagne dega ke browser hai
       const response = await axios({
         method: 'get',
         url: videoUrl,
         responseType: 'stream',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
-          'Accept': '*/*',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Connection': 'keep-alive',
-          'Referer': 'https://www.tiktok.com/' // TikTok bypass ke liye lazmi hai
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36',
+          'Referer': 'https://www.tiktok.com/', // TikTok ke liye ye sabse zaroori hai
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Range': 'bytes=0-' // Partial content request taake 403 na aye
         }
       });
 
@@ -65,7 +65,7 @@ module.exports.run = async function ({ api, event, args }) {
 
       writer.on('finish', () => {
         api.sendMessage({
-          body: `📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐔𝐋𝐓𝐑𝐀-𝐃𝐋**\n━━━━━━━━━━━━━━━━━━\n📝 **𝐓𝐢𝐭𝐥𝐞:** ${title}\n👤 **𝐃𝐞𝐬𝐢𝐠𝐧𝐞𝐝 𝐛𝐲:** Ahmad Ali\n⚡ **𝐒𝐭𝐚𝐭𝐮𝐬:** Success via Python\n━━━━━━━━━━━━━━━━━━`,
+          body: `📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐔𝐋𝐓𝐑𝐀-𝐃𝐋**\n━━━━━━━━━━━━━━━━━━\n🎵 **𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦:** TikTok Bypass\n📝 **𝐓𝐢𝐭𝐥𝐞:** ${title}\n👤 **𝐃𝐞𝐬𝐢𝐠𝐧𝐞𝐝 𝐛𝐲:** Ahmad Ali\n⚡ **𝐒𝐭𝐚𝐭𝐮𝐬:** 1080p High Quality\n━━━━━━━━━━━━━━━━━━`,
           attachment: fs.createReadStream(filePath)
         }, threadID, () => {
           if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -73,11 +73,10 @@ module.exports.run = async function ({ api, event, args }) {
       });
 
     } else {
-      api.sendMessage("❌ API Error: Link private ho sakta hai.", threadID, messageID);
+      api.sendMessage("❌ API ne link nahi diya. Shayad private video hai.", threadID, messageID);
     }
   } catch (error) {
-    // Detail error message taake pata chale kahan masla hai
-    const errorMsg = error.response ? `Status: ${error.response.status}` : error.message;
-    api.sendMessage(`❌ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐄𝐫𝐫𝐨𝐫:** ${errorMsg}`, threadID, messageID);
+    let msg = error.response ? `Status: ${error.response.status}` : error.message;
+    api.sendMessage(`❌ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐄𝐫𝐫𝐨𝐫:** ${msg}\n(TikTok aksar link block kar deta hai, doosra link try karein)`, threadID, messageID);
   }
 };

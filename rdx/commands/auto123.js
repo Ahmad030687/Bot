@@ -16,11 +16,11 @@ const fs = require("fs-extra");
 const path = require("path");
 
 module.exports.config = {
-  name: "fb",
-  version: "2.5.0",
+  name: "auto",
+  version: "4.0.0",
   hasPermssion: 0,
   credits: "Ahmad Ali",
-  description: "Universal Downloader via RDX Python",
+  description: "AHMAD RDX Smart Multi-Downloader",
   commandCategory: "downloader",
   usages: "[link]",
   cooldowns: 5
@@ -32,57 +32,66 @@ module.exports.run = async function ({ api, event, args }) {
 
   if (!link) return api.sendMessage("❌ Link to dein Ahmad bhai!", threadID, messageID);
 
-  const RDX_API = `https://ahmad-rdx-api.onrender.com/rdx-dl?url=${encodeURIComponent(link)}`;
+  // 🛡️ Platform Detection Logic
+  let platformName = "Universal";
+  let platformLogo = "🌐";
 
-  api.sendMessage("⏳ 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 - Connecting to Python Engine...", threadID, messageID);
+  if (link.includes("facebook.com") || link.includes("fb.watch") || link.includes("fb.com")) {
+    platformName = "Facebook";
+    platformLogo = "🟦";
+  } else if (link.includes("instagram.com")) {
+    platformName = "Instagram";
+    platformLogo = "📸";
+  } else if (link.includes("tiktok.com")) {
+    platformName = "TikTok";
+    platformLogo = "🎵";
+  } else if (link.includes("youtube.com") || link.includes("youtu.be")) {
+    platformName = "YouTube";
+    platformLogo = "🟥";
+  }
+
+  const RDX_API = `https://ahmad-rdx-api.onrender.com/ahmad-dl?url=${encodeURIComponent(link)}`;
+
+  api.sendMessage(`⏳ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗** - Detecting ${platformName} Link...`, threadID, messageID);
 
   try {
     const res = await axios.get(RDX_API);
-    
-    // 🛡️ Logic: Agar response string hai toh usay object mein badlo
     let data = res.data;
-    if (typeof data === "string") {
-        try { data = JSON.parse(data); } catch (e) { /* ignore */ }
-    }
+    if (typeof data === "string") try { data = JSON.parse(data); } catch (e) {}
 
-    if (data && (data.status === true || data.status === "true") && data.url) {
+    if (data && data.status && data.url) {
       const videoUrl = data.url;
-      const title = data.title || "No Title";
-      
-      // Cache folder ka path (Ensure karein ke ye folder bot ke root mein ho)
-      const cacheDir = path.join(__dirname, "cache");
-      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
-      
-      const filePath = path.join(cacheDir, `rdx_vid_${Date.now()}.mp4`);
-
-      api.sendMessage("📥 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 - Downloading file...", threadID, messageID);
+      const title = data.title || "No Title Provided";
+      const filePath = path.join(__dirname, `/cache/ahmad_rdx_${Date.now()}.mp4`);
 
       const response = await axios({
         method: 'get',
         url: videoUrl,
         responseType: 'stream',
-        headers: { 'User-Agent': 'Mozilla/5.0' } // TikTok ke liye zaroori hai
+        headers: { 'User-Agent': 'Mozilla/5.0' }
       });
 
       const writer = fs.createWriteStream(filePath);
       response.data.pipe(writer);
 
       writer.on('finish', () => {
+        // 🦅 AHMAD RDX: Professional Multi-Platform Branding
         api.sendMessage({
-          body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃𝐄𝐑**\n\n📝 Title: ${title}\n✅ Success: Python Engine`,
+          body: `📥 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐔𝐋𝐓𝐑𝐀-𝐃𝐋**\n` +
+                `━━━━━━━━━━━━━━━━━━\n` +
+                `🌐 **𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦:** ${platformLogo} ${platformName}\n` +
+                `📝 **𝐓𝐢𝐭𝐥𝐞:** ${title}\n` +
+                `👤 **𝐃𝐞𝐬𝐢𝐠𝐧𝐞𝐝 𝐛𝐲:** Ahmad Ali\n` +
+                `⚡ **𝐒𝐭𝐚𝐭𝐮𝐬:** 1080p HD Quality\n` +
+                `━━━━━━━━━━━━━━━━━━`,
           attachment: fs.createReadStream(filePath)
         }, threadID, () => {
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }, messageID);
       });
 
-      writer.on('error', (err) => {
-        api.sendMessage(`❌ Writing Error: ${err.message}`, threadID, messageID);
-      });
     } else {
-      // 📝 Debugging ke liye data log karein
-      console.log("RDX API Response:", data);
-      api.sendMessage("❌ API Error: Response format sahi nahi hai ya link private hai.", threadID, messageID);
+      api.sendMessage("❌ API ne response nahi diya. Link check karein!", threadID, messageID);
     }
   } catch (error) {
     api.sendMessage(`❌ Connection Error: ${error.message}`, threadID, messageID);

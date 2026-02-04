@@ -5,45 +5,45 @@ module.exports.config = {
     version: "1.0.0",
     hasPermssion: 0,
     credits: "Ahmad RDX",
-    description: "Generated mail ka inbox check karein",
+    description: "Check inbox/OTP for generated mail",
     commandCategory: "utility",
     usages: "[email]",
-    cooldowns: 5
+    cooldowns: 2
 };
 
 module.exports.run = async ({ api, event, args }) => {
-    // Yahan apna KOYEB URL lagana mat bhoolna!
-    const BASE_URL = "https://extreme-yevette-ahmadsahab-25154971.koyeb.app"; 
-    
+    // ✅ Ahmad Bhai ki Koyeb URL Integrated
+    const KOYEB_URL = "https://extreme-yevette-ahmadsahab-25154971.koyeb.app"; 
     const email = args[0];
 
-    if (!email) {
-        return api.sendMessage("❌ Aray bhai, email to likho!\nExample: .inbox ahmad@1secmail.com", event.threadID, event.messageID);
-    }
+    if (!email) return api.sendMessage("⚠️ **MISSING INFO:** Please provide the email to check!\nExample: .inbox example@virgilian.com", event.threadID);
 
-    api.sendMessage(`📥 **Inbox Checking:** ${email}...`, event.threadID, event.messageID);
+    api.sendMessage(`📥 **ACCESSING INBOX:** ${email}...`, event.threadID, event.messageID);
 
     try {
-        const res = await axios.get(`${BASE_URL}/check-mail?email=${email}`);
+        const res = await axios.get(`${KOYEB_URL}/check-mail?email=${email}`);
         const data = res.data;
 
-        // Agar koi nayi mail nahi hai
         if (data.new_mail === false) {
-            return api.sendMessage("📭 **Inbox Khali Hai!**\nAbhi tak koi message nahi aaya. 10 second baad dobara check karein.", event.threadID);
+            return api.sendMessage("📭 **EMPTY INBOX:** No new messages found yet. Please wait 10-20 seconds and try again.", event.threadID);
         }
 
-        // Agar mail aa gayi hai
-        const msg = `📨 **NEW MESSAGE RECIEVED**\n` +
-                    `━━━━━━━━━━━━━━━━\n` +
-                    `👤 **From:** ${data.from}\n` +
-                    `📝 **Subject:** ${data.subject}\n` +
-                    `⏰ **Time:** ${data.date}\n` +
-                    `━━━━━━━━━━━━━━━━\n\n` +
-                    `📜 **Message Body:**\n${data.body}`;
+        // Professional Message Layout
+        const msg = `📨 **NEW ENCRYPTED MAIL**\n` +
+                    `━━━━━━━━━━━━━━━━━━\n` +
+                    `👤 **FROM:** ${data.from}\n` +
+                    `📝 **SUBJECT:** ${data.subject}\n` +
+                    `━━━━━━━━━━━━━━━━━━\n\n` +
+                    `📜 **MESSAGE CONTENT:**\n` +
+                    `----------------------------------\n` +
+                    `${data.body}\n` +
+                    `----------------------------------\n\n` +
+                    `⏰ **RECEIVED AT:** ${data.date}\n` +
+                    `🛡️ **SECURED BY AHMAD RDX**`;
 
         return api.sendMessage(msg, event.threadID);
 
     } catch (e) {
-        return api.sendMessage("❌ Error: Shayad email ghalat hai ya expire ho gayi.", event.threadID);
+        return api.sendMessage("❌ **INBOX ERROR:** Could not retrieve messages. The email might have expired.", event.threadID);
     }
 };

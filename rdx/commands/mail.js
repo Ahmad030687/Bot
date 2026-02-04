@@ -5,38 +5,38 @@ module.exports.config = {
     version: "1.0.0",
     hasPermssion: 0,
     credits: "Ahmad RDX",
-    description: "Fake temp mail generate karein",
+    description: "Generate a premium fake email",
     commandCategory: "utility",
     usages: "",
     cooldowns: 5
 };
 
 module.exports.run = async ({ api, event }) => {
-    // Yahan apna KOYEB URL lagana mat bhoolna!
-    const BASE_URL = "https://YOUR-APP-NAME.koyeb.app"; 
+    // ✅ Ahmad Bhai ki Koyeb URL Integrated
+    const KOYEB_URL = "https://extreme-yevette-ahmadsahab-25154971.koyeb.app"; 
     
-    api.sendMessage("📧 **Generating Ahmad Secure Mail...**", event.threadID, event.messageID);
+    api.sendMessage("📧 **Ahmad RDX Secure Engine:** Initializing private mailbox...", event.threadID, event.messageID);
 
     try {
-        const res = await axios.get(`${BASE_URL}/gen-mail`);
+        const res = await axios.get(`${KOYEB_URL}/gen-mail`);
         
         if (res.data.status) {
-            const email = res.data.email;
-            
-            const msg = `🦅 **FAKE MAIL READY**\n` +
-                        `━━━━━━━━━━━━━━━━\n` +
-                        `📩 **Email:** ${email}\n` +
-                        `━━━━━━━━━━━━━━━━\n` +
-                        `💡 **Kaise use karein:**\n` +
-                        `1. Is email ko copy karke website par dein.\n` +
-                        `2. OTP dekhne ke liye likhein:\n` +
-                        `👉 \`.inbox ${email}\``;
+            const { email } = res.data;
+            const msg = `🦅 **PREMIUM FAKE MAIL SYSTEM**\n` +
+                        `━━━━━━━━━━━━━━━━━━\n` +
+                        `📩 **EMAIL:** ${email}\n` +
+                        `🔑 **PASS:** AhmadRdxPassword123\n` +
+                        `━━━━━━━━━━━━━━━━━━\n` +
+                        `💡 **GUIDE:**\n` +
+                        `Is email ko copy karke kisi bhi app ya site par dein. Jab OTP sent ho jaye, to niche wali command likhein:\n\n` +
+                        `👉 \`.inbox ${email}\`\n\n` +
+                        `*System Powered by Ahmad RDX Cloud*`;
 
             return api.sendMessage(msg, event.threadID);
         } else {
-            return api.sendMessage("❌ Server error. Dobara try karein.", event.threadID);
+            return api.sendMessage("❌ **SYSTEM ERROR:** Koyeb server not responding. Try again later.", event.threadID);
         }
     } catch (e) {
-        return api.sendMessage("❌ API Down hai boss.", event.threadID);
+        return api.sendMessage("❌ **CRITICAL ERROR:** API connection failed!", event.threadID);
     }
 };

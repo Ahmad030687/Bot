@@ -2,43 +2,40 @@ const axios = require('axios');
 
 module.exports.config = {
     name: "draw",
-    version: "4.0.0",
+    version: "5.0.0 (Gemini Edition)",
     hasPermssion: 0,
     credits: "Ahmad RDX",
-    description: "OpenAI + Pollinations Premium Image Generator",
+    description: "Gemini + Pollinations Ultra Image Generator",
     commandCategory: "AI Creative Studio",
     usages: "[kuch bhi likhein]",
-    cooldowns: 15
+    cooldowns: 10
 };
 
-// 🔑 AHMAD BHAI KI EXCLUSIVE KEYS
-const OPENAI_KEY = "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";
+// 🔑 AHMAD BHAI KI FRESH KEYS
+const GEMINI_KEY = "AIzaSyBogHNOLXqUiX8r1YQ-bXzLMk4UsB7W2lk";
 const POLLINATIONS_KEY = "sk_JCkUDTlnx0rPAM5SJrjuk8teYnuEXxpT";
 
 module.exports.run = async ({ api, event, args }) => {
     const userInput = args.join(" ");
-    if (!userInput) return api.sendMessage("🎨 **Ahmad Creative Studio**\nBoss, kuch to likhein! Jo dil mein hai bol dein, AI hazir hai.", event.threadID);
+    if (!userInput) return api.sendMessage("🎨 **Ahmad Creative Studio**\nBoss, kuch to likhein! Jo dil mein hai bol dein, Gemini hazir hai.", event.threadID);
 
-    api.sendMessage("🧠 **Ahmad RDX Hybrid Engine:**\nChatGPT se mashwara ho raha hai... 🖌️⚡", event.threadID, event.messageID);
+    api.sendMessage("🧠 **Ahmad RDX Gemini-X Engine:**\nPrompt enhance ho raha hai... 🖌️⚡", event.threadID, event.messageID);
 
     try {
-        // --- STEP 1: CHATGPT PROMPT ENHANCEMENT ---
-        const systemPrompt = "You are a pro image prompt engineer. Convert the user input into a highly detailed, 8k, photorealistic English image prompt. Output only the prompt.";
+        // --- STEP 1: GEMINI PROMPT ENHANCEMENT ---
+        // Hum Gemini ko instruction de rahe hain ke wo aik shandaar English prompt banaye
+        const systemInstruction = `Act as a professional AI image prompt engineer. Convert this user input into a highly detailed, 8k, photorealistic English image prompt. Output only the prompt text and nothing else. Input: "${userInput}"`;
         
-        const gptRes = await axios.post('https://api.openai.com/v1/chat/completions', {
-            model: "gpt-3.5-turbo",
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userInput }
-            ]
-        }, {
-            headers: { 'Authorization': `Bearer ${OPENAI_KEY}` }
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+        
+        const geminiRes = await axios.post(geminiUrl, {
+            contents: [{ parts: [{ text: systemInstruction }] }]
         });
 
-        const enhancedPrompt = gptRes.data.choices[0].message.content.trim();
+        const enhancedPrompt = geminiRes.data.candidates[0].content.parts[0].text.trim();
 
         // --- STEP 2: POLLINATIONS IMAGE GENERATION ---
-        // Hum yahan Pollinations ki API key aur detailed prompt use kar rahe hain
+        // Flux model use kar rahe hain jo sabse top par hai
         const seed = Math.floor(Math.random() * 999999);
         const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?model=flux&width=1024&height=1024&nologo=true&seed=${seed}`;
 
@@ -47,14 +44,14 @@ module.exports.run = async ({ api, event, args }) => {
             headers: { 'Authorization': `Bearer ${POLLINATIONS_KEY}` }
         });
 
-        // --- STEP 3: SENDING THE RESULT ---
+        // --- STEP 3: RESULT SENDING ---
         api.sendMessage({
-            body: `🎨 **GENERATION SUCCESS**\n━━━━━━━━━━━━━━━━━━\n🗣️ **You Said:** "${userInput}"\n✨ **AI Logic:** "${enhancedPrompt.substring(0, 150)}..."\n━━━━━━━━━━━━━━━━━━\n*Powered by Ahmad RDX Premium System*`,
+            body: `🎨 **AHMAD RDX CREATIVE STUDIO**\n━━━━━━━━━━━━━━━━━━\n🗣️ **Prompt:** "${userInput}"\n✨ **AI Power:** Gemini-1.5-Flash\n━━━━━━━━━━━━━━━━━━\n*Aura Level: Maxed Out 🦅*`,
             attachment: imageRes.data
         }, event.threadID, event.messageID);
 
     } catch (error) {
         console.error(error);
-        api.sendMessage("❌ **Ahmad Bhai, System Busy Hai!**\nShayad API limit khatam ho gayi ya network ka masla hai.", event.threadID);
+        api.sendMessage("❌ **Error:** Gemini key limit ya server issue. Dubara try karein!", event.threadID);
     }
 };

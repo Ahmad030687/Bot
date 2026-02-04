@@ -29,7 +29,7 @@ module.exports.run = async ({ api, event }) => {
                         `━━━━━━━━━━━━━━━━━━\n` +
                         `💡 **GUIDE:**\n` +
                         `Is email ko copy karke kisi bhi app ya site par dein. Jab OTP sent ho jaye, to niche wali command likhein:\n\n` +
-                        `👉 \`.inbox ${email}\`\n\n` +
+                        `👉 \`#otp ${email}\`\n\n` +
                         `*System Powered by Ahmad RDX Cloud*`;
 
             return api.sendMessage(msg, event.threadID);

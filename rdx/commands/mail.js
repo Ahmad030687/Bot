@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 module.exports.config = {
-    name: "mail",
+    name: "gmail",
     version: "1.0.0",
     hasPermssion: 0,
     credits: "Ahmad RDX",

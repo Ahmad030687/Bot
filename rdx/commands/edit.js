@@ -4,30 +4,25 @@ const path = require("path");
 
 module.exports.config = {
   name: "edit",
-  version: "1.2.0",
+  version: "2.0.0",
   hasPermssion: 0,
-  credits: "SARDAR RDX (Fixed by Gemini)",
-  description: "Edit images using NanoBanana AI",
+  credits: "SARDAR RDX (Gemini Official API)",
+  description: "Edit images using Official Google Gemini API (Stable)",
   commandCategory: "Media",
-  usages: "[prompt] - Reply to an image",
+  usages: "[prompt] (reply to an image)",
   prefix: true,
-  cooldowns: 10
+  cooldowns: 15
 };
+
+// 🔑 OFFICIAL GEMINI API KEY
+const GEMINI_API_KEY = "AIzaSyBxygOjI1sPUkpxSEtuNOYOk2LutRX2Nag";
 
 module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID, messageReply, type } = event;
 
-  if (type !== "message_reply" || !messageReply) {
+  if (type !== "message_reply" || !messageReply?.attachments?.length) {
     return api.sendMessage(
-      "⚠️ Please reply to an image with your edit prompt!\n\n📝 Usage: edit [prompt]",
-      threadID,
-      messageID
-    );
-  }
-
-  if (!messageReply.attachments || messageReply.attachments.length === 0) {
-    return api.sendMessage(
-      "❌ The message you replied to doesn't contain any image!",
+      "⚠️ Image par reply kar ke edit prompt likho.\n\nExample:\nedit make this image cinematic",
       threadID,
       messageID
     );
@@ -36,7 +31,7 @@ module.exports.run = async ({ api, event, args }) => {
   const attachment = messageReply.attachments[0];
   if (attachment.type !== "photo") {
     return api.sendMessage(
-      "❌ Please reply to an image, not a " + attachment.type + "!",
+      "❌ Sirf image par reply karo.",
       threadID,
       messageID
     );
@@ -45,109 +40,99 @@ module.exports.run = async ({ api, event, args }) => {
   const prompt = args.join(" ");
   if (!prompt) {
     return api.sendMessage(
-      "❌ Please provide an edit prompt!\n\n📝 Usage: edit [prompt]",
+      "❌ Edit prompt missing hai.\n\nExample:\nedit add sunglasses and blue background",
       threadID,
       messageID
     );
   }
 
-  const imageUrl = attachment.url;
-
-  const processingMsg = await api.sendMessage(
-    "🎨 Processing your image edit request...\n⏳ This may take a few moments...",
+  const processing = await api.sendMessage(
+    "🎨 Image edit ho rahi hai...\n⏳ Please wait",
     threadID
   );
 
   try {
     const cacheDir = path.join(__dirname, "cache");
-    if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir);
-    }
+    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
 
-    // UPDATED: Fresh Cookie String
-    const cookie = "HSID=As6RI2N9VtlTtG_wA; SSID=AUmJTs8SA3IBG32MK; APISID=kJoi38dXpi617zgJ/A-mo03AzyHQVdg-IJ; SAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7; __Secure-1PAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7; __Secure-3PAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7; AEC=AaJma5vASPcGxMpkR37-chVxIVmv9_MDAnY1m-jrfzIpcI55jHoUhI5kDoM; SEARCH_SAMESITE=CgQI9Z8B; SID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wjWmRXyGckSNQiebYLf5EpgACgYKAVgSARMSFQHGX2MiO0_dneDdrFrNJSf8t1qtCRoVAUF8yKqXONKm2DFycalJCILVjmYu0076; __Secure-1PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1w0shnpaJpgEyf0phdztRj3AACgYKARwSARMSFQHGX2MiQryCG9kvP0GRC7sq9MTM9RoVAUF8yKp6rtzdOATqvqqqTZ1Zhszw0076; __Secure-3PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wNsLYDwfK5-gnM6xL8sbmlgACgYKAYUSARMSFQHGX2Mi1XZWyT5TQqRG3nau4oJXqhoVAUF8yKoT8qoKY8qqh_cGeHt3h7L80076;";
-    
-    const apiUrl = `https://anabot.my.id/api/ai/geminiOption?prompt=${encodeURIComponent(prompt)}&type=NanoBanana&imageUrl=${encodeURIComponent(imageUrl)}&cookie=${encodeURIComponent(cookie)}&apikey=freeApikey`;
+    // 1️⃣ Download original image
+    const imagePath = path.join(cacheDir, `input_${Date.now()}.jpg`);
+    const imgRes = await axios.get(attachment.url, {
+      responseType: "arraybuffer"
+    });
+    fs.writeFileSync(imagePath, imgRes.data);
 
-    // 1. Request as TEXT first to avoid JSON parse errors
-    const response = await axios.get(apiUrl, {
-      responseType: 'text', // Forces Axios to NOT parse JSON automatically
-      timeout: 60000
+    const imageBase64 = fs.readFileSync(imagePath, {
+      encoding: "base64"
     });
 
-    // 2. Manual JSON Parsing with Error Check
-    let data;
-    try {
-        data = JSON.parse(response.data);
-    } catch (e) {
-        // If parsing fails, it's HTML
-        if (response.data.includes("<!doctype html>") || response.data.includes("<html>")) {
-            throw new Error("API_DOWN_HTML");
-        }
-        throw new Error("API returned invalid data (Not JSON)");
-    }
+    // 2️⃣ Gemini API request
+    const geminiUrl =
+      "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" +
+      GEMINI_API_KEY;
 
-    // 3. Handle Logical Errors
-    if (data.status === 500 || data.error) {
-      throw new Error(`API Error: ${data.error || 'Unknown Server Error'}`);
-    }
-
-    const resultUrl = data.result?.url || data.data?.result?.url || data.url;
-    
-    if (!resultUrl) {
-      throw new Error("No edited image URL found in API response.");
-    }
-
-    // 4. Download Image
-    const fileName = `edit_${Date.now()}.png`;
-    const filePath = path.join(cacheDir, fileName);
-    
-    const imageResponse = await axios({
-      url: resultUrl,
-      method: "GET",
-      responseType: "stream",
-      timeout: 60000
-    });
-
-    const writer = fs.createWriteStream(filePath);
-    imageResponse.data.pipe(writer);
-
-    writer.on("finish", () => {
-      api.unsendMessage(processingMsg.messageID);
-
-      api.sendMessage(
+    const geminiRes = await axios.post(geminiUrl, {
+      contents: [
         {
-          body: `✨ Image edited successfully!\n\n📝 Prompt: ${prompt}\n\n🎨 Powered by NanoBanana AI`,
-          attachment: fs.createReadStream(filePath)
-        },
-        threadID,
-        () => {
-          fs.unlinkSync(filePath);
-        },
-        messageID
-      );
+          role: "user",
+          parts: [
+            { text: `Edit this image: ${prompt}` },
+            {
+              inlineData: {
+                mimeType: "image/jpeg",
+                data: imageBase64
+              }
+            }
+          ]
+        }
+      ]
+    }, {
+      timeout: 60000
     });
 
-    writer.on("error", (err) => {
-      console.error("Error downloading edited image:", err);
-      api.unsendMessage(processingMsg.messageID);
-      api.sendMessage(
-        "❌ Failed to download the edited image.",
-        threadID,
-        messageID
-      );
-    });
+    const parts =
+      geminiRes.data?.candidates?.[0]?.content?.parts;
 
-  } catch (error) {
-    console.error("Error in edit command:", error);
-    api.unsendMessage(processingMsg.messageID);
-    
-    let errorMessage = "❌ An error occurred.";
-    
-    if (error.message === 'API_DOWN_HTML') {
-        errorMessage = "❌ **API Error:** The external server is down and returned a webpage instead of data.\n\n💡 Reason: The API `anabot.my.id` is currently unstable or the cookie was rejected.";
-    } else if (error.message.includes('Not JSON')) {
-        errorMessage = "❌ **API Error:** The server returned garbled data. Please try again later.";
-    } else if (error.code === 'ETIMEDOUT') {
-        errorMessage
-      
+    const imagePart = parts?.find(p => p.inlineData);
+
+    if (!imagePart) {
+      throw new Error("No image returned from Gemini");
+    }
+
+    // 3️⃣ Save edited image
+    const outputPath = path.join(cacheDir, `edit_${Date.now()}.png`);
+    fs.writeFileSync(
+      outputPath,
+      Buffer.from(imagePart.inlineData.data, "base64")
+    );
+
+    api.unsendMessage(processing.messageID);
+
+    api.sendMessage(
+      {
+        body:
+          "✨ Image edited successfully!\n\n" +
+          "📝 Prompt: " + prompt + "\n" +
+          "🤖 Powered by Gemini AI",
+        attachment: fs.createReadStream(outputPath)
+      },
+      threadID,
+      () => {
+        fs.unlinkSync(imagePath);
+        fs.unlinkSync(outputPath);
+      },
+      messageID
+    );
+
+  } catch (err) {
+    console.error("EDIT ERROR:", err.message);
+
+    api.unsendMessage(processing.messageID);
+
+    api.sendMessage(
+      "❌ Image edit failed.\n\n📌 Reason:\n" + err.message,
+      threadID,
+      messageID
+    );
+  }
+};

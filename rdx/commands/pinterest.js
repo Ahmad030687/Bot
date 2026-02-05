@@ -1,37 +1,65 @@
+const axios = require('axios');
+
 module.exports.config = {
     name: "pinterest",
-    version: "1.0.0",
+    version: "2.0.0",
     hasPermssion: 0,
-    credits: "TEAM-ATF",
-    description: "Image search",
-    commandCategory: "Search",
-    usePrefix: false,
-    usages: "[Text]",
-    cooldowns: 0,
+    credits: "Ahmad RDX",
+    description: "Search HD Pinterest images with count (e.g. .pinterest aesthetic-5)",
+    commandCategory: "Media Hub",
+    usages: "[query] or [query-count]",
+    cooldowns: 5
 };
-module.exports.run = async function({ api, event, args }) {
-    const axios = require("axios");
-    const fs = require("fs-extra");
-    const request = require("request");
-    const keySearch = args.join(" ");
-    if(keySearch.includes("-") == false) return api.sendMessage('Please enter in the format, example: pinterest Naruto - 10 (it depends on you how many images you want to appear in the result)', event.threadID, event.messageID)
-    const keySearchs = keySearch.substr(0, keySearch.indexOf('-'))
-    const numberSearch = keySearch.split("-").pop() || 6
-    const res = await axios.get(`https://api-dien.kira1011.repl.co/pinterest?search=${encodeURIComponent(keySearchs)}`);
-    const data = res.data.data;
-    var num = 0;
-    var imgData = [];
-    for (var i = 0; i < parseInt(numberSearch); i++) {
-      let path = __dirname + `/cache/${num+=1}.jpg`;
-      let getDown = (await axios.get(`${data[i]}`, { responseType: 'arraybuffer' })).data;
-      fs.writeFileSync(path, Buffer.from(getDown, 'utf-8'));
-      imgData.push(fs.createReadStream(__dirname + `/cache/${num}.jpg`));
+
+module.exports.run = async ({ api, event, args }) => {
+    const input = args.join(" ");
+    if (!input) return api.sendMessage("⚠️ **Ahmad Systems:** Kya dhoondna hai boss?\nExample: .pinterest car-5", event.threadID);
+
+    // Logic: Dash (-) se split karna
+    let [query, count] = input.split("-");
+
+    // Agar count nahi likha ya number nahi hai, toh default 1
+    if (!count || isNaN(count)) {
+        count = 1;
     }
-    api.sendMessage({
-        attachment: imgData,
-        body: numberSearch + 'Search results for keyword: '+ keySearchs
-    }, event.threadID, event.messageID)
-    for (let ii = 1; ii < parseInt(numberSearch); ii++) {
-        fs.unlinkSync(__dirname + `/cache/${ii}.jpg`)
+
+    // Limit set karna (Max 10)
+    if (count > 10) count = 10;
+    if (count < 1) count = 1;
+
+    api.sendMessage(`📥 **Ahmad Media Engine:** Searching ${count} image(s) for "${query.trim()}"... ⚡`, event.threadID, event.messageID);
+
+    try {
+        // Aapki Render API URL
+        const res = await axios.get(`https://insta-pin-api.onrender.com/pinterest-api?q=${encodeURIComponent(query.trim())}&limit=${count}`);
+        const data = res.data;
+
+        if (data.status && data.result.length > 0) {
+            let attachments = [];
+            
+            // Sab images ko stream mein convert karna
+            for (let i = 0; i < data.result.length; i++) {
+                const imgStream = await axios.get(data.result[i], { responseType: 'stream' });
+                attachments.push(imgStream.data);
+            }
+
+            const report = `🦅 **PINTEREST HD RESULTS**\n` +
+                           `━━━━━━━━━━━━━━━━━━\n` +
+                           `🔍 **QUERY:** ${query.trim()}\n` +
+                           `📸 **COUNT:** ${data.result.length}\n` +
+                           `━━━━━━━━━━━━━━━━━━\n` +
+                           `*Aura: Premium Graphics Delivery ⚡*`;
+
+            api.sendMessage({
+                body: report,
+                attachment: attachments
+            }, event.threadID);
+        } else {
+            api.sendMessage("❌ **Error:** No images found for this query.", event.threadID);
+        }
+
+    } catch (e) {
+        console.error(e);
+        api.sendMessage("❌ **Critical Failure:** API Server is not responding. Check your Render logs.", event.threadID);
     }
 };

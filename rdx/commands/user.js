@@ -39,7 +39,7 @@ module.exports.run = async function ({ api, event, args }) {
     }
     bannedList.push(targetID);
     fs.writeFileSync(bannedPath, JSON.stringify(bannedList, null, 2));
-    return api.sendMessage(`🚫 [SARDAR RDX] User (${targetID}) ko kamyabi se ban kar diya gaya hai. Ab bot iska reply nahi karega.`, threadID, messageID);
+    return api.sendMessage(`🚫 [𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗] User (${targetID}) ko kamyabi se ban kar diya gaya hai. Ab bot iska reply nahi karega.`, threadID, messageID);
   } 
   
   else if (action === "unban") {

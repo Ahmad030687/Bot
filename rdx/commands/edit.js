@@ -1,13 +1,12 @@
-
 const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
 
 module.exports.config = {
   name: "edit",
-  version: "1.0.0",
+  version: "1.1.0",
   hasPermssion: 0,
-  credits: "SARDAR RDX",
+  credits: "SARDAR RDX (Fixed by Gemini)",
   description: "Edit images using NanoBanana AI",
   commandCategory: "Media",
   usages: "[prompt] - Reply to an image",
@@ -28,7 +27,7 @@ module.exports.run = async ({ api, event, args }) => {
 
   if (!messageReply.attachments || messageReply.attachments.length === 0) {
     return api.sendMessage(
-      "❌ The message you replied to doesn't contain any image!\n\nPlease reply to a message with an image.",
+      "❌ The message you replied to doesn't contain any image!",
       threadID,
       messageID
     );
@@ -46,7 +45,7 @@ module.exports.run = async ({ api, event, args }) => {
   const prompt = args.join(" ");
   if (!prompt) {
     return api.sendMessage(
-      "❌ Please provide an edit prompt!\n\n📝 Usage: edit [prompt]\n\nExample: edit make the cat blue and add sunglasses",
+      "❌ Please provide an edit prompt!\n\n📝 Usage: edit [prompt]",
       threadID,
       messageID
     );
@@ -65,7 +64,8 @@ module.exports.run = async ({ api, event, args }) => {
       fs.mkdirSync(cacheDir);
     }
 
-    const cookie = "AEC=AVh_V2iyBHpOrwnn7CeXoAiedfWn9aarNoKT20Br2UX9Td9K-RAeS_o7Sg; HSID=Ao0szVfkYnMchTVfk; SSID=AGahZP8H4ni4UpnFV; APISID=SD-Q2DJLGdmZcxlA/AS8N0Gkp_b9sJC84f; SAPISID=9BY2tOwgEz4dK4dY/Acpw5_--fM7PV-aw4; __Secure-1PAPISID=9BY2tOwgEz4dK4dY/Acpw5_--fM7PV-aw4; __Secure-3PAPISID=9BY2tOwgEz4dK4dY/Acpw5_--fM7PV-aw4; SEARCH_SAMESITE=CgQI354B; SID=g.a0002wiVPDeqp9Z41WGZdsMDSNVWFaxa7cmenLYb7jwJzpe0kW3bZzx09pPfc201wUcRVKfh-wACgYKAXUSARMSFQHGX2MiU_dnPuMOs-717cJlLCeWOBoVAUF8yKpYTllPAbVgYQ0Mr_GyeXxV0076; __Secure-1PSID=g.a0002wiVPDeqp9Z41WGZdsMDSNVWFaxa7cmenLYb7jwJzpe0kW3b_Pt9L1eqcIAVeh7ZdRBOXgACgYKAYESARMSFQHGX2MicAK_Acu_-NCkzEz2wjCHmxoVAUF8yKp9xk8gQ82f-Ob76ysTXojB0076; __Secure-3PSID=g.a0002wiVPDeqp9Z41WGZdsMDSNVWFaxa7cmenLYb7jwJzpe0kW3bUudZTunPKtKbLRSoGKl1dAACgYKAYISARMSFQHGX2MimdzCEq63UmiyGU-3eyZx9RoVAUF8yKrc4ycLY7LGaJUyDXk_7u7M0076";
+    // UPDATED: Fresh cookies from your request formatted as a string
+    const cookie = "HSID=As6RI2N9VtlTtG_wA; SSID=AUmJTs8SA3IBG32MK; APISID=kJoi38dXpi617zgJ/A-mo03AzyHQVdg-IJ; SAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7; __Secure-1PAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7; __Secure-3PAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7; AEC=AaJma5vASPcGxMpkR37-chVxIVmv9_MDAnY1m-jrfzIpcI55jHoUhI5kDoM; SEARCH_SAMESITE=CgQI9Z8B; SID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wjWmRXyGckSNQiebYLf5EpgACgYKAVgSARMSFQHGX2MiO0_dneDdrFrNJSf8t1qtCRoVAUF8yKqXONKm2DFycalJCILVjmYu0076; __Secure-1PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1w0shnpaJpgEyf0phdztRj3AACgYKARwSARMSFQHGX2MiQryCG9kvP0GRC7sq9MTM9RoVAUF8yKp6rtzdOATqvqqqTZ1Zhszw0076; __Secure-3PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wNsLYDwfK5-gnM6xL8sbmlgACgYKAYUSARMSFQHGX2Mi1XZWyT5TQqRG3nau4oJXqhoVAUF8yKoT8qoKY8qqh_cGeHt3h7L80076;";
     
     const apiUrl = `https://anabot.my.id/api/ai/geminiOption?prompt=${encodeURIComponent(prompt)}&type=NanoBanana&imageUrl=${encodeURIComponent(imageUrl)}&cookie=${encodeURIComponent(cookie)}&apikey=freeApikey`;
 
@@ -73,21 +73,26 @@ module.exports.run = async ({ api, event, args }) => {
       headers: { 'Accept': 'application/json' },
       timeout: 60000,
       validateStatus: function (status) {
-        return status < 600; // Accept any status code less than 600
+        return status < 600; 
       }
     });
+
+    // FIX: Check if API returned HTML (Error page) instead of JSON
+    if (typeof response.data === 'string' && response.data.trim().startsWith('<')) {
+        throw new Error("API_HTML_ERROR"); 
+    }
 
     if (response.status === 500 && response.data?.error) {
       throw new Error(`API Error: ${response.data.error} - ${response.data.details || 'Server issue'}`);
     }
 
-    if (!response.data || !response.data.success) {
-      throw new Error(response.data?.error || "API request failed or returned no data");
-    }
-
-    const resultUrl = response.data.data?.result?.url;
+    // Handle nested data structures sometimes returned by this API
+    const resultUrl = response.data?.result?.url || response.data?.data?.result?.url || response.data?.url;
+    
     if (!resultUrl) {
-      throw new Error("No edited image URL returned from API");
+      // Log the actual response for debugging
+      console.log("API Response:", JSON.stringify(response.data));
+      throw new Error("No edited image URL returned. The API might be busy or the cookie rejected.");
     }
 
     const fileName = `edit_${Date.now()}.png`;
@@ -135,18 +140,13 @@ module.exports.run = async ({ api, event, args }) => {
     
     let errorMessage = "❌ An error occurred while editing the image.";
     
-    if (error.message.includes('ENOSPC') || (error.response?.data?.details && error.response.data.details.includes('ENOSPC'))) {
-      errorMessage = "❌ API server is temporarily unavailable (disk space full).\n\n💡 This is an issue with the external API service. Please try again in a few minutes.";
-    } else if (error.response?.status === 500) {
-      errorMessage = "❌ API server error (500). The service may be experiencing issues.\n\n💡 Please try again later.";
-    } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
-      errorMessage = "❌ Request timeout. The API is taking too long to respond.\n\n💡 Please try again.";
-    } else if (error.response) {
-      errorMessage += `\n\n📌 API Error: ${error.response.status}`;
-      if (error.response.data?.error) {
-        errorMessage += `\n📝 ${error.response.data.error}`;
-      }
-    } else if (error.message) {
+    if (error.message === 'API_HTML_ERROR') {
+      errorMessage = "❌ API Error: The server returned an HTML error page.\n\n💡 This usually means the cookie is invalid or expired, or the API service is down.";
+    } else if (error.message.includes('ENOSPC')) {
+      errorMessage = "❌ API server is temporarily unavailable (disk space full).";
+    } else if (error.code === 'ETIMEDOUT') {
+      errorMessage = "❌ Request timeout. The API is taking too long to respond.";
+    } else {
       errorMessage += `\n\n📌 Error: ${error.message}`;
     }
     

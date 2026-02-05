@@ -4,12 +4,12 @@ const path = require('path');
 
 module.exports.config = {
     name: "music",
-    version: "3.5.0",
+    version: "4.0.0",
     credits: "Ahmad RDX",
-    description: "Download Audio/Video from YouTube",
+    description: "Smart YouTube Downloader",
     commandCategory: "Media Hub",
     usages: "[name-audio/video]",
-    cooldowns: 15
+    cooldowns: 10
 };
 
 module.exports.run = async ({ api, event, args }) => {
@@ -17,73 +17,64 @@ module.exports.run = async ({ api, event, args }) => {
     const input = args.join(" ");
 
     if (!input.includes("-")) {
-        return api.sendMessage("⚠️ **Format:** #music [naam]-[audio/video]\nExample: #music legend-audio", threadID, messageID);
+        return api.sendMessage("⚠️ **Format:** #music [naam]-[audio/video]\nExample: #music sidhu just listen-audio", threadID, messageID);
     }
 
-    const [query, format] = input.split("-");
+    let [query, format] = input.split("-");
     const type = format.trim().toLowerCase() === 'video' ? 'video' : 'audio';
+    
+    // Ahmad Bhai: Yahan hum query ko thora "Heavy" kar rahe hain taake asli gaana aaye
+    let finalQuery = query.trim();
+    if (!finalQuery.toLowerCase().includes("official")) {
+        finalQuery += " official video"; 
+    }
 
-    api.sendMessage(`📡 **Ahmad RDX Engine:** Searching for "${query.trim()}"...`, threadID, messageID);
+    api.sendMessage(`📡 **Ahmad RDX Intelligence:** Searching for "${finalQuery}"... 🛰️`, threadID, messageID);
 
     try {
-        // 1. SEARCH: Apki working API se data nikalna
-        const searchRes = await axios.get(`https://yt-api-7mfm.onrender.com/yt-search?q=${encodeURIComponent(query)}`);
+        const searchRes = await axios.get(`https://yt-api-7mfm.onrender.com/yt-search?q=${encodeURIComponent(finalQuery)}`);
         
-        // Aapke JSON ke mutabiq pehla result (results[0]) uthana
-        const video = searchRes.data.results[0];
+        // --- SMART FILTER ---
+        // Hum un videos ko skip karenge jo 1 ghantay se bari hain (Frequency type videos)
+        // Aur pehla sahi result pakrenge
+        const results = searchRes.data.results;
+        let video = results.find(res => !res.title.toLowerCase().includes("frequency") && !res.title.toLowerCase().includes("hz"));
+        
+        // Agar filter se kuch na mile toh normal result
+        if (!video) video = results[0];
 
-        if (!video || !video.url) {
-            return api.sendMessage("❌ **Error:** No video found!", threadID, messageID);
-        }
+        if (!video || !video.url) return api.sendMessage("❌ No valid video found!", threadID, messageID);
 
-        api.sendMessage(`📥 **Processing ${type.toUpperCase()}:** ${video.title}\nPlease wait... ⏳`, threadID, messageID);
+        api.sendMessage(`📥 **Processing:** ${video.title}\nPlease wait... ⏳`, threadID, messageID);
 
-        // 2. DOWNLOAD: Apki Render API ke /yt-dl route ko call karna
-        const dlUrl = `https://yt-api-7mfm.onrender.com/yt-dl?url=${encodeURIComponent(video.url)}&type=${type}`;
-        const dlRes = await axios.get(dlUrl);
-
-        if (!dlRes.data.status || !dlRes.data.download_url) {
-            return api.sendMessage("❌ **Meta Error:** Could not extract download link. Video might be too long or restricted.", threadID, messageID);
-        }
+        const dlRes = await axios.get(`https://yt-api-7mfm.onrender.com/yt-dl?url=${encodeURIComponent(video.url)}&type=${type}`);
+        
+        if (!dlRes.data.status) throw new Error("API Limit");
 
         const directLink = dlRes.data.download_url;
-
-        // 3. FILE SYSTEM
         const ext = type === 'audio' ? 'mp3' : 'mp4';
         const filePath = path.join(__dirname, 'cache', `${Date.now()}.${ext}`);
-        
+
         if (!fs.existsSync(path.join(__dirname, 'cache'))) fs.mkdirSync(path.join(__dirname, 'cache'));
 
-        // 4. DOWNLOADING TO BOT SERVER
-        const response = await axios({
-            method: 'get',
-            url: directLink,
-            responseType: 'stream'
-        });
-
+        const response = await axios({ method: 'get', url: directLink, responseType: 'stream' });
         const writer = fs.createWriteStream(filePath);
         response.data.pipe(writer);
 
         writer.on('finish', () => {
-            // Check file size (Messenger limit: 25MB)
             const stats = fs.statSync(filePath);
-            const fileSizeInMB = stats.size / (1024 * 1024);
-
-            if (fileSizeInMB > 25) {
+            if (stats.size > 26214400) { // 25MB check
                 fs.unlinkSync(filePath);
-                return api.sendMessage("⚠️ **File Too Large:** Result is over 25MB. Try a shorter version or audio format.", threadID, messageID);
+                return api.sendMessage("⚠️ **File Size Alert:** Ye gaana 25MB se bara hai, is liye nahi bhej sakta.", threadID, messageID);
             }
 
             api.sendMessage({
-                body: `🦅 **AHMAD RDX DOWNLOADER**\n━━━━━━━━━━━━━━\n🎬 **Title:** ${video.title}\n📁 **Type:** ${type.toUpperCase()}\n━━━━━━━━━━━━━━`,
+                body: `🦅 **AHMAD RDX MEDIA DELIVERY**\n━━━━━━━━━━━━━━\n🎬 **Title:** ${video.title}\n📁 **Type:** ${type.toUpperCase()}\n━━━━━━━━━━━━━━`,
                 attachment: fs.createReadStream(filePath)
-            }, threadID, () => {
-                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-            }, messageID);
+            }, threadID, () => fs.unlinkSync(filePath), messageID);
         });
 
     } catch (e) {
-        console.error(e);
-        api.sendMessage("❌ **Critical Failure:** Server is busy or API connection lost.", threadID, messageID);
+        api.sendMessage("❌ **Meta Error:** Video restricted or server timeout. Try another keyword.", threadID, messageID);
     }
 };

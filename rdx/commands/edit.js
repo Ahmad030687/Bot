@@ -4,25 +4,30 @@ const path = require("path");
 
 module.exports.config = {
   name: "edit",
-  version: "2.0.0",
+  version: "1.1.0",
   hasPermssion: 0,
-  credits: "SARDAR RDX (Gemini Official API)",
-  description: "Edit images using Official Google Gemini API (Stable)",
+  credits: "SARDAR RDX (Fixed by Gemini)",
+  description: "Edit images using NanoBanana AI",
   commandCategory: "Media",
-  usages: "[prompt] (reply to an image)",
+  usages: "[prompt] - Reply to an image",
   prefix: true,
-  cooldowns: 15
+  cooldowns: 10
 };
-
-// 🔑 OFFICIAL GEMINI API KEY
-const GEMINI_API_KEY = "AIzaSyBxygOjI1sPUkpxSEtuNOYOk2LutRX2Nag";
 
 module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID, messageReply, type } = event;
 
-  if (type !== "message_reply" || !messageReply?.attachments?.length) {
+  if (type !== "message_reply" || !messageReply) {
     return api.sendMessage(
-      "⚠️ Image par reply kar ke edit prompt likho.\n\nExample:\nedit make this image cinematic",
+      "⚠️ Please reply to an image with your edit prompt!\n\n📝 Usage: edit [prompt]",
+      threadID,
+      messageID
+    );
+  }
+
+  if (!messageReply.attachments || messageReply.attachments.length === 0) {
+    return api.sendMessage(
+      "❌ The message you replied to doesn't contain any image!",
       threadID,
       messageID
     );
@@ -31,7 +36,7 @@ module.exports.run = async ({ api, event, args }) => {
   const attachment = messageReply.attachments[0];
   if (attachment.type !== "photo") {
     return api.sendMessage(
-      "❌ Sirf image par reply karo.",
+      "❌ Please reply to an image only!",
       threadID,
       messageID
     );
@@ -40,14 +45,16 @@ module.exports.run = async ({ api, event, args }) => {
   const prompt = args.join(" ");
   if (!prompt) {
     return api.sendMessage(
-      "❌ Edit prompt missing hai.\n\nExample:\nedit add sunglasses and blue background",
+      "❌ Please provide an edit prompt!",
       threadID,
       messageID
     );
   }
 
-  const processing = await api.sendMessage(
-    "🎨 Image edit ho rahi hai...\n⏳ Please wait",
+  const imageUrl = attachment.url;
+
+  const processingMsg = await api.sendMessage(
+    "🎨 Processing your image edit request...\n⏳ Please wait...",
     threadID
   );
 
@@ -55,82 +62,70 @@ module.exports.run = async ({ api, event, args }) => {
     const cacheDir = path.join(__dirname, "cache");
     if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
 
-    // 1️⃣ Download original image
-    const imagePath = path.join(cacheDir, `input_${Date.now()}.jpg`);
-    const imgRes = await axios.get(attachment.url, {
-      responseType: "arraybuffer"
-    });
-    fs.writeFileSync(imagePath, imgRes.data);
+    // ✅ UPDATED COOKIE (FROM YOUR JSON – CLEAN & CORRECT)
+    const cookie =
+      "HSID=As6RI2N9VtlTtG_wA;" +
+      "SSID=AUmJTs8SA3IBG32MK;" +
+      "APISID=kJoi38dXpi617zgJ/A-mo03AzyHQVdg-IJ;" +
+      "SAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7;" +
+      "SID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wjWmRXyGckSNQiebYLf5EpgACgYKAVgSARMSFQHGX2MiO0_dneDdrFrNJSf8t1qtCRoVAUF8yKqXONKm2DFycalJCILVjmYu0076;" +
+      "__Secure-1PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1w0shnpaJpgEyf0phdztRj3AACgYKARwSARMSFQHGX2MiQryCG9kvP0GRC7sq9MTM9RoVAUF8yKp6rtzdOATqvqqqTZ1Zhszw0076;" +
+      "__Secure-3PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wNsLYDwfK5-gnM6xL8sbmlgACgYKAYUSARMSFQHGX2Mi1XZWyT5TQqRG3nau4oJXqhoVAUF8yKoT8qoKY8qqh_cGeHt3h7L80076;" +
+      "AEC=AaJma5vASPcGxMpkR37-chVxIVmv9_MDAnY1m-jrfzIpcI55jHoUhI5kDoM;" +
+      "SEARCH_SAMESITE=CgQI9Z8B";
 
-    const imageBase64 = fs.readFileSync(imagePath, {
-      encoding: "base64"
-    });
+    const apiUrl = `https://anabot.my.id/api/ai/geminiOption?prompt=${encodeURIComponent(
+      prompt
+    )}&type=NanoBanana&imageUrl=${encodeURIComponent(
+      imageUrl
+    )}&cookie=${encodeURIComponent(cookie)}&apikey=freeApikey`;
 
-    // 2️⃣ Gemini API request
-    const geminiUrl =
-      "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" +
-      GEMINI_API_KEY;
-
-    const geminiRes = await axios.post(geminiUrl, {
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: `Edit this image: ${prompt}` },
-            {
-              inlineData: {
-                mimeType: "image/jpeg",
-                data: imageBase64
-              }
-            }
-          ]
-        }
-      ]
-    }, {
-      timeout: 60000
+    const response = await axios.get(apiUrl, {
+      timeout: 60000,
+      headers: {
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0"
+      },
+      validateStatus: () => true
     });
 
-    const parts =
-      geminiRes.data?.candidates?.[0]?.content?.parts;
-
-    const imagePart = parts?.find(p => p.inlineData);
-
-    if (!imagePart) {
-      throw new Error("No image returned from Gemini");
+    // ❌ HTML response = cookie blocked / expired
+    if (typeof response.data === "string" && response.data.trim().startsWith("<")) {
+      throw new Error("API_HTML_ERROR");
     }
 
-    // 3️⃣ Save edited image
-    const outputPath = path.join(cacheDir, `edit_${Date.now()}.png`);
-    fs.writeFileSync(
-      outputPath,
-      Buffer.from(imagePart.inlineData.data, "base64")
-    );
+    const resultUrl =
+      response.data?.result?.url ||
+      response.data?.data?.result?.url ||
+      response.data?.url;
 
-    api.unsendMessage(processing.messageID);
+    if (!resultUrl) {
+      throw new Error("No edited image URL returned");
+    }
 
-    api.sendMessage(
-      {
-        body:
-          "✨ Image edited successfully!\n\n" +
-          "📝 Prompt: " + prompt + "\n" +
-          "🤖 Powered by Gemini AI",
-        attachment: fs.createReadStream(outputPath)
-      },
-      threadID,
-      () => {
-        fs.unlinkSync(imagePath);
-        fs.unlinkSync(outputPath);
-      },
-      messageID
-    );
+    const filePath = path.join(cacheDir, `edit_${Date.now()}.png`);
+    const img = await axios.get(resultUrl, { responseType: "stream" });
+
+    const writer = fs.createWriteStream(filePath);
+    img.data.pipe(writer);
+
+    writer.on("finish", () => {
+      api.unsendMessage(processingMsg.messageID);
+      api.sendMessage(
+        {
+          body: `✨ Image edited successfully!\n\n📝 Prompt: ${prompt}`,
+          attachment: fs.createReadStream(filePath)
+        },
+        threadID,
+        () => fs.unlinkSync(filePath),
+        messageID
+      );
+    });
 
   } catch (err) {
-    console.error("EDIT ERROR:", err.message);
-
-    api.unsendMessage(processing.messageID);
-
+    api.unsendMessage(processingMsg.messageID);
     api.sendMessage(
-      "❌ Image edit failed.\n\n📌 Reason:\n" + err.message,
+      "❌ Image edit failed.\n\nReason: Cookie expired / API blocked",
       threadID,
       messageID
     );

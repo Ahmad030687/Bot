@@ -1,13 +1,18 @@
-const { createCanvas, loadImage, registerFont } = require('canvas');
+const { createCanvas, loadImage } = require('canvas');
 const fs = require("fs-extra");
 const path = require("path");
 const axios = require("axios");
 
+// --- NOTE: Agar Custom Font use karna ho to yahan register karein ---
+// const { registerFont } = require('canvas');
+// registerFont(path.join(__dirname, 'fonts', 'Signature.ttf'), { family: 'SignatureFont' });
+// Phir niche ctx.font mein 'SignatureFont' use karein.
+
 module.exports.config = {
   name: "dp",
-  version: "50.0.0",
+  version: "101.FIXED",
   credits: "AHMAD RDX",
-  description: "200+ Super Heavy Premium Name DP Maker",
+  description: "Super Heavy DP - Correct Position & Size (200+ Styles)",
   commandCategory: "Edit",
   usages: "[StyleNo] [Name] - Reply to photo",
   cooldowns: 5
@@ -21,125 +26,127 @@ module.exports.run = async ({ api, event, args }) => {
   }
 
   const styleNo = parseInt(args[0]) || 1;
-  const name = args.slice(1).join(" ").toUpperCase() || "AHMAD";
+  // Name ko thora short rakhein taake heavy style mein acha lage
+  const nameText = args.slice(1).join(" ").toUpperCase().substring(0, 15) || "AHMAD";
   const imgUrl = messageReply.attachments[0].url;
-  const cachePath = path.join(__dirname, "cache", `rdx_heavy_${Date.now()}.png`);
+  const cachePath = path.join(__dirname, "cache", `rdx_pos_fixed_${Date.now()}.png`);
 
   if (!fs.existsSync(path.join(__dirname, "cache"))) fs.mkdirSync(path.join(__dirname, "cache"));
 
-  const processing = await api.sendMessage(`🎨 **AHMAD CREATIONS:** Creating Style #${styleNo}... (Super Heavy Engine)`, threadID);
+  const processing = await api.sendMessage(`🎨 **AHMAD CREATIONS:** Applying Heavy Style #${styleNo} at Bottom Center...`, threadID);
 
   try {
     const baseImg = await loadImage(imgUrl);
     const canvas = createCanvas(baseImg.width, baseImg.height);
     const ctx = canvas.getContext('2d');
 
+    // Width aur Height variables for cleaner calculations
     const W = canvas.width;
     const H = canvas.height;
 
     // 1. Draw Original Image
     ctx.drawImage(baseImg, 0, 0, W, H);
 
-    // 2. Dark Overlay (Taake text heavy lage)
-    ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-    ctx.fillRect(0, 0, W, H);
+    // --- 📐 POSITION & SIZE CALCULATIONS (THE FIX) ---
+    // Font size image ki width ka 18% hoga (Specific heavy size)
+    const mainFontSize = Math.floor(W * 0.18);
+    // Base Y position image ki height ka 82% neechay (Down Center)
+    const baseY = H * 0.82;
 
-    // 3. --- 🎭 200+ STYLES LOGIC ENGINE ---
-    // Dynamic Hue & Saturation based on style number
-    const hue = (styleNo * 137.5) % 360; 
-    const primary = `hsl(${hue}, 100%, 60%)`;
-    const secondary = `hsl(${(hue + 40) % 360}, 100%, 70%)`;
+    // 2. --- BOTTOM DARK GRADIENT (For better text visibility) ---
+    // Sirf neechay walay hissay ko thora dark karenge taake text uth kar aaye
+    const bottomGrad = ctx.createLinearGradient(0, H * 0.6, 0, H);
+    bottomGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    bottomGrad.addColorStop(1, 'rgba(0,0,0,0.7)');
+    ctx.fillStyle = bottomGrad;
+    ctx.fillRect(0, H * 0.6, W, H * 0.4);
 
-    // 4. --- DESIGNING ELEMENTS ---
+
+    // 3. --- STYLE ENGINE SETUP ---
     ctx.textAlign = 'center';
-
-    // Style Layout Categories
-    if (styleNo <= 70) { 
-        // 💎 CATEGORY: LUXURY GOLD & GLOW (Huma Style)
-        ctx.font = 'bold 140px serif';
-        
-        // Heavy Shadow/Glow
-        ctx.shadowColor = primary;
-        ctx.shadowBlur = 40;
-        
-        // Metallic Gradient
-        const grad = ctx.createLinearGradient(0, H - 500, 0, H - 300);
-        grad.addColorStop(0, '#FFD700');
-        grad.addColorStop(0.5, 'white');
-        grad.addColorStop(1, '#B8860B');
-        
-        ctx.fillStyle = grad;
-        ctx.fillText(name, W / 2, H - 400);
-        
-        // Curved Line under name
-        ctx.beginPath();
-        ctx.moveTo(W / 2 - 200, H - 350);
-        ctx.quadraticCurveTo(W / 2, H - 300, W / 2 + 200, H - 350);
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 5;
-        ctx.stroke();
-
-    } else if (styleNo > 70 && styleNo <= 140) {
-        // 🚀 CATEGORY: NEON & CYBER (Ezzah Style)
-        ctx.font = 'italic bold 150px sans-serif';
-        ctx.shadowColor = primary;
-        ctx.shadowBlur = 50;
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 8;
-        ctx.strokeText(name, W / 2, H - 400);
-        ctx.fillStyle = primary;
-        ctx.fillText(name, W / 2, H - 400);
-
-    } else {
-        // 🔥 CATEGORY: 3D RECTANGLE & GLASS
-        ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
-        ctx.roundRect(W/2 - 350, H - 500, 700, 200, 20);
-        ctx.fill();
-        ctx.strokeStyle = primary;
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        
-        ctx.font = 'bold 120px Arial';
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = 'black';
-        ctx.fillStyle = "white";
-        ctx.fillText(name, W / 2, H - 380);
-    }
-
-    // 5. --- ✍️ AESTHETIC QUOTES & BRANDING ---
-    ctx.shadowBlur = 0; // Shadow reset
-    const quotes = [
-      "Love is not just a word | Forever",
-      "A night to remember under the stars",
-      "Whispers of the night, gaze of the moon",
-      "Elegance is the only beauty that never fades",
-      "Defined by style, driven by passion",
-      "The legend begins where the story ends"
-    ];
+    ctx.textBaseline = 'middle';
     
-    ctx.font = '40px sans-serif';
-    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-    ctx.fillText(quotes[styleNo % quotes.length], W / 2, H - 250);
+    // Dynamic Color based on style number
+    const hue = (styleNo * 137.5) % 360;
+    const mainColorHSL = `hsl(${hue}, 100%, 65%)`;
 
-    // Signature Line
-    ctx.font = 'bold 35px Arial';
+    // --- LAYER 1: THE HEAVY GLOW (Peechay ki chamak) ---
+    // Use a bold serif font standard, or your custom font if registered
+    ctx.font = `bold ${mainFontSize}px serif`; 
+    ctx.shadowColor = mainColorHSL;
+    ctx.shadowBlur = W * 0.05; // Blur relative to width
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillText(nameText, W / 2, baseY);
+
+
+    // --- LAYER 2: THE THICK OUTLINE (3D Look) ---
+    // Shadow off for sharp stroke
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = mainFontSize * 0.08; // Stroke relative to font size
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)'; # Dark heavy border
+    ctx.strokeText(nameText, W / 2, baseY);
+
+
+    // --- LAYER 3: THE MAIN FILL GRADIENT (Gold/Silver/Neon) ---
+    let fillStyle;
+    if (styleNo <= 80) { 
+        // PREMIUM GOLD/CLASSIC GRADIENT
+        const grad = ctx.createLinearGradient(0, baseY - mainFontSize/2, 0, baseY + mainFontSize/2);
+        grad.addColorStop(0, '#FFD700'); // Gold
+        grad.addColorStop(0.5, '#FFFACD'); // Light Gold
+        grad.addColorStop(1, '#B8860B'); // Dark Gold
+        fillStyle = grad;
+    } else {
+        // NEON/METALLIC VIBRANT GRADIENT
+        const grad = ctx.createLinearGradient(0, baseY - mainFontSize/2, 0, baseY + mainFontSize/2);
+        grad.addColorStop(0, 'white');
+        grad.addColorStop(0.5, mainColorHSL);
+        grad.addColorStop(1, `hsl(${hue}, 100%, 40%)`);
+        fillStyle = grad;
+    }
+    ctx.fillStyle = fillStyle;
+    ctx.fillText(nameText, W / 2, baseY);
+
+    // 4. --- DECORATIONS (Divider & Quote below name) ---
+    const subFontSize = mainFontSize * 0.3;
+    const dividerY = baseY + mainFontSize * 0.4;
+    const quoteY = dividerY + subFontSize * 1.2;
+
+    // Stylish Divider Line
+    ctx.beginPath();
+    ctx.strokeStyle = fillStyle; // Match name color
+    ctx.lineWidth = W * 0.008;
+    ctx.moveTo(W / 2 - W * 0.2, dividerY);
+    ctx.quadraticCurveTo(W / 2, dividerY - W*0.02, W / 2 + W * 0.2, dividerY);
+    ctx.stroke();
+
+    // Quotes
+    const quotes = ["Elegance in Every Pixel", "A Night to Remember", "Whispers of the Soul", "Defined by Style"];
+    ctx.font = `italic ${subFontSize}px sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.shadowColor = 'black';
+    ctx.shadowBlur = 5;
+    ctx.fillText(quotes[styleNo % quotes.length], W / 2, quoteY);
+
+    // 5. --- BRANDING (Bottom Right) ---
+    ctx.font = `bold ${W * 0.04}px Arial`;
     ctx.textAlign = 'right';
-    ctx.fillStyle = primary;
-    ctx.fillText("*AHMAD CREATIONS*", W - 50, H - 50);
+    ctx.fillStyle = mainColorHSL;
+    ctx.fillText("*AHMAD CREATIONS*", W - (W*0.03), H - (W*0.03));
 
-    // 6. Save and Finish
+    // --- SAVE & SEND ---
     const buffer = canvas.toBuffer('image/png');
     fs.writeFileSync(cachePath, buffer);
     api.unsendMessage(processing.messageID);
 
     api.sendMessage({
-      body: `✨ **Heavy DP Success!**\n💎 Style: #${styleNo}\n👤 Name: ${name}\n🦅 Designed by Ahmad RDX`,
+      body: `🦅 **RDX HEAVY DP (Fixed Position)**\n💎 Style: #${styleNo}\n👤 Name: ${nameText}`,
       attachment: fs.createReadStream(cachePath)
     }, threadID, () => fs.unlinkSync(cachePath), messageID);
 
-  } catch (error) {
-    console.error(error);
+  } catch (e) {
+    console.error(e);
     api.unsendMessage(processing.messageID);
-    api.sendMessage("❌ **Error:** Canvas setup incomplete or image size too large.", threadID, messageID);
+    api.sendMessage("❌ Error: Rendering failed!", threadID);
   }
 };

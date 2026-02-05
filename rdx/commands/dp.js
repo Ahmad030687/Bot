@@ -3,7 +3,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 module.exports.config = {
-  name: "edit",
+  name: "dp",
   version: "2.0.0",
   credits: "AHMAD RDX",
   description: "AI Generative Name DP (Real AI Magic)",

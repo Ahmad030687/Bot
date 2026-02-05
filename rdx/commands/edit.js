@@ -4,10 +4,10 @@ const path = require("path");
 
 module.exports.config = {
   name: "edit",
-  version: "1.3.1",
+  version: "3.0.0",
   hasPermssion: 2,
-  credits: "SARDAR RDX & Gemini",
-  description: "Edit images using NanoBanana (Anabot) [Fixed Cookies]",
+  credits: "Ahmad RDX",
+  description: "NanoBanana Editor (Optimized Request)",
   commandCategory: "Media",
   usages: "[prompt] - Reply to an image",
   prefix: true,
@@ -17,62 +17,72 @@ module.exports.config = {
 module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID, messageReply, type } = event;
 
-  // --- UPDATED COOKIE CONFIGURATION (Extracted from your JSON) ---
-  const cookie = "SID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wjWmRXyGckSNQiebYLf5EpgACgYKAVgSARMSFQHGX2MiO0_dneDdrFrNJSf8t1qtCRoVAUF8yKqXONKm2DFycalJCILVjmYu0076; __Secure-1PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1w0shnpaJpgEyf0phdztRj3AACgYKARwSARMSFQHGX2MiQryCG9kvP0GRC7sq9MTM9RoVAUF8yKp6rtzdOATqvqqqTZ1Zhszw0076; __Secure-3PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wNsLYDwfK5-gnM6xL8sbmlgACgYKAYUSARMSFQHGX2Mi1XZWyT5TQqRG3nau4oJXqhoVAUF8yKoT8qoKY8qqh_cGeHt3h7L80076; HSID=As6RI2N9VtlTtG_wA; SSID=AUmJTs8SA3IBG32MK; APISID=kJoi38dXpi617zgJ/A-mo03AzyHQVdg-IJ; SAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7; __Secure-1PAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7; __Secure-3PAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7";
+  // --- 🍪 MANUAL COOKIE CONSTRUCTION (From your provided JSON) ---
+  // Sirf kaam ki cookies rakhi hain taake header overflow na ho
+  const cookie = [
+    "SID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wjWmRXyGckSNQiebYLf5EpgACgYKAVgSARMSFQHGX2MiO0_dneDdrFrNJSf8t1qtCRoVAUF8yKqXONKm2DFycalJCILVjmYu0076",
+    "__Secure-1PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1w0shnpaJpgEyf0phdztRj3AACgYKARwSARMSFQHGX2MiQryCG9kvP0GRC7sq9MTM9RoVAUF8yKp6rtzdOATqvqqqTZ1Zhszw0076",
+    "__Secure-3PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wNsLYDwfK5-gnM6xL8sbmlgACgYKAYUSARMSFQHGX2Mi1XZWyT5TQqRG3nau4oJXqhoVAUF8yKoT8qoKY8qqh_cGeHt3h7L80076",
+    "HSID=As6RI2N9VtlTtG_wA",
+    "SSID=AUmJTs8SA3IBG32MK",
+    "APISID=kJoi38dXpi617zgJ/A-mo03AzyHQVdg-IJ",
+    "SAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7",
+    "__Secure-1PAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7",
+    "__Secure-3PAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7",
+    "SIDCC=AKEyXzUZUQ5pQTrRuysFtGnu_l1wefNjr0ohk_gtyr9KIzfK9ClJKKqwtK07nPTV12tkC6rYgg",
+    "__Secure-1PSIDCC=AKEyXzWk7nG-TkZn74QBnMn6DMC0KZFCxJSfnyaeHHtur75WqssGa3AQypzhYh8bcWwbmsLuB9w",
+    "__Secure-3PSIDCC=AKEyXzXMjlRP_QK_hYyvDKk0_QGp6JMO6HwyAawfQnJyfW_CX8nDZsYjQNp87ImGZL4e2AhvBUw"
+  ].join("; ");
 
   // --- Command Logic ---
   if (type !== "message_reply" || !messageReply) {
-    return api.sendMessage("⚠️ Please reply to an image with your edit prompt!\n\nUsage: edit [prompt]", threadID, messageID);
-  }
-
-  if (!messageReply.attachments || messageReply.attachments.length === 0) {
-    return api.sendMessage("❌ No image found in the replied message.", threadID, messageID);
+    return api.sendMessage("⚠️ **Format:** Kisi photo par reply karein.\nExample: #edit make him look like a king", threadID, messageID);
   }
 
   const attachment = messageReply.attachments[0];
-  if (attachment.type !== "photo") {
-    return api.sendMessage("❌ Please reply to an actual image.", threadID, messageID);
+  if (!attachment || attachment.type !== "photo") {
+    return api.sendMessage("❌ Sirf image par reply karein.", threadID, messageID);
   }
 
   const prompt = args.join(" ");
   if (!prompt) {
-    return api.sendMessage("❌ Please provide instructions!\nExample: edit make the cat red", threadID, messageID);
+    return api.sendMessage("❌ Prompt missing!\nExample: #edit red hair", threadID, messageID);
   }
 
-  const imageUrl = attachment.url;
-  const processingMsg = await api.sendMessage("🎨 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 is processing your edit...\n⏳ This might take a few seconds...", threadID);
+  const processingMsg = await api.sendMessage("🎨 **Connecting to NanoBanana Server...**\nCookies Injecting... 💉", threadID);
 
   try {
     const cacheDir = path.join(__dirname, "cache");
     if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
 
-    // Using the 'NanoBanana' type as per your request
-    const apiUrl = `https://anabot.my.id/api/ai/geminiOption?prompt=${encodeURIComponent(prompt)}&type=NanoBanana&imageUrl=${encodeURIComponent(imageUrl)}&cookie=${encodeURIComponent(cookie)}&apikey=freeApikey`;
+    // URL Encoding (Boht zaroori hai taake link toote na)
+    const encodedPrompt = encodeURIComponent(prompt);
+    const encodedImage = encodeURIComponent(attachment.url);
+    const encodedCookie = encodeURIComponent(cookie);
 
-    console.log("Sending request to API..."); 
+    // API Call
+    const apiUrl = `https://anabot.my.id/api/ai/geminiOption?prompt=${encodedPrompt}&type=NanoBanana&imageUrl=${encodedImage}&cookie=${encodedCookie}&apikey=freeApikey`;
 
+    // Advanced Headers (Server ko fool banane ke liye)
     const response = await axios.get(apiUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Referer': 'https://anabot.my.id/'
       },
-      timeout: 120000 
+      timeout: 60000 // 1 minute timeout
     });
 
-    if (typeof response.data !== 'object') {
-      throw new Error("API returned invalid data.");
-    }
+    // Validating Data
+    const data = response.data;
+    const resultUrl = data.result?.url || data.data?.result?.url || data.url;
 
-    const resultUrl = response.data.result?.url || response.data.data?.result?.url || response.data.url;
-    
     if (!resultUrl) {
-      console.log("Full API Response:", JSON.stringify(response.data));
-      throw new Error("API responded but didn't provide an image URL.");
+      throw new Error("API ne response diya magar image URL nahi mila.");
     }
 
-    const fileName = `edit_${Date.now()}.png`;
-    const filePath = path.join(cacheDir, fileName);
-    
+    // Downloading Result
+    const filePath = path.join(cacheDir, `edit_${Date.now()}.png`);
     const imageResponse = await axios({
       url: resultUrl,
       method: "GET",
@@ -85,25 +95,22 @@ module.exports.run = async ({ api, event, args }) => {
     writer.on("finish", () => {
       api.unsendMessage(processingMsg.messageID);
       api.sendMessage({
-        body: `✨ Edited Successfully!\n📝 Prompt: ${prompt}`,
+        body: `✨ **Edited via NanoBanana**\n📝: ${prompt}`,
         attachment: fs.createReadStream(filePath)
       }, threadID, () => fs.unlinkSync(filePath), messageID);
     });
 
-    writer.on("error", (err) => {
-      console.error("Stream error:", err);
-      api.unsendMessage(processingMsg.messageID);
-      api.sendMessage("❌ Error downloading the edited image.", threadID, messageID);
-    });
-
   } catch (error) {
-    console.error("Edit Command Error:", error);
+    console.error(error);
     api.unsendMessage(processingMsg.messageID);
     
-    let errorMsg = "❌ Error processing image.";
-    if (error.message.includes("400")) errorMsg = "❌ Bad Request: Cookie might be rejected.";
-    if (error.message.includes("500")) errorMsg = "❌ Server Error: The API is struggling with the request.";
+    let msg = "❌ Error.";
+    if (error.response?.status === 500) {
+        msg = "❌ **Server Crash (500):** Ahmad bhai, cookies theek hain par Anabot ka server aapki request process nahi kar pa raha. Ye unki side se issue hai.";
+    } else {
+        msg = `❌ **Error:** ${error.message}`;
+    }
     
-    api.sendMessage(`${errorMsg}\n\nTechnical details: ${error.message}`, threadID, messageID);
+    api.sendMessage(msg, threadID, messageID);
   }
 };

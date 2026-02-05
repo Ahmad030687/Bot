@@ -4,7 +4,7 @@ const path = require("path");
 
 module.exports.config = {
   name: "edit",
-  version: "1.1.0",
+  version: "1.2.0",
   hasPermssion: 0,
   credits: "SARDAR RDX (Fixed by Gemini)",
   description: "Edit images using NanoBanana AI",
@@ -19,7 +19,7 @@ module.exports.run = async ({ api, event, args }) => {
 
   if (type !== "message_reply" || !messageReply) {
     return api.sendMessage(
-      "⚠️ Please reply to an image with your edit prompt!\n\n📝 Usage: edit [prompt]\n\nExample: edit make the cat blue and add sunglasses",
+      "⚠️ Please reply to an image with your edit prompt!\n\n📝 Usage: edit [prompt]",
       threadID,
       messageID
     );
@@ -64,37 +64,41 @@ module.exports.run = async ({ api, event, args }) => {
       fs.mkdirSync(cacheDir);
     }
 
-    // UPDATED: Fresh cookies from your request formatted as a string
+    // UPDATED: Fresh Cookie String
     const cookie = "HSID=As6RI2N9VtlTtG_wA; SSID=AUmJTs8SA3IBG32MK; APISID=kJoi38dXpi617zgJ/A-mo03AzyHQVdg-IJ; SAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7; __Secure-1PAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7; __Secure-3PAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7; AEC=AaJma5vASPcGxMpkR37-chVxIVmv9_MDAnY1m-jrfzIpcI55jHoUhI5kDoM; SEARCH_SAMESITE=CgQI9Z8B; SID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wjWmRXyGckSNQiebYLf5EpgACgYKAVgSARMSFQHGX2MiO0_dneDdrFrNJSf8t1qtCRoVAUF8yKqXONKm2DFycalJCILVjmYu0076; __Secure-1PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1w0shnpaJpgEyf0phdztRj3AACgYKARwSARMSFQHGX2MiQryCG9kvP0GRC7sq9MTM9RoVAUF8yKp6rtzdOATqvqqqTZ1Zhszw0076; __Secure-3PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wNsLYDwfK5-gnM6xL8sbmlgACgYKAYUSARMSFQHGX2Mi1XZWyT5TQqRG3nau4oJXqhoVAUF8yKoT8qoKY8qqh_cGeHt3h7L80076;";
     
     const apiUrl = `https://anabot.my.id/api/ai/geminiOption?prompt=${encodeURIComponent(prompt)}&type=NanoBanana&imageUrl=${encodeURIComponent(imageUrl)}&cookie=${encodeURIComponent(cookie)}&apikey=freeApikey`;
 
+    // 1. Request as TEXT first to avoid JSON parse errors
     const response = await axios.get(apiUrl, {
-      headers: { 'Accept': 'application/json' },
-      timeout: 60000,
-      validateStatus: function (status) {
-        return status < 600; 
-      }
+      responseType: 'text', // Forces Axios to NOT parse JSON automatically
+      timeout: 60000
     });
 
-    // FIX: Check if API returned HTML (Error page) instead of JSON
-    if (typeof response.data === 'string' && response.data.trim().startsWith('<')) {
-        throw new Error("API_HTML_ERROR"); 
+    // 2. Manual JSON Parsing with Error Check
+    let data;
+    try {
+        data = JSON.parse(response.data);
+    } catch (e) {
+        // If parsing fails, it's HTML
+        if (response.data.includes("<!doctype html>") || response.data.includes("<html>")) {
+            throw new Error("API_DOWN_HTML");
+        }
+        throw new Error("API returned invalid data (Not JSON)");
     }
 
-    if (response.status === 500 && response.data?.error) {
-      throw new Error(`API Error: ${response.data.error} - ${response.data.details || 'Server issue'}`);
+    // 3. Handle Logical Errors
+    if (data.status === 500 || data.error) {
+      throw new Error(`API Error: ${data.error || 'Unknown Server Error'}`);
     }
 
-    // Handle nested data structures sometimes returned by this API
-    const resultUrl = response.data?.result?.url || response.data?.data?.result?.url || response.data?.url;
+    const resultUrl = data.result?.url || data.data?.result?.url || data.url;
     
     if (!resultUrl) {
-      // Log the actual response for debugging
-      console.log("API Response:", JSON.stringify(response.data));
-      throw new Error("No edited image URL returned. The API might be busy or the cookie rejected.");
+      throw new Error("No edited image URL found in API response.");
     }
 
+    // 4. Download Image
     const fileName = `edit_${Date.now()}.png`;
     const filePath = path.join(cacheDir, fileName);
     
@@ -128,7 +132,7 @@ module.exports.run = async ({ api, event, args }) => {
       console.error("Error downloading edited image:", err);
       api.unsendMessage(processingMsg.messageID);
       api.sendMessage(
-        "❌ Failed to download the edited image. Please try again.",
+        "❌ Failed to download the edited image.",
         threadID,
         messageID
       );
@@ -138,18 +142,12 @@ module.exports.run = async ({ api, event, args }) => {
     console.error("Error in edit command:", error);
     api.unsendMessage(processingMsg.messageID);
     
-    let errorMessage = "❌ An error occurred while editing the image.";
+    let errorMessage = "❌ An error occurred.";
     
-    if (error.message === 'API_HTML_ERROR') {
-      errorMessage = "❌ API Error: The server returned an HTML error page.\n\n💡 This usually means the cookie is invalid or expired, or the API service is down.";
-    } else if (error.message.includes('ENOSPC')) {
-      errorMessage = "❌ API server is temporarily unavailable (disk space full).";
+    if (error.message === 'API_DOWN_HTML') {
+        errorMessage = "❌ **API Error:** The external server is down and returned a webpage instead of data.\n\n💡 Reason: The API `anabot.my.id` is currently unstable or the cookie was rejected.";
+    } else if (error.message.includes('Not JSON')) {
+        errorMessage = "❌ **API Error:** The server returned garbled data. Please try again later.";
     } else if (error.code === 'ETIMEDOUT') {
-      errorMessage = "❌ Request timeout. The API is taking too long to respond.";
-    } else {
-      errorMessage += `\n\n📌 Error: ${error.message}`;
-    }
-    
-    api.sendMessage(errorMessage, threadID, messageID);
-  }
-};
+        errorMessage
+      

@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 module.exports.config = {
-    name: "meme",
+    name: "funs",
     version: "1.0.0",
     hasPermssion: 0,
     credits: "Ahmad RDX",

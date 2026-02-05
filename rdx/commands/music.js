@@ -4,9 +4,9 @@ const path = require('path');
 
 module.exports.config = {
     name: "music",
-    version: "2.5.0",
+    version: "3.0.0",
     credits: "Ahmad RDX",
-    description: "Search and Download Audio/Video via Private API",
+    description: "Download Audio/Video from YouTube (e.g. #music sidhu-audio)",
     commandCategory: "Media Hub",
     usages: "[name-audio] or [name-video]",
     cooldowns: 15
@@ -16,6 +16,7 @@ module.exports.run = async ({ api, event, args }) => {
     const { threadID, messageID } = event;
     const input = args.join(" ");
 
+    // Validation
     if (!input.includes("-")) {
         return api.sendMessage("⚠️ **Format:** #music [naam]-[audio/video]\nExample: #music legend-audio", threadID, messageID);
     }
@@ -23,56 +24,63 @@ module.exports.run = async ({ api, event, args }) => {
     const [query, format] = input.split("-");
     const type = format.trim().toLowerCase() === 'video' ? 'video' : 'audio';
 
-    api.sendMessage(`📡 **Ahmad RDX Engine:** Fetching Direct Link for "${query.trim()}"...`, threadID, messageID);
+    api.sendMessage(`📡 **Ahmad RDX Intelligence:** Searching for "${query.trim()}"... 🛰️`, threadID, messageID);
 
     try {
-        // 1. Pehle Search karein (JSON output)
+        // 1. Search Logic (Using your working Render API)
         const searchRes = await axios.get(`https://yt-api-7mfm.onrender.com/yt-search?q=${encodeURIComponent(query)}`);
+        
+        // Pehla result aksar channel hota hai, isliye hum valid video URL dhoondenge
         const video = searchRes.data.results.find(res => res.url.includes('watch?v='));
 
-        if (!video) return api.sendMessage("❌ Video not found!", threadID, messageID);
+        if (!video) return api.sendMessage("❌ **Error:** No video found for this query.", threadID, messageID);
 
-        // 2. Ab Download Link nikaalein (Ye JSON dega)
-        const dlRes = await axios.get(`https://yt-api-7mfm.onrender.com/yt-dl?url=${encodeURIComponent(video.url)}&type=${type}`);
-        
-        // Ahmad bhai, yahan hum JSON se link nikaal rahay hain
+        api.sendMessage(`📥 **Processing ${type.toUpperCase()}:** ${video.title}\nPlease wait... ⏳`, threadID, messageID);
+
+        // 2. Download Link Extraction (Calls the /yt-dl route on your Render)
+        const dlUrl = `https://yt-api-7mfm.onrender.com/yt-dl?url=${encodeURIComponent(video.url)}&type=${type}`;
+        const dlRes = await axios.get(dlUrl);
+
+        if (!dlRes.data.status || !dlRes.data.download_url) {
+            return api.sendMessage("❌ **Meta Error:** Could not extract download link. Check Render logs.", threadID, messageID);
+        }
+
         const directFileUrl = dlRes.data.download_url;
 
-        if (!directFileUrl) throw new Error("Could not extract direct link");
-
-        // 3. File setup
+        // 3. File Setup
         const ext = type === 'audio' ? 'mp3' : 'mp4';
-        const fileName = `${Date.now()}.${ext}`;
-        const filePath = path.join(__dirname, 'cache', fileName);
-
+        const filePath = path.join(__dirname, 'cache', `${Date.now()}.${ext}`);
+        
+        // Ensure cache folder exists
         if (!fs.existsSync(path.join(__dirname, 'cache'))) fs.mkdirSync(path.join(__dirname, 'cache'));
 
-        api.sendMessage(`📥 **Downloading ${type.toUpperCase()}...** Please wait.`, threadID, messageID);
-
-        // 4. Asli File Download Logic (Link to File)
-        const fileStream = await axios({
+        // 4. Stream and Save File
+        const response = await axios({
             method: 'get',
             url: directFileUrl,
             responseType: 'stream'
         });
 
         const writer = fs.createWriteStream(filePath);
-        fileStream.data.pipe(writer);
+        response.data.pipe(writer);
 
         writer.on('finish', () => {
-            // 5. Group mein file bhejna
+            // 5. Send to Messenger
             api.sendMessage({
-                body: `🦅 **AHMAD RDX MEDIA DELIVERY**\n━━━━━━━━━━━━━━\n🎬 **Title:** ${video.title}\n📁 **Format:** ${type.toUpperCase()}\n━━━━━━━━━━━━━━\n*Aura: Media King ⚡*`,
+                body: `🦅 **AHMAD RDX MEDIA HUB**\n━━━━━━━━━━━━━━━\n🎬 **Title:** ${video.title}\n📁 **Type:** ${type.toUpperCase()}\n━━━━━━━━━━━━━━━\n*Aura: High Speed Delivery ⚡*`,
                 attachment: fs.createReadStream(filePath)
-            }, threadID, () => fs.unlinkSync(filePath), messageID); // File bhejne ke baad delete
+            }, threadID, () => {
+                // File bhejne ke baad delete karna zaroori hai
+                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            }, messageID);
         });
 
         writer.on('error', (err) => {
-            api.sendMessage("❌ Download failed during streaming!", threadID, messageID);
+            throw err;
         });
 
     } catch (e) {
         console.error(e);
-        api.sendMessage("❌ **Critical Error:** API returned JSON but file streaming failed. Server might be overloaded.", threadID, messageID);
+        api.sendMessage("❌ **Critical Failure:** Server is overloaded or the file is too large for Render's free tier.", threadID, messageID);
     }
 };

@@ -1,13 +1,13 @@
-const Jimp = require("jimp");
+const { Jimp } = require("jimp"); // Fixed Import for new Jimp versions
 const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
 
 module.exports.config = {
   name: "dp",
-  version: "8.0.0",
+  version: "9.0.0",
   credits: "AHMAD RDX",
-  description: "Create Premium DPs with 150+ Dynamic Styles",
+  description: "Fixed Jimp DP Maker with 150+ Styles",
   commandCategory: "Media",
   usages: "[Style No] [Name] - Reply to Photo",
   cooldowns: 5
@@ -17,87 +17,76 @@ module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID, messageReply } = event;
 
   if (!messageReply || !messageReply.attachments[0]) {
-    return api.sendMessage("⚠️ **AHMAD RDX:** Kisi photo par reply karein!\nExample: #dp 7 HUMA", threadID, messageID);
+    return api.sendMessage("⚠️ **AHMAD RDX:** Photo par reply karein!\nExample: #dp 7 HUMA", threadID, messageID);
   }
 
   const styleNo = parseInt(args[0]) || 1;
   const name = args.slice(1).join(" ").toUpperCase() || "AHMAD";
   const imgUrl = messageReply.attachments[0].url;
-  const pathImg = path.join(__dirname, "cache", `dp_premium_${Date.now()}.png`);
+  const pathImg = path.join(__dirname, "cache", `dp_fixed_${Date.now()}.png`);
+
+  if (!fs.existsSync(path.join(__dirname, "cache"))) fs.mkdirSync(path.join(__dirname, "cache"));
 
   api.sendMessage(`🎨 **AHMAD CREATIONS:** Applying Style #${styleNo}...`, threadID);
 
   try {
+    // 🛠️ FIX: New Jimp reading method
     const image = await Jimp.read(imgUrl);
     const width = image.bitmap.width;
     const height = image.bitmap.height;
 
-    // Premium Fonts Loading (SANS-128 standard but styled via logic)
+    // Standard Font Loading
     const font = await Jimp.loadFont(Jimp.FONT_SANS_128_WHITE);
     const brandFont = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
 
-    // --- 🎭 DYNAMIC STYLE ENGINE (150+ VARIATIONS) ---
-    // Style ranges set kar di hain ustad ji:
-    // 1-30: Gold & Luxury, 31-60: Neon Glow, 61-90: Ruby & Fire, 91-120: Deep Ocean, 121-150+: Custom Mix
+    // --- 🎭 150+ STYLES COLOR LOGIC ---
+    let textColor;
+    // Har style number par alag color generator
+    const r = (styleNo * 55) % 255;
+    const g = (styleNo * 99) % 255;
+    const b = (styleNo * 155) % 255;
+
+    // Text image layer
+    const textLayer = new Jimp({ width, height });
     
-    let textColor = { r: 255, g: 255, b: 255 }; // Default White
-
-    if (styleNo >= 1 && styleNo <= 30) { 
-        // GOLD CATEGORY (Different shades of Gold/Yellow)
-        textColor = { r: 255, g: 215, b: styleNo * 2 }; 
-    } else if (styleNo >= 31 && styleNo <= 60) {
-        // NEON CATEGORY (Cyan to Green)
-        textColor = { r: 0, g: 255, b: 255 - (styleNo - 31) * 4 };
-    } else if (styleNo >= 61 && styleNo <= 90) {
-        // RUBY CATEGORY (Red to Pink)
-        textColor = { r: 255, g: (styleNo - 61) * 3, b: (styleNo - 61) * 5 };
-    } else if (styleNo >= 91 && styleNo <= 120) {
-        // OCEAN CATEGORY (Dark Blue to Purple)
-        textColor = { r: (styleNo - 91) * 5, g: 100, b: 255 };
-    } else {
-        // RAINBOW/MIX CATEGORY
-        textColor = { r: (styleNo % 255), g: 255 - (styleNo % 255), b: 150 };
-    }
-
-    // Creating Text Layer for Effects
-    const textImage = new Jimp(width, height);
-    textImage.print(font, 0, height - 400, {
+    // Name Print
+    textLayer.print({
+        font: font,
+        x: 0,
+        y: height - 400,
         text: name,
-        alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER
-    }, width);
+        alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+        alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE
+    }, width, height);
 
-    // Apply Style Color to Text
-    textImage.color([
-        { apply: 'red', params: [textColor.r - 255] },
-        { apply: 'green', params: [textColor.g - 255] },
-        { apply: 'blue', params: [textColor.b - 255] }
+    // Dynamic Coloring based on Style No
+    textLayer.color([
+        { apply: 'red', params: [r - 255] },
+        { apply: 'green', params: [g - 255] },
+        { apply: 'blue', params: [b - 255] }
     ]);
 
-    // Add Shadow/Glow (Har style par alag intensity)
-    const shadow = textImage.clone().blur(5 + (styleNo % 10));
-    image.composite(shadow, 5, height - 395); // Subtle shadow
-    image.composite(textImage, 0, height - 400);
+    // Apply Shadow for Premium Look
+    const shadow = textLayer.clone().blur(8);
+    image.composite(shadow, 4, height - 396); 
+    image.composite(textLayer, 0, height - 400);
 
-    // Quote Logic (Randomly assigned to style numbers)
-    const quotes = ["Loves is not just a word", "A night to remember", "ELEGANCE IN EVERY PIXEL"];
+    // Branding & Quote
+    const quotes = ["LEGEND NEVER DIES", "A NIGHT TO REMEMBER", "WHISPERS OF HEART", "ELEGANCE IN EVERY PIXEL"];
     const quote = quotes[styleNo % quotes.length];
-    
-    // Add Brand Tag & Quote
-    image.print(brandFont, 50, height - 150, quote);
-    image.print(brandFont, width - 400, height - 80, "*AHMAD CREATIONS*");
 
-    // Final Touch: Brightness adjust based on style
-    image.brightness(0.05);
+    image.print({ font: brandFont, x: 50, y: height - 150, text: quote }, width);
+    image.print({ font: brandFont, x: width - 400, y: height - 80, text: "*AHMAD CREATIONS*" }, width);
 
-    await image.writeAsync(pathImg);
+    await image.write(pathImg);
 
     api.sendMessage({
-      body: `✨ **Premium DP Created!**\n💎 Style: #${styleNo}\n👤 Name: ${name}\n🦅 Powered by Ahmad RDX`,
+      body: `✨ **DP Created!**\n💎 Style: #${styleNo}\n👤 Name: ${name}\n🦅 Powered by Ahmad RDX`,
       attachment: fs.createReadStream(pathImg)
     }, threadID, () => fs.unlinkSync(pathImg), messageID);
 
   } catch (err) {
     console.error(err);
-    api.sendMessage("❌ Error: Image processing failed!", threadID);
+    api.sendMessage(`❌ **Error:** Jimp failed to process image. Make sure URL is valid.`, threadID);
   }
 };

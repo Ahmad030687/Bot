@@ -4,10 +4,10 @@ const path = require("path");
 
 module.exports.config = {
   name: "edit",
-  version: "1.3.0",
+  version: "1.3.1",
   hasPermssion: 2,
   credits: "SARDAR RDX & Gemini",
-  description: "Edit images using NanoBanana (Anabot)",
+  description: "Edit images using NanoBanana (Anabot) [Fixed Cookies]",
   commandCategory: "Media",
   usages: "[prompt] - Reply to an image",
   prefix: true,
@@ -17,8 +17,7 @@ module.exports.config = {
 module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID, messageReply, type } = event;
 
-  // --- COOKIE CONFIGURATION ---
-  // Maine aapki di hui file se fresh cookies yahan set kar di hain.
+  // --- UPDATED COOKIE CONFIGURATION (Extracted from your JSON) ---
   const cookie = "SID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wjWmRXyGckSNQiebYLf5EpgACgYKAVgSARMSFQHGX2MiO0_dneDdrFrNJSf8t1qtCRoVAUF8yKqXONKm2DFycalJCILVjmYu0076; __Secure-1PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1w0shnpaJpgEyf0phdztRj3AACgYKARwSARMSFQHGX2MiQryCG9kvP0GRC7sq9MTM9RoVAUF8yKp6rtzdOATqvqqqTZ1Zhszw0076; __Secure-3PSID=g.a0006AiwL2hukjGc1ZVRNKS5XWaBxI-Fj77QIGyj8Cy21eiI1o1wNsLYDwfK5-gnM6xL8sbmlgACgYKAYUSARMSFQHGX2Mi1XZWyT5TQqRG3nau4oJXqhoVAUF8yKoT8qoKY8qqh_cGeHt3h7L80076; HSID=As6RI2N9VtlTtG_wA; SSID=AUmJTs8SA3IBG32MK; APISID=kJoi38dXpi617zgJ/A-mo03AzyHQVdg-IJ; SAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7; __Secure-1PAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7; __Secure-3PAPISID=LNDiahU7YjO3eITT/A4JCBFbME6zDwTZT7";
 
   // --- Command Logic ---
@@ -47,26 +46,23 @@ module.exports.run = async ({ api, event, args }) => {
     const cacheDir = path.join(__dirname, "cache");
     if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
 
-    // API Request setup
+    // Using the 'NanoBanana' type as per your request
     const apiUrl = `https://anabot.my.id/api/ai/geminiOption?prompt=${encodeURIComponent(prompt)}&type=NanoBanana&imageUrl=${encodeURIComponent(imageUrl)}&cookie=${encodeURIComponent(cookie)}&apikey=freeApikey`;
 
-    console.log("Sending request to API..."); // Debug log
+    console.log("Sending request to API..."); 
 
     const response = await axios.get(apiUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'application/json'
       },
-      timeout: 120000 // Increased timeout to 2 mins for heavy editing
+      timeout: 120000 
     });
 
-    // Check if response is valid JSON
     if (typeof response.data !== 'object') {
-      console.log("Invalid Response:", response.data);
-      throw new Error("API returned invalid data. Cookie might be rejected or server is busy.");
+      throw new Error("API returned invalid data.");
     }
 
-    // URL extraction (Handles different API response structures)
     const resultUrl = response.data.result?.url || response.data.data?.result?.url || response.data.url;
     
     if (!resultUrl) {
@@ -74,7 +70,6 @@ module.exports.run = async ({ api, event, args }) => {
       throw new Error("API responded but didn't provide an image URL.");
     }
 
-    // Downloading Image
     const fileName = `edit_${Date.now()}.png`;
     const filePath = path.join(cacheDir, fileName);
     
@@ -106,8 +101,8 @@ module.exports.run = async ({ api, event, args }) => {
     api.unsendMessage(processingMsg.messageID);
     
     let errorMsg = "❌ Error processing image.";
-    if (error.message.includes("400")) errorMsg = "❌ Bad Request: Cookie might be invalid.";
-    if (error.message.includes("500")) errorMsg = "❌ Server Error: NanoBanana API is down temporarily.";
+    if (error.message.includes("400")) errorMsg = "❌ Bad Request: Cookie might be rejected.";
+    if (error.message.includes("500")) errorMsg = "❌ Server Error: The API is struggling with the request.";
     
     api.sendMessage(`${errorMsg}\n\nTechnical details: ${error.message}`, threadID, messageID);
   }

@@ -4,109 +4,70 @@ const path = require("path");
 
 module.exports.config = {
   name: "edit",
-  version: "3.0.0",
+  version: "10.0.0",
   hasPermssion: 0,
-  credits: "SARDAR RDX (Modified by Gemini)",
-  description: "Edit replied photo using Pollinations AI",
+  credits: "SARDAR RDX",
+  description: "NanoBanana AI - Generative Name Art (Fixed Cookies)",
   commandCategory: "Media",
-  usages: "[reply to image] [prompt]",
+  usages: "[prompt] - Reply to an image",
   prefix: true,
-  cooldowns: 5
+  cooldowns: 10
 };
 
 module.exports.run = async ({ api, event, args }) => {
-  const { threadID, messageID, messageReply, type } = event;
+  const { threadID, messageID, messageReply } = event;
 
-  // 1. Check karein ke user ne photo par reply kiya hai ya nahi
-  if (type !== "message_reply" || !messageReply) {
-    return api.sendMessage(
-      "⚠️ Please reply to an image with your edit prompt!\n\n📝 Example: Reply to a photo and type 'edit make him look like a cyyborg'",
-      threadID,
-      messageID
-    );
+  if (!messageReply || !messageReply.attachments || messageReply.attachments[0].type !== "photo") {
+    return api.sendMessage("⚠️ **AHMAD RDX:** Photo par reply karke prompt likhein!\nExample: edit make it 3d gold name HUMA", threadID, messageID);
   }
 
-  if (!messageReply.attachments || messageReply.attachments.length === 0) {
-    return api.sendMessage("❌ The message you replied to doesn't contain any image!", threadID, messageID);
-  }
+  const userPrompt = args.join(" ");
+  if (!userPrompt) return api.sendMessage("❌ Prompt likhna zaroori hai!", threadID, messageID);
 
-  const attachment = messageReply.attachments[0];
-  if (attachment.type !== "photo") {
-    return api.sendMessage("❌ Please reply to an image, not a " + attachment.type + "!", threadID, messageID);
-  }
+  const imageUrl = messageReply.attachments[0].url;
+  const cacheDir = path.join(__dirname, "cache");
+  if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
 
-  // 2. Prompt Check
-  const prompt = args.join(" ");
-  if (!prompt) {
-    return api.sendMessage(
-      "❌ Please provide an edit prompt!\nExample: make it anime style",
-      threadID,
-      messageID
-    );
-  }
+  // 🦅 AHMAD RDX: AAPKI LIVE COOKIES YAHAN HAIN
+  const PSID = "g.a0006QiwLxrOz1E1hkYJC_PtmpnIyCwSnWi3IAGp_xhu-NMMDqzrkIpV2m0A6jgfY7HQcdYK2gACgYKAQQSARMSFQHGX2MiM0w7wMY_uzcpu5O7D8pvTBoVAUF8yKq0tIsg28IdF1FNZl36QYTP0076"; 
+  const PSIDTS = "sidts-CjIB7I_69Gvh0tEUSzCs9WStZTWsWaAxUVCMLswbquomG7r318T_ZSSEEDCuo5D5sgqKWBAA"; 
 
-  const processingMsg = await api.sendMessage(
-    "🎨 Editing your photo using Flux AI...\n⏳ Please wait...",
-    threadID
-  );
+  const fullCookie = `__Secure-1PSID=${PSID}; __Secure-1PSIDTS=${PSIDTS};`;
+
+  const processingMsg = await api.sendMessage("🎨 **AHMAD CREATIONS:** AI is re-imagining your image... ⏳", threadID);
 
   try {
-    const cacheDir = path.join(__dirname, "cache");
-    if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir);
+    // 🛠️ NANO-BANANA API CALL
+    const apiUrl = `https://anabot.my.id/api/ai/geminiOption?prompt=${encodeURIComponent(userPrompt)}&type=NanoBanana&imageUrl=${encodeURIComponent(imageUrl)}&cookie=${encodeURIComponent(fullCookie)}&__Secure-1PSID=${encodeURIComponent(PSID)}&__Secure-1PSIDTS=${encodeURIComponent(PSIDTS)}&apikey=freeApikey`;
+
+    const response = await axios.get(apiUrl, { timeout: 120000 });
+
+    if (!response.data || !response.data.success) {
+      throw new Error(response.data?.error?.message || "Gemini Rejected Request");
     }
 
-    // 3. Original Image URL nikalein
-    const imageUrl = attachment.url;
-
-    // 4. Pollinations URL banayein (Image + Prompt)
-    // Hum 'model=flux' use kar rahe hain jo best quality deta hai
-    // 'nologo=true' se watermark hat jayega
-    const apiUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?image=${encodeURIComponent(imageUrl)}&width=1024&height=1024&model=flux&nologo=true`;
-
-    const fileName = `edit_${Date.now()}.jpg`;
-    const filePath = path.join(cacheDir, fileName);
-
-    // 5. Download Edited Image
-    const response = await axios({
-      url: apiUrl,
-      method: "GET",
-      responseType: "stream",
-      timeout: 45000 // 45 seconds timeout for processing
-    });
-
+    const resultUrl = response.data.data?.result?.url;
+    const filePath = path.join(cacheDir, `rdx_nano_${Date.now()}.png`);
+    
+    const imgRes = await axios({ url: resultUrl, method: "GET", responseType: "stream" });
     const writer = fs.createWriteStream(filePath);
-    response.data.pipe(writer);
+    imgRes.data.pipe(writer);
 
     writer.on("finish", () => {
       api.unsendMessage(processingMsg.messageID);
-
-      api.sendMessage(
-        {
-          body: `✨ Photo Edited!\n\n📝 Prompt: ${prompt}\n🎨 Powered by Pollinations`,
+      api.sendMessage({
+          body: `🔥 **RDX GEN-AI EDIT SUCCESS**\n\n✨ **Prompt:** ${userPrompt}\n🦅 **Status:** NanoBanana Engine Online`,
           attachment: fs.createReadStream(filePath)
-        },
-        threadID,
-        () => {
-          fs.unlinkSync(filePath);
-        },
-        messageID
-      );
-    });
-
-    writer.on("error", (err) => {
-      console.error("Stream Error:", err);
-      api.unsendMessage(processingMsg.messageID);
-      api.sendMessage("❌ Failed to download the edited image.", threadID, messageID);
+      }, threadID, () => fs.unlinkSync(filePath), messageID);
     });
 
   } catch (error) {
-    console.error("Error in edit command:", error);
+    console.error(error);
     api.unsendMessage(processingMsg.messageID);
-    api.sendMessage(
-      `❌ Error: Could not edit the image.\nTry a simpler prompt.`,
-      threadID,
-      messageID
-    );
+    
+    let errorMsg = "❌ **Nano Error:** Session expire ho chuka hai ya Gemini busy hai.";
+    if (error.message.includes("400")) errorMsg = "❌ **Cookie Error:** PSIDTS expire ho gayi hai, laptop se dubara nikaalni paregi.";
+    
+    api.sendMessage(errorMsg, threadID, messageID);
   }
 };

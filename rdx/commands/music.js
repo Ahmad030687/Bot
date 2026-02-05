@@ -4,11 +4,11 @@ const path = require('path');
 
 module.exports.config = {
     name: "music",
-    version: "3.0.0",
+    version: "3.5.0",
     credits: "Ahmad RDX",
-    description: "Download Audio/Video from YouTube (e.g. #music sidhu-audio)",
+    description: "Download Audio/Video from YouTube",
     commandCategory: "Media Hub",
-    usages: "[name-audio] or [name-video]",
+    usages: "[name-audio/video]",
     cooldowns: 15
 };
 
@@ -16,7 +16,6 @@ module.exports.run = async ({ api, event, args }) => {
     const { threadID, messageID } = event;
     const input = args.join(" ");
 
-    // Validation
     if (!input.includes("-")) {
         return api.sendMessage("⚠️ **Format:** #music [naam]-[audio/video]\nExample: #music legend-audio", threadID, messageID);
     }
@@ -24,40 +23,41 @@ module.exports.run = async ({ api, event, args }) => {
     const [query, format] = input.split("-");
     const type = format.trim().toLowerCase() === 'video' ? 'video' : 'audio';
 
-    api.sendMessage(`📡 **Ahmad RDX Intelligence:** Searching for "${query.trim()}"... 🛰️`, threadID, messageID);
+    api.sendMessage(`📡 **Ahmad RDX Engine:** Searching for "${query.trim()}"...`, threadID, messageID);
 
     try {
-        // 1. Search Logic (Using your working Render API)
+        // 1. SEARCH: Apki working API se data nikalna
         const searchRes = await axios.get(`https://yt-api-7mfm.onrender.com/yt-search?q=${encodeURIComponent(query)}`);
         
-        // Pehla result aksar channel hota hai, isliye hum valid video URL dhoondenge
-        const video = searchRes.data.results.find(res => res.url.includes('watch?v='));
+        // Aapke JSON ke mutabiq pehla result (results[0]) uthana
+        const video = searchRes.data.results[0];
 
-        if (!video) return api.sendMessage("❌ **Error:** No video found for this query.", threadID, messageID);
+        if (!video || !video.url) {
+            return api.sendMessage("❌ **Error:** No video found!", threadID, messageID);
+        }
 
         api.sendMessage(`📥 **Processing ${type.toUpperCase()}:** ${video.title}\nPlease wait... ⏳`, threadID, messageID);
 
-        // 2. Download Link Extraction (Calls the /yt-dl route on your Render)
+        // 2. DOWNLOAD: Apki Render API ke /yt-dl route ko call karna
         const dlUrl = `https://yt-api-7mfm.onrender.com/yt-dl?url=${encodeURIComponent(video.url)}&type=${type}`;
         const dlRes = await axios.get(dlUrl);
 
         if (!dlRes.data.status || !dlRes.data.download_url) {
-            return api.sendMessage("❌ **Meta Error:** Could not extract download link. Check Render logs.", threadID, messageID);
+            return api.sendMessage("❌ **Meta Error:** Could not extract download link. Video might be too long or restricted.", threadID, messageID);
         }
 
-        const directFileUrl = dlRes.data.download_url;
+        const directLink = dlRes.data.download_url;
 
-        // 3. File Setup
+        // 3. FILE SYSTEM
         const ext = type === 'audio' ? 'mp3' : 'mp4';
         const filePath = path.join(__dirname, 'cache', `${Date.now()}.${ext}`);
         
-        // Ensure cache folder exists
         if (!fs.existsSync(path.join(__dirname, 'cache'))) fs.mkdirSync(path.join(__dirname, 'cache'));
 
-        // 4. Stream and Save File
+        // 4. DOWNLOADING TO BOT SERVER
         const response = await axios({
             method: 'get',
-            url: directFileUrl,
+            url: directLink,
             responseType: 'stream'
         });
 
@@ -65,22 +65,25 @@ module.exports.run = async ({ api, event, args }) => {
         response.data.pipe(writer);
 
         writer.on('finish', () => {
-            // 5. Send to Messenger
+            // Check file size (Messenger limit: 25MB)
+            const stats = fs.statSync(filePath);
+            const fileSizeInMB = stats.size / (1024 * 1024);
+
+            if (fileSizeInMB > 25) {
+                fs.unlinkSync(filePath);
+                return api.sendMessage("⚠️ **File Too Large:** Result is over 25MB. Try a shorter version or audio format.", threadID, messageID);
+            }
+
             api.sendMessage({
-                body: `🦅 **AHMAD RDX MEDIA HUB**\n━━━━━━━━━━━━━━━\n🎬 **Title:** ${video.title}\n📁 **Type:** ${type.toUpperCase()}\n━━━━━━━━━━━━━━━\n*Aura: High Speed Delivery ⚡*`,
+                body: `🦅 **AHMAD RDX DOWNLOADER**\n━━━━━━━━━━━━━━\n🎬 **Title:** ${video.title}\n📁 **Type:** ${type.toUpperCase()}\n━━━━━━━━━━━━━━`,
                 attachment: fs.createReadStream(filePath)
             }, threadID, () => {
-                // File bhejne ke baad delete karna zaroori hai
                 if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
             }, messageID);
         });
 
-        writer.on('error', (err) => {
-            throw err;
-        });
-
     } catch (e) {
         console.error(e);
-        api.sendMessage("❌ **Critical Failure:** Server is overloaded or the file is too large for Render's free tier.", threadID, messageID);
+        api.sendMessage("❌ **Critical Failure:** Server is busy or API connection lost.", threadID, messageID);
     }
 };

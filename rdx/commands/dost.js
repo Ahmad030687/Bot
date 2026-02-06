@@ -1,13 +1,12 @@
 const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
-const FormData = require("form-data");
 
 module.exports = {
   config: {
     name: "dost",
     aliases: ["friendship", "bestie"],
-    description: "Create Friendship Frame with real PFPs",
+    description: "Create Friendship Frame with real FB PFPs",
     credits: "SARDAR RDX",
     usage: "dost [mention/reply]",
     category: "Graphics",
@@ -20,14 +19,14 @@ module.exports = {
     let uid1 = senderID;
     let uid2;
 
-    // ✅ Mention / Reply detect (SAFE)
+    // ✅ Mention / Reply (SAFE)
     if (mentions && Object.keys(mentions).length > 0) {
       uid2 = Object.keys(mentions)[0];
     } else if (messageReply) {
       uid2 = messageReply.senderID;
     } else {
       return api.sendMessage(
-        "🚫 Dost ko mention ya uske message pe reply karo!",
+        "🚫 Kisi dost ko mention ya reply karo!",
         threadID,
         messageID
       );
@@ -35,68 +34,52 @@ module.exports = {
 
     api.sendMessage("⏳ Dostana frame ban raha hai...", threadID, messageID);
 
-    const cacheDir = path.join(__dirname, "cache");
-    fs.ensureDirSync(cacheDir);
-
     try {
-      // ✅ USER INFO (names SAFE)
-      const info = await api.getUserInfo([uid1, uid2]);
-      const name1 = info[uid1]?.name || "You";
-      const name2 = info[uid2]?.name || "Friend";
-
-      // ✅ Facebook token (same as user.js)
+      // ✅ SAME token as user.js (locked IDs bhi)
       const token = "6628568379|c1e620fa708a1d5696fb991c1bde5662";
 
-      const pfp1Path = path.join(cacheDir, `pfp_${uid1}.jpg`);
-      const pfp2Path = path.join(cacheDir, `pfp_${uid2}.jpg`);
+      // ✅ Direct FB image URLs (NO download)
+      const pfp1 = `https://graph.facebook.com/${uid1}/picture?type=large&access_token=${token}`;
+      const pfp2 = `https://graph.facebook.com/${uid2}/picture?type=large&access_token=${token}`;
 
-      const download = async (uid, filePath) => {
-        const url = `https://graph.facebook.com/${uid}/picture?type=large&access_token=${token}`;
-        const res = await axios.get(url, { responseType: "arraybuffer" });
-        fs.writeFileSync(filePath, Buffer.from(res.data));
-      };
+      // ✅ API expects GET + URLs
+      const apiUrl =
+        `https://ytdownload-8wpk.onrender.com/api/dost` +
+        `?u1=${encodeURIComponent(pfp1)}` +
+        `&u2=${encodeURIComponent(pfp2)}`;
 
-      // ✅ Always downloads (locked IDs bhi)
-      await download(uid1, pfp1Path);
-      await download(uid2, pfp2Path);
-
-      // ✅ Send to Render API
-      const form = new FormData();
-      form.append("u1", fs.createReadStream(pfp1Path));
-      form.append("u2", fs.createReadStream(pfp2Path));
-      form.append("n1", name1);
-      form.append("n2", name2);
-
-      const renderURL = "https://ytdownload-8wpk.onrender.com/api/dost";
-
-      const response = await axios.post(renderURL, form, {
-        headers: form.getHeaders(),
-        responseType: "arraybuffer"
+      const res = await axios.get(apiUrl, {
+        responseType: "arraybuffer",
+        timeout: 20000
       });
 
-      const finalPath = path.join(cacheDir, `dost_${uid1}_${uid2}.png`);
-      fs.writeFileSync(finalPath, Buffer.from(response.data));
+      const cacheDir = path.join(__dirname, "cache");
+      fs.ensureDirSync(cacheDir);
+
+      const outPath = path.join(
+        cacheDir,
+        `dost_${uid1}_${uid2}.png`
+      );
+
+      fs.writeFileSync(outPath, Buffer.from(res.data));
 
       await api.sendMessage(
         {
           body: "🦅 SARDAR RDX DOSTI FRAME 🦅",
-          attachment: fs.createReadStream(finalPath)
+          attachment: fs.createReadStream(outPath)
         },
         threadID,
         messageID
       );
 
-      // 🧹 Cleanup
       setTimeout(() => {
-        [pfp1Path, pfp2Path, finalPath].forEach(f => {
-          try { fs.unlinkSync(f); } catch {}
-        });
+        try { fs.unlinkSync(outPath); } catch {}
       }, 5000);
 
     } catch (err) {
       console.error(err);
       return api.sendMessage(
-        "❌ Frame generate nahi hua. Ab error crash nahi karega.",
+        "❌ Image load nahi hui. Ab blank frame nahi aana chahiye.",
         threadID,
         messageID
       );

@@ -2,33 +2,43 @@ const axios = require("axios");
 
 module.exports.config = {
   name: "ask",
-  version: "4.0.0",
+  version: "1.5.0",
   credits: "Ahmad RDX",
-  description: "To-The-Point Answer",
+  description: "Direct To-The-Point Answer from Ahmad RDX API",
   commandCategory: "Information",
-  usages: "[sawal]",
-  cooldowns: 5
+  usages: "[query]",
+  cooldowns: 3
 };
 
 module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID } = event;
   const query = args.join(" ");
 
-  if (!query) return api.sendMessage("❓ Sawal likhein ustad!", threadID, messageID);
+  // Agar user kuch na likhe
+  if (!query) {
+    return api.sendMessage("❓ Ustad ji, sawal to poochein! (e.g. #ask Pakistan kab bana)", threadID, messageID);
+  }
+
+  // Chota sa loading message (Optional)
+  // api.sendMessage("🔎 Thinking...", threadID, messageID);
 
   try {
-    // Apni Render App ka Link Lagayen
-    const res = await axios.get(`https://YOUR-APP-NAME.onrender.com/api/search?q=${encodeURIComponent(query)}`);
+    // 🔗 Aapki API ka link (Render wala)
+    const res = await axios.get(`https://ytdownload-8wpk.onrender.com/api/ask?q=${encodeURIComponent(query)}`);
     const data = res.data;
 
-    if (data.status && data.answer) {
-      // Sirf Jawab (No 'More Info', No Links)
-      return api.sendMessage(`💡 ${data.answer}`, threadID, messageID);
+    if (data.status) {
+      // 🦅 Sirf Jawab dikhana hai, koi faltu links ya technical data nahi
+      const msg = `🦅 **AHMAD RDX ASK**\n\n💡 ${data.answer}`;
+      
+      return api.sendMessage(msg, threadID, messageID);
     } else {
-      return api.sendMessage("❌ Jawab nahi mila.", threadID, messageID);
+      // Agar API status false de
+      return api.sendMessage(`❌ ${data.answer || "Jawab nahi mila ustad!"}`, threadID, messageID);
     }
 
   } catch (error) {
-    return api.sendMessage("❌ API Error.", threadID, messageID);
+    console.error(error);
+    return api.sendMessage("❌ API Busy hai ya Server down hai. Dobara try karein!", threadID, messageID);
   }
 };

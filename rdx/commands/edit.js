@@ -54,7 +54,7 @@ module.exports.run = async ({ api, event, args }) => {
   const imageUrl = attachment.url;
 
   const processingMsg = await api.sendMessage(
-    "🎨 Processing your image edit request...\n⏳ This may take a few moments...",
+    "🎨 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 Processing your image edit request...\n⏳ This may take a few moments...",
     threadID
   );
 
@@ -112,7 +112,7 @@ module.exports.run = async ({ api, event, args }) => {
       try {
         await api.sendMessage(
           {
-            body: `✨ Image edited successfully!\n\n📝 Prompt: ${prompt}\n\n🎨 Powered by NanoBanana AI`,
+            body: `✨ Image edited successfully!\n\n📝 Prompt: ${prompt}\n\n🎨 Powered by 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 AI`,
             attachment: fs.createReadStream(filePath)
           },
           threadID,

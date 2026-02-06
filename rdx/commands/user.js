@@ -2,7 +2,7 @@ const fs = require("fs-extra");
 const path = "./src/models/antiban.json"; // Ya jo bhi aapka path hai
 
 module.exports.config = {
-  name: "ban",
+  name: "user",
   version: "1.0.0",
   credits: "Ahmad RDX",
   description: "Ban a user from using bot",

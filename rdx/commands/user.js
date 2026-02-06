@@ -1,53 +1,34 @@
 const fs = require("fs-extra");
-const path = require("path");
+const path = "./src/models/antiban.json"; // Ya jo bhi aapka path hai
 
 module.exports.config = {
-  name: "user",
+  name: "ban",
   version: "1.0.0",
-  hasPermssion: 2, // Sirf Admin ke liye
-  credits: "SARDAR RDX",
-  description: "User ko ban ya unban karein",
-  commandCategory: "admin",
-  usages: "ban/unban [mention/reply/UID]",
-  cooldowns: 5
+  credits: "Ahmad RDX",
+  description: "Ban a user from using bot",
+  commandCategory: "Admin",
+  usages: "[@mention/reply]",
+  cooldowns: 5,
+  role: 2 // Admin Only
 };
 
-module.exports.run = async function ({ api, event, args }) {
-  const { threadID, messageID, senderID, messageReply, mentions } = event;
-  const bannedPath = path.join(__dirname, "../../banned.json");
-  let bannedList = JSON.parse(fs.readFileSync(bannedPath, "utf-8"));
-
-  const action = args[0]?.toLowerCase();
+module.exports.run = async ({ api, event, args }) => {
+  const { threadID, messageID, senderID, type, messageReply, mentions } = event;
   let targetID;
 
-  // 1. Target ID dhoondna (Reply, Mention, ya Direct UID)
-  if (messageReply) {
-    targetID = messageReply.senderID;
-  } else if (Object.keys(mentions).length > 0) {
-    targetID = Object.keys(mentions)[0];
-  } else if (args[1]) {
-    targetID = args[1];
+  if (type == "message_reply") targetID = messageReply.senderID;
+  else if (Object.keys(mentions).length > 0) targetID = Object.keys(mentions)[0];
+  else return api.sendMessage("❌ Kisi bande ko reply karein ya mention!", threadID, messageID);
+
+  if (!fs.existsSync(path)) fs.writeJsonSync(path, { bannedUsers: [] });
+  let data = fs.readJsonSync(path);
+
+  if (data.bannedUsers.includes(targetID)) {
+    return api.sendMessage("⚠️ Ye banda pehle se ban hai.", threadID, messageID);
   }
 
-  if (!action || !targetID) {
-    return api.sendMessage("❌ Ahmad bhai, sahi tarika: #user ban/unban @mention ya reply karein.", threadID, messageID);
-  }
-
-  if (action === "ban") {
-    if (bannedList.includes(targetID)) {
-      return api.sendMessage("⚠️ Ye user pehle se hi RDX list mein ban hai!", threadID, messageID);
-    }
-    bannedList.push(targetID);
-    fs.writeFileSync(bannedPath, JSON.stringify(bannedList, null, 2));
-    return api.sendMessage(`🚫 [𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗] User (${targetID}) ko kamyabi se ban kar diya gaya hai. Ab bot iska reply nahi karega.`, threadID, messageID);
-  } 
+  data.bannedUsers.push(targetID);
+  fs.writeJsonSync(path, data);
   
-  else if (action === "unban") {
-    if (!bannedList.includes(targetID)) {
-      return api.sendMessage("⚠️ Ye user ban nahi hai.", threadID, messageID);
-    }
-    bannedList = bannedList.filter(id => id !== targetID);
-    fs.writeFileSync(bannedPath, JSON.stringify(bannedList, null, 2));
-    return api.sendMessage(`✅ [SARDAR RDX] User (${targetID}) ko unban kar diya gaya hai.`, threadID, messageID);
-  }
+  return api.sendMessage(`🚫 User ${targetID} ko ban kar diya gaya hai!`, threadID, messageID);
 };

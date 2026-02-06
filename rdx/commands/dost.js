@@ -1,7 +1,7 @@
 const axios = require("axios");
 
 module.exports.config = {
-  name: "friend",
+  name: "dost",
   version: "3.0.0",
   credits: "Ahmad RDX",
   description: "Premium Friend Frame (Reply or Mention)",

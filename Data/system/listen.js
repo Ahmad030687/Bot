@@ -30,35 +30,45 @@ function listen({ api, client, Users, Threads, Currencies, config }) {
       switch (event.type) {
         case 'message':
         case 'message_reply':
-          
-          // 1. 🔥 TYPING INDICATOR (Non-blocking)
+
+          // 1. 🔥 TYPING INDICATOR (Har message par show hoga)
           if (event.body) {
             api.sendTypingIndicator(true, event.threadID, () => {});
           }
 
-          // 2. RESEND LOGIC
+          // 2. 🔥 HANDLE REPLY (Ye woh "silsila" jari rakhega)
+          // Jab aap bot ke message ko mention karke reply karenge, ye foran trigger hoga
+          if (event.type === 'message_reply') {
+            await handleReply({
+              api, event, client, Users, Threads, Currencies, config
+            });
+          }
+
+          // 3. LOGGING FOR RESEND
           if (resendModule && resendModule.logMessage) {
             try {
               const botID = api.getCurrentUserID();
               if (event.senderID !== botID) {
                 await resendModule.logMessage(
-                  event.messageID, event.body, event.attachments, event.senderID, event.threadID
+                  event.messageID,
+                  event.body,
+                  event.attachments,
+                  event.senderID,
+                  event.threadID
                 );
               }
             } catch (e) {}
           }
           
-          // 3. HANDLE REPLY (AI Chat ke liye sab se zaroori)
-          // Agar yeh message kisi bot ke message ka reply hai toh handleReply pehle chalna chahiye
-          if (event.type === 'message_reply') {
-            await handleReply({ api, event, client, Users, Threads, Currencies, config });
-          }
-
-          // 4. HANDLE COMMANDS
-          await handleCommand({ api, event, client, Users, Threads, Currencies, config });
+          // 4. COMMANDS EXECUTION
+          await handleCommand({
+            api, event, client, Users, Threads, Currencies, config
+          });
           
           // 5. AUTO DETECT
-          await handleAutoDetect({ api, event, client, Users, Threads, config });
+          await handleAutoDetect({
+            api, event, client, Users, Threads, config
+          });
           
           break;
           
@@ -84,6 +94,7 @@ function listen({ api, client, Users, Threads, Currencies, config }) {
         case 'typ':
         case 'read':
         case 'read_receipt':
+        case 'presence':
           break;
           
         default:

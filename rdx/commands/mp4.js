@@ -5,16 +5,16 @@ const yts = require("yt-search");
 
 module.exports.config = {
   name: "mp4",
-  version: "6.0.0",
+  version: "8.0.0",
   hasPermssion: 0,
-  credits: "AHMAD RDX", // Aapka Brand
-  description: "Download video (360p) via Number Reply",
+  credits: "AHMAD RDX",
+  description: "Search and download video (RDX Listener Compatible)",
   commandCategory: "Media",
-  usages: "[song/video name]",
+  usages: "[video name]",
   cooldowns: 5,
 };
 
-// 🔗 Wohi API jo aapne di (AryanNix)
+// 🔗 API Source (AryanNix)
 const nix = "https://raw.githubusercontent.com/aryannix/stuffs/master/raw/apis.json";
 
 module.exports.run = async function({ api, event, args }) {
@@ -23,7 +23,7 @@ module.exports.run = async function({ api, event, args }) {
 
   if (!query) return api.sendMessage("❌ Ustad ji, video ka naam likhein!", threadID, messageID);
 
-  api.sendMessage(`🔍 **AHMAD RDX** is searching for: "${query}"...`, threadID, messageID);
+  api.sendMessage(`🔍 **AHMAD RDX** dhoond raha hai: "${query}"...`, threadID, messageID);
 
   try {
     const searchResults = await yts(query);
@@ -32,19 +32,25 @@ module.exports.run = async function({ api, event, args }) {
     if (videos.length === 0) return api.sendMessage("❌ Koi video nahi mili.", threadID, messageID);
 
     // List Banani
-    let searchList = "🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐕𝐈𝐃𝐄𝐎 𝐒𝐄𝐀𝐑𝐂𝐇**\n━━━━━━━━━━━━━━━\n";
+    let searchList = "🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐕𝐈𝐃𝐄𝐎 𝐋𝐈𝐒𝐓**\n━━━━━━━━━━━━━━━\n";
     for (let i = 0; i < videos.length; i++) {
-      searchList += `${i + 1}. 🎬 ${videos[i].title}\n⏱️ [${videos[i].timestamp}]\n\n`;
+      searchList += `${i + 1}. 🎬 ${videos[i].title}\n⏱️ ${videos[i].timestamp}\n\n`;
     }
-    searchList += `━━━━━━━━━━━━━━━\n👉 **Koi bhi number (1-10) reply karein.**`;
+    searchList += `━━━━━━━━━━━━━━━\n👉 **Download karne ke liye 1-10 reply karein.**`;
 
-    // 👂 LISTENER LOGIC: Yahan hum bot ko bata rahe hain ke Jawab ka intezaar karo
+    // 🛠️ CRITICAL FIX FOR LISTENER
+    // Hum simple push method use kar rahe hain jo har RDX/Mirai bot par chalta hai
     return api.sendMessage(searchList, threadID, (err, info) => {
+      if (err) return; // Agar message send fail ho jaye
+
+      // Agar handleReply array exist nahi karta toh bana do (Safety Check)
+      if (!global.client.handleReply) global.client.handleReply = [];
+
       global.client.handleReply.push({
         name: this.config.name,
         messageID: info.messageID,
-        author: senderID,   // Sirf jisne command di, wahi reply kar sake
-        videos: videos      // Video list yaad rakhein
+        author: senderID,
+        videos: videos
       });
     }, messageID);
 
@@ -53,21 +59,20 @@ module.exports.run = async function({ api, event, args }) {
   }
 };
 
-// 👂 HANDLE REPLY: Jab user number likhega, ye function chalega
 module.exports.handleReply = async function({ api, event, handleReply }) {
   const { threadID, messageID, body, senderID } = event;
 
-  // Security Check: Kya ye wahi banda hai jisne search kiya tha?
+  // Security: Sirf wahi banda reply kar sake jisne command lagayi
   if (handleReply.author !== senderID) return;
 
   const choice = parseInt(body);
   if (isNaN(choice) || choice < 1 || choice > handleReply.videos.length) {
-    return api.sendMessage("⚠️ Invalid Number! 1 se 10 ke darmiyan likhein.", threadID, messageID);
+    return api.sendMessage("⚠️ Ghalat number! 1 se 10 ke darmiyan likhein.", threadID, messageID);
   }
 
   const selectedVideo = handleReply.videos[choice - 1];
 
-  // Purani list ko unsend karna (Safai ke liye)
+  // Purana message delete karna
   api.unsendMessage(handleReply.messageID);
 
   const waitMsg = await api.sendMessage(`📥 **Downloading:** ${selectedVideo.title}\n⏳ Please wait...`, threadID);
@@ -79,14 +84,17 @@ module.exports.handleReply = async function({ api, event, handleReply }) {
     
     // 360p Quality Fixed
     const res = await axios.get(`${nixtubeApi}?url=${encodeURIComponent(selectedVideo.url)}&type=video&quality=360`);
-
+    
+    // API Link Check
     const downloadUrl = res.data.downloadUrl || (res.data.data && res.data.data.downloadUrl);
-    if (!downloadUrl) throw new Error("API ne link nahi diya.");
+    if (!downloadUrl) throw new Error("API Link Fail");
 
     const cachePath = path.join(__dirname, "cache", `rdx_vid_${Date.now()}.mp4`);
     
-    // Folder check
-    if (!fs.existsSync(path.join(__dirname, "cache"))) fs.mkdirSync(path.join(__dirname, "cache"));
+    // Cache Folder Safety
+    if (!fs.existsSync(path.join(__dirname, "cache"))) {
+        fs.mkdirSync(path.join(__dirname, "cache"), { recursive: true });
+    }
 
     // 2. Stream Download
     const response = await axios({
@@ -102,22 +110,24 @@ module.exports.handleReply = async function({ api, event, handleReply }) {
       const stats = fs.statSync(cachePath);
       const fileSizeInMB = (stats.size / (1024 * 1024)).toFixed(2);
 
-      // Limit 80MB (Facebook safe limit)
+      // Limit check (80MB for Facebook Safety)
       if (stats.size > 83886080) { 
         fs.unlinkSync(cachePath);
         api.unsendMessage(waitMsg.messageID);
-        return api.sendMessage(`⚠️ File bohat bari hai (${fileSizeInMB}MB). Facebook allow nahi karta.\n🔗 Link: ${downloadUrl}`, threadID, messageID);
+        return api.sendMessage(`⚠️ File bari hai (${fileSizeInMB}MB). Link:\n${downloadUrl}`, threadID, messageID);
       }
 
       // 3. Send Video
       const msg = {
-        body: `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐏𝐋𝐀𝐘𝐄𝐑**\n━━━━━━━━━━━━━━━\n🎬 **Title:** ${selectedVideo.title}\n📦 **Size:** ${fileSizeInMB}MB\n⏱️ **Duration:** ${selectedVideo.timestamp}\n━━━━━━━━━━━━━━━`,
+        body: `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐏𝐋𝐀𝐘𝐄𝐑**\n━━━━━━━━━━━━━━━\n🎬 **Title:** ${selectedVideo.title}\n📦 **Size:** ${fileSizeInMB}MB\n━━━━━━━━━━━━━━━`,
         attachment: fs.createReadStream(cachePath)
       };
 
       api.sendMessage(msg, threadID, (err) => {
         if (err) api.sendMessage(`❌ Upload Error. Link: ${downloadUrl}`, threadID, messageID);
-        fs.unlinkSync(cachePath); // Delete after sending
+        
+        // File bhejne ke baad delete kar do
+        if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
         api.unsendMessage(waitMsg.messageID);
       }, messageID);
     });
@@ -127,3 +137,4 @@ module.exports.handleReply = async function({ api, event, handleReply }) {
     return api.sendMessage(`❌ Error: ${err.message}`, threadID, messageID);
   }
 };
+          

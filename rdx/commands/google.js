@@ -35,7 +35,7 @@ module.exports.run = async ({ api, event, args }) => {
 
       // 4. Final Formatting
       const responseMessage = 
-        `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐉𝐀𝐖𝐀𝐁**\n` +
+        `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐀𝐍𝐒𝐖𝐄𝐑**\n` +
         `━━━━━━━━━━━━━━━\n\n` +
         `${urduAnswer}\n\n` +
         `━━━━━━━━━━━━━━━\n` +

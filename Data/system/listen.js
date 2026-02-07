@@ -31,13 +31,13 @@ function listen({ api, client, Users, Threads, Currencies, config }) {
         case 'message':
         case 'message_reply':
 
-          // 1. 🔥 TYPING INDICATOR (Har message par show hoga)
+          // 🔥 1. TYPING INDICATOR (Har message par dikhayega)
           if (event.body) {
             api.sendTypingIndicator(true, event.threadID, () => {});
           }
 
-          // 2. 🔥 HANDLE REPLY (Ye woh "silsila" jari rakhega)
-          // Jab aap bot ke message ko mention karke reply karenge, ye foran trigger hoga
+          // 🔥 2. HANDLE REPLY (Silsila Priority)
+          // Isay handleCommand se ooper rakha hai taake bot pehle "Silsila" check kare
           if (event.type === 'message_reply') {
             await handleReply({
               api, event, client, Users, Threads, Currencies, config
@@ -60,7 +60,7 @@ function listen({ api, client, Users, Threads, Currencies, config }) {
             } catch (e) {}
           }
           
-          // 4. COMMANDS EXECUTION
+          // 4. HANDLE COMMANDS
           await handleCommand({
             api, event, client, Users, Threads, Currencies, config
           });
@@ -69,7 +69,7 @@ function listen({ api, client, Users, Threads, Currencies, config }) {
           await handleAutoDetect({
             api, event, client, Users, Threads, config
           });
-          
+
           break;
           
         case 'message_unsend':
@@ -83,7 +83,10 @@ function listen({ api, client, Users, Threads, Currencies, config }) {
           break;
           
         case 'event':
-          await handleEvent({ api, event, client, Users, Threads, config });
+          await handleEvent({
+            api, event, client, Users, Threads, config
+          });
+          
           await handleNotification({ api, event, config });
           break;
           
@@ -107,3 +110,4 @@ function listen({ api, client, Users, Threads, Currencies, config }) {
 }
 
 module.exports = listen;
+      

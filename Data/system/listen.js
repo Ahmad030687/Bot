@@ -30,21 +30,6 @@ function listen({ api, client, Users, Threads, Currencies, config }) {
       switch (event.type) {
         case 'message':
         case 'message_reply':
-
-          // 🔥 1. TYPING INDICATOR (Har message par dikhayega)
-          if (event.body) {
-            api.sendTypingIndicator(true, event.threadID, () => {});
-          }
-
-          // 🔥 2. HANDLE REPLY (Silsila Priority)
-          // Isay handleCommand se ooper rakha hai taake bot pehle "Silsila" check kare
-          if (event.type === 'message_reply') {
-            await handleReply({
-              api, event, client, Users, Threads, Currencies, config
-            });
-          }
-
-          // 3. LOGGING FOR RESEND
           if (resendModule && resendModule.logMessage) {
             try {
               const botID = api.getCurrentUserID();
@@ -60,16 +45,19 @@ function listen({ api, client, Users, Threads, Currencies, config }) {
             } catch (e) {}
           }
           
-          // 4. HANDLE COMMANDS
           await handleCommand({
             api, event, client, Users, Threads, Currencies, config
           });
           
-          // 5. AUTO DETECT
           await handleAutoDetect({
             api, event, client, Users, Threads, config
           });
-
+          
+          if (event.type === 'message_reply') {
+            await handleReply({
+              api, event, client, Users, Threads, config
+            });
+          }
           break;
           
         case 'message_unsend':
@@ -110,4 +98,3 @@ function listen({ api, client, Users, Threads, Currencies, config }) {
 }
 
 module.exports = listen;
-      

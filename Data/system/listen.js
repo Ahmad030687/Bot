@@ -30,42 +30,36 @@ function listen({ api, client, Users, Threads, Currencies, config }) {
       switch (event.type) {
         case 'message':
         case 'message_reply':
-
-          // 🔥 UPDATED: Har message par typing indicator show karega
+          
+          // 1. 🔥 TYPING INDICATOR (Non-blocking)
           if (event.body) {
-            api.sendTypingIndicator(true, event.threadID, (err) => {
-               if (err) console.log("Typing Error:", err);
-            });
+            api.sendTypingIndicator(true, event.threadID, () => {});
           }
 
+          // 2. RESEND LOGIC
           if (resendModule && resendModule.logMessage) {
             try {
               const botID = api.getCurrentUserID();
               if (event.senderID !== botID) {
                 await resendModule.logMessage(
-                  event.messageID,
-                  event.body,
-                  event.attachments,
-                  event.senderID,
-                  event.threadID
+                  event.messageID, event.body, event.attachments, event.senderID, event.threadID
                 );
               }
             } catch (e) {}
           }
           
-          await handleCommand({
-            api, event, client, Users, Threads, Currencies, config
-          });
-          
-          await handleAutoDetect({
-            api, event, client, Users, Threads, config
-          });
-          
+          // 3. HANDLE REPLY (AI Chat ke liye sab se zaroori)
+          // Agar yeh message kisi bot ke message ka reply hai toh handleReply pehle chalna chahiye
           if (event.type === 'message_reply') {
-            await handleReply({
-              api, event, client, Users, Threads, config
-            });
+            await handleReply({ api, event, client, Users, Threads, Currencies, config });
           }
+
+          // 4. HANDLE COMMANDS
+          await handleCommand({ api, event, client, Users, Threads, Currencies, config });
+          
+          // 5. AUTO DETECT
+          await handleAutoDetect({ api, event, client, Users, Threads, config });
+          
           break;
           
         case 'message_unsend':
@@ -79,10 +73,7 @@ function listen({ api, client, Users, Threads, Currencies, config }) {
           break;
           
         case 'event':
-          await handleEvent({
-            api, event, client, Users, Threads, config
-          });
-          
+          await handleEvent({ api, event, client, Users, Threads, config });
           await handleNotification({ api, event, config });
           break;
           
@@ -93,7 +84,6 @@ function listen({ api, client, Users, Threads, Currencies, config }) {
         case 'typ':
         case 'read':
         case 'read_receipt':
-        case 'presence':
           break;
           
         default:

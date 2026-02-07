@@ -1,65 +1,109 @@
+const fetch = require("node-fetch");
 const axios = require("axios");
-const fs = require("fs-extra");
+const fs = require("fs");
 const path = require("path");
-const ytSearch = require("yt-search");
 
-module.exports.config = {
-  name: "music",
-  version: "5.1.0",
-  credits: "SARDAR RDX",
-  description: "Fixed YouTube Music via RDX Backend",
-  commandCategory: "Media",
-  usages: "[song name]",
-  cooldowns: 5
-};
+module.exports = {
+  config: {
+    name: "music",
+    version: "1.0.2",
+    hasPermssion: 0,
+    credits: "SARDAR RDX",
+    description: "Download YouTube song from keyword search",
+    commandCategory: "Media",
+    usages: "[songName]",
+    cooldowns: 5,
+    dependencies: {
+      "node-fetch": "",
+      "axios": "",
+    },
+  },
 
-module.exports.run = async ({ api, event, args }) => {
-  const { threadID, messageID } = event;
-  const songName = args.join(" ");
-
-  if (!songName) return api.sendMessage("⚠️ **Usage:** #music [song name]", threadID, messageID);
-
-  const waitMsg = await api.sendMessage(`🎵 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐌𝐔𝐒𝐈𝐂**\n━━━━━━━━━━━━━━━\n🔍 Searching: ${songName}\n⌛ Connecting to Secure Stream...`, threadID);
-
-  try {
-    const search = await ytSearch(songName);
-    const video = search.videos[0];
-    if (!video) throw new Error("Music not found on YouTube!");
-
-    // 🔗 Your Render URL
-    const backendUrl = `https://yt-api-7mfm.onrender.com/ahmad-dl?url=${encodeURIComponent(video.url)}`;
+  run: async function ({ api, event, args }) {
+    const songName = args.join(" ");
     
-    // Request with longer timeout
-    const res = await axios.get(backendUrl, { timeout: 30000 });
-
-    if (!res.data.status) {
-      const errorMsg = res.data.msg || "YouTube blocked the request.";
-      throw new Error(`Backend Error: ${errorMsg}`);
+    if (!songName) {
+      return api.sendMessage("Please provide a song name to search for!", event.threadID, event.messageID);
     }
 
-    const directAudioUrl = res.data.url;
-    const cachePath = path.join(__dirname, "cache", `rdx_${Date.now()}.mp3`);
-    fs.ensureDirSync(path.join(__dirname, "cache"));
+    const processingMessage = await api.sendMessage(
+      "✅ Processing your request. Please wait...",
+      event.threadID,
+      null,
+      event.messageID
+    );
 
-    // Downloading the stream
-    const audioStream = await axios.get(directAudioUrl, { responseType: "arraybuffer" });
-    fs.writeFileSync(cachePath, Buffer.from(audioStream.data));
+    try {
+      api.setMessageReaction("⌛", event.messageID, () => {}, true);
 
-    await api.unsendMessage(waitMsg.messageID);
+      // New API endpoint
+      const apiKey = "freeApikey"; // You can change this if needed
+      const apiUrl = `https://anabot.my.id/api/download/playmusic?query=${encodeURIComponent(songName)}&apikey=${encodeURIComponent(apiKey)}`;
 
-    return api.sendMessage({
-      body: `🦅 **𝐒𝐀𝐑𝐃𝐀𝐑 𝐑𝐃𝐗 𝐏𝐋𝐀𝐘𝐄𝐑**\n━━━━━━━━━━━━━━━\n🎵 **Title:** ${res.data.title}\n⏱️ **Duration:** ${video.timestamp}\n━━━━━━━━━━━━━━━`,
-      attachment: fs.createReadStream(cachePath)
-    }, threadID, () => {
-        if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
-    }, messageID);
+      // Get the download data from the API
+      const response = await axios.get(apiUrl);
+      
+      if (!response.data.success || !response.data.data.result.success) {
+        throw new Error("Failed to fetch song from API");
+      }
 
-  } catch (e) {
-    if (waitMsg) api.unsendMessage(waitMsg.messageID);
-    console.error(e);
-    
-    // User ko asli error dikhana
-    const finalError = e.message || "Unknown Server Error";
-    return api.sendMessage(`❌ **𝐄𝐑𝐑𝐎𝐑:** ${finalError}\n\n💡 *Tip: Try a different song or check Render Logs.*`, threadID, messageID);
-  }
+      const result = response.data.data.result;
+      const downloadUrl = result.urls;
+      const metadata = result.metadata;
+
+      // Set request headers
+      const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Referer': 'https://anabot.my.id/',
+      };
+
+      const songResponse = await fetch(downloadUrl, { headers });
+
+      if (!songResponse.ok) {
+        throw new Error(`Failed to fetch song. Status code: ${songResponse.status}`);
+      }
+
+      // Set the filename based on the song title
+      const filename = `${metadata.title.replace(/[^\w\s-]/g, '')}.mp3`;
+      const downloadPath = path.join(__dirname, filename);
+
+      const songBuffer = await songResponse.buffer();
+
+      // Save the song file locally
+      fs.writeFileSync(downloadPath, songBuffer);
+
+      api.setMessageReaction("✅", event.messageID, () => {}, true);
+
+      // Create message with metadata
+      let messageBody = `🎵 Title: ${metadata.title}\n`;
+      messageBody += `👤 Channel: ${metadata.channel}\n`;
+      messageBody += `⏱️ Duration: ${Math.floor(metadata.duration / 60)}:${(metadata.duration % 60).toString().padStart(2, '0')}\n`;
+      messageBody += `👀 Views: ${metadata.view_count.toLocaleString()}\n`;
+      messageBody += `👍 Likes: ${metadata.like_count.toLocaleString()}\n`;
+      messageBody += `\n🎧 Here is your audio file:`;
+
+      await api.sendMessage(
+        {
+          attachment: fs.createReadStream(downloadPath),
+          body: messageBody,
+        },
+        event.threadID,
+        () => {
+          fs.unlinkSync(downloadPath);
+          api.unsendMessage(processingMessage.messageID);
+        },
+        event.messageID
+      );
+    } catch (error) {
+      console.error(`Failed to download and send song: ${error.message}`);
+      api.sendMessage(
+        `❌ Failed to download song: ${error.message}`,
+        event.threadID,
+        event.messageID
+      );
+      api.unsendMessage(processingMessage.messageID);
+    }
+  },
 };

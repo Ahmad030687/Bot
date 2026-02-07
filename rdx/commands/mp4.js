@@ -1,67 +1,51 @@
 const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
+const yts = require("yt-search");
 
 module.exports.config = {
   name: "mp4",
-  version: "4.7.0",
+  version: "6.0.0",
   hasPermssion: 0,
-  credits: "Shaan Khan",
-  description: "Search 1-10 videos and download (360p+)",
+  credits: "AHMAD RDX", // Aapka Brand
+  description: "Download video (360p) via Number Reply",
   commandCategory: "Media",
-  usages: "[video name]",
+  usages: "[song/video name]",
   cooldowns: 5,
-  dependencies: {
-    "axios": "",
-    "fs-extra": "",
-    "path": "",
-    "yt-search": ""
-  }
 };
 
+// 🔗 Wohi API jo aapne di (AryanNix)
 const nix = "https://raw.githubusercontent.com/aryannix/stuffs/master/raw/apis.json";
 
 module.exports.run = async function({ api, event, args }) {
-  if (this.config.credits !== "Shaan Khan") {
-    return api.sendMessage(`❌ [SYSTEM ERROR] : Credit violation detected.`, event.threadID);
-  }
-
-  const { threadID, messageID } = event;
+  const { threadID, messageID, senderID } = event;
   const query = args.join(" ");
 
-  if (!query) return api.sendMessage("❌ Please provide a video name.", threadID, messageID);
+  if (!query) return api.sendMessage("❌ Ustad ji, video ka naam likhein!", threadID, messageID);
+
+  api.sendMessage(`🔍 **AHMAD RDX** is searching for: "${query}"...`, threadID, messageID);
 
   try {
-    const yts = require("yt-search");
     const searchResults = await yts(query);
     const videos = searchResults.videos.slice(0, 10);
 
-    if (videos.length === 0) return api.sendMessage("❌ No results found.", threadID, messageID);
+    if (videos.length === 0) return api.sendMessage("❌ Koi video nahi mili.", threadID, messageID);
 
-    let searchList = "🔍 YouTube Search Results (360p+):\n\n";
-    const cacheDir = path.join(__dirname, "cache");
-    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-
+    // List Banani
+    let searchList = "🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐕𝐈𝐃𝐄𝐎 𝐒𝐄𝐀𝐑𝐂𝐇**\n━━━━━━━━━━━━━━━\n";
     for (let i = 0; i < videos.length; i++) {
-      searchList += `${i + 1}. ${videos[i].title} [${videos[i].timestamp}]\n\n`;
+      searchList += `${i + 1}. 🎬 ${videos[i].title}\n⏱️ [${videos[i].timestamp}]\n\n`;
     }
+    searchList += `━━━━━━━━━━━━━━━\n👉 **Koi bhi number (1-10) reply karein.**`;
 
-    searchList += `»»𝑶𝑾𝑵𝑬𝑹««★™  »»𝑺𝑯𝑨𝑨𝑵 𝑲𝑯𝑨𝑵««\n          🥀𝒀𝑬 𝑳𝑶 𝑩𝑨𝑩𝒀 𝑨𝑷𝑲𝑰👉 VIDEO LIST`;
-
+    // 👂 LISTENER LOGIC: Yahan hum bot ko bata rahe hain ke Jawab ka intezaar karo
     return api.sendMessage(searchList, threadID, (err, info) => {
-      const replyObj = {
+      global.client.handleReply.push({
         name: this.config.name,
-        commandName: this.config.name,
         messageID: info.messageID,
-        author: event.senderID,
-        videos: videos
-      };
-
-      if (global.client && global.client.handleReply) {
-        global.client.handleReply.push(replyObj);
-      } else if (global.GoatBot && global.GoatBot.onReply) {
-        global.GoatBot.onReply.set(info.messageID, replyObj);
-      }
+        author: senderID,   // Sirf jisne command di, wahi reply kar sake
+        videos: videos      // Video list yaad rakhein
+      });
     }, messageID);
 
   } catch (err) {
@@ -69,32 +53,42 @@ module.exports.run = async function({ api, event, args }) {
   }
 };
 
+// 👂 HANDLE REPLY: Jab user number likhega, ye function chalega
 module.exports.handleReply = async function({ api, event, handleReply }) {
   const { threadID, messageID, body, senderID } = event;
+
+  // Security Check: Kya ye wahi banda hai jisne search kiya tha?
   if (handleReply.author !== senderID) return;
 
   const choice = parseInt(body);
   if (isNaN(choice) || choice < 1 || choice > handleReply.videos.length) {
-    return api.sendMessage("❌ Invalid choice! Choose 1-10.", threadID, messageID);
+    return api.sendMessage("⚠️ Invalid Number! 1 se 10 ke darmiyan likhein.", threadID, messageID);
   }
 
   const selectedVideo = handleReply.videos[choice - 1];
-  if (handleReply.messageID) api.unsendMessage(handleReply.messageID);
 
-  const waitMsg = await api.sendMessage(`✅ Apki Request Jari Hai Please wait...`, threadID);
+  // Purani list ko unsend karna (Safai ke liye)
+  api.unsendMessage(handleReply.messageID);
+
+  const waitMsg = await api.sendMessage(`📥 **Downloading:** ${selectedVideo.title}\n⏳ Please wait...`, threadID);
 
   try {
+    // 1. API se Link lena
     const apiConfig = await axios.get(nix);
     const nixtubeApi = apiConfig.data.nixtube;
     
-    // Yahan resolution 360p set kiya gaya hai
+    // 360p Quality Fixed
     const res = await axios.get(`${nixtubeApi}?url=${encodeURIComponent(selectedVideo.url)}&type=video&quality=360`);
 
     const downloadUrl = res.data.downloadUrl || (res.data.data && res.data.data.downloadUrl);
-    if (!downloadUrl) throw new Error("Failed to get download link.");
+    if (!downloadUrl) throw new Error("API ne link nahi diya.");
 
-    const cachePath = path.join(__dirname, "cache", `${Date.now()}.mp4`);
+    const cachePath = path.join(__dirname, "cache", `rdx_vid_${Date.now()}.mp4`);
+    
+    // Folder check
+    if (!fs.existsSync(path.join(__dirname, "cache"))) fs.mkdirSync(path.join(__dirname, "cache"));
 
+    // 2. Stream Download
     const response = await axios({
       method: 'GET',
       url: downloadUrl,
@@ -107,30 +101,29 @@ module.exports.handleReply = async function({ api, event, handleReply }) {
     writer.on('finish', async () => {
       const stats = fs.statSync(cachePath);
       const fileSizeInMB = (stats.size / (1024 * 1024)).toFixed(2);
-      
-      // Limit 100MB
-      if (stats.size > 104857600) { 
+
+      // Limit 80MB (Facebook safe limit)
+      if (stats.size > 83886080) { 
         fs.unlinkSync(cachePath);
         api.unsendMessage(waitMsg.messageID);
-        return api.sendMessage(`⚠️ Size: ${fileSizeInMB}MB (Limit Exceeded).\n\n🔗 Link: ${downloadUrl}`, threadID, messageID);
+        return api.sendMessage(`⚠️ File bohat bari hai (${fileSizeInMB}MB). Facebook allow nahi karta.\n🔗 Link: ${downloadUrl}`, threadID, messageID);
       }
 
+      // 3. Send Video
       const msg = {
-        body: `🖤 Title: ${selectedVideo.title}\n📊 Quality: 360p\n📦 Size: ${fileSizeInMB}MB\n\n»»𝑶𝑾𝑵𝑬𝑹««★™  »»𝑺𝑯𝑨𝑨𝑵 𝑲𝑯𝑨𝑵««\n🥀𝒀𝑬 𝑳𝑶 𝑩𝑨𝑩𝒀 𝑨𝑷𝑲𝑰👉MUSIC-VIDEO`,
+        body: `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐏𝐋𝐀𝐘𝐄𝐑**\n━━━━━━━━━━━━━━━\n🎬 **Title:** ${selectedVideo.title}\n📦 **Size:** ${fileSizeInMB}MB\n⏱️ **Duration:** ${selectedVideo.timestamp}\n━━━━━━━━━━━━━━━`,
         attachment: fs.createReadStream(cachePath)
       };
 
-      return api.sendMessage(msg, threadID, (err) => {
-        if (err) {
-            api.sendMessage(`❌ Messenger failed to send file. Try link:\n${downloadUrl}`, threadID, messageID);
-        }
-        if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
+      api.sendMessage(msg, threadID, (err) => {
+        if (err) api.sendMessage(`❌ Upload Error. Link: ${downloadUrl}`, threadID, messageID);
+        fs.unlinkSync(cachePath); // Delete after sending
         api.unsendMessage(waitMsg.messageID);
       }, messageID);
     });
 
   } catch (err) {
-    if (waitMsg) api.unsendMessage(waitMsg.messageID);
+    api.unsendMessage(waitMsg.messageID);
     return api.sendMessage(`❌ Error: ${err.message}`, threadID, messageID);
   }
 };

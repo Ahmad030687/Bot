@@ -1,109 +1,116 @@
-const fetch = require("node-fetch");
 const axios = require("axios");
-const fs = require("fs");
+const fs = require("fs-extra");
 const path = require("path");
+const yts = require("yt-search");
 
-module.exports = {
-  config: {
-    name: "music",
-    version: "1.0.2",
-    hasPermssion: 0,
-    credits: "SARDAR RDX",
-    description: "Download YouTube song from keyword search",
-    commandCategory: "Media",
-    usages: "[songName]",
-    cooldowns: 5,
-    dependencies: {
-      "node-fetch": "",
-      "axios": "",
-    },
-  },
+module.exports.config = {
+  name: "music",
+  version: "7.0.0",
+  hasPermssion: 0,
+  credits: "AHMAD RDX",
+  description: "Search and download high quality music",
+  commandCategory: "media",
+  usages: "[song name]",
+  cooldowns: 5
+};
 
-  run: async function ({ api, event, args }) {
-    const songName = args.join(" ");
-    
-    if (!songName) {
-      return api.sendMessage("Please provide a song name to search for!", event.threadID, event.messageID);
+const nix = "https://raw.githubusercontent.com/aryannix/stuffs/master/raw/apis.json";
+
+// ================= RUN (Search Logic) =================
+module.exports.run = async function ({ api, event, args, client }) {
+  const { threadID, messageID, senderID } = event;
+  const { OWNER_NAME } = global.config; // 🛡️ Fix for Owner Name
+  const query = args.join(" ");
+
+  if (!query) return api.sendMessage("❓ Ustad ji, gane ka naam toh likhein! (Maslan: #music Bewafa)", threadID, messageID);
+
+  try {
+    const search = await yts(query);
+    const videos = search.videos.slice(0, 10);
+
+    if (!videos.length) return api.sendMessage("❌ Kuch nahi mila, dobara try karein.", threadID, messageID);
+
+    let msg = `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐌𝐔𝐒𝐈𝐂**\n━━━━━━━━━━━━━━━\n🔍 Reply with number:\n\n`;
+    for (let i = 0; i < videos.length; i++) {
+      msg += `${i + 1}. ${videos[i].title} [${videos[i].timestamp}]\n`;
     }
+    msg += `\n━━━━━━━━━━━━━━━\n👑 Owner: ${OWNER_NAME}`;
 
-    const processingMessage = await api.sendMessage(
-      "✅ Processing your request. Please wait...",
-      event.threadID,
-      null,
-      event.messageID
+    api.sendMessage(msg, threadID, (err, info) => {
+      if (!client.handleReply) client.handleReply = [];
+
+      client.handleReply.push({
+        name: this.config.name,
+        messageID: info.messageID,
+        author: senderID,
+        videos: videos
+      });
+    }, messageID);
+
+  } catch (e) {
+    api.sendMessage("❌ Search error: " + e.message, threadID, messageID);
+  }
+};
+
+// ================= HANDLE REPLY (Download Logic) =================
+module.exports.handleReply = async function ({ api, event, handleReply }) {
+  const { threadID, messageID, body, senderID } = event;
+
+  if (handleReply.author != senderID) return; // Sirf wahi reply kar sakay jisne search kiya
+
+  const choice = parseInt(body);
+  if (isNaN(choice) || choice < 1 || choice > handleReply.videos.length) {
+    return api.sendMessage("❌ Galat number ustad ji! 1 se 10 ke darmiyan chunain.", threadID, messageID);
+  }
+
+  const video = handleReply.videos[choice - 1];
+
+  // List message ko hata dena
+  try { api.unsendMessage(handleReply.messageID); } catch {}
+
+  const wait = await api.sendMessage(`⏳ "${video.title}" download ho raha hai...`, threadID);
+
+  try {
+    const apiConfig = await axios.get(nix);
+    const nixtube = apiConfig.data.nixtube;
+
+    // 🔥 Type badal kar 'audio' kar diya gaya hai
+    const res = await axios.get(
+      `${nixtube}?url=${encodeURIComponent(video.url)}&type=audio`
     );
 
-    try {
-      api.setMessageReaction("⌛", event.messageID, () => {}, true);
+    const dl = res.data.downloadUrl || (res.data.data && res.data.data.downloadUrl);
 
-      // New API endpoint
-      const apiKey = "freeApikey"; // You can change this if needed
-      const apiUrl = `https://anabot.my.id/api/download/playmusic?query=${encodeURIComponent(songName)}&apikey=${encodeURIComponent(apiKey)}`;
+    if (!dl) throw new Error("Server ne link nahi diya.");
 
-      // Get the download data from the API
-      const response = await axios.get(apiUrl);
-      
-      if (!response.data.success || !response.data.data.result.success) {
-        throw new Error("Failed to fetch song from API");
-      }
+    const cacheDir = path.join(__dirname, "cache");
+    fs.ensureDirSync(cacheDir);
 
-      const result = response.data.data.result;
-      const downloadUrl = result.urls;
-      const metadata = result.metadata;
+    const file = path.join(cacheDir, `${Date.now()}.mp3`);
 
-      // Set request headers
-      const headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': '*/*',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Referer': 'https://anabot.my.id/',
-      };
+    const stream = await axios({
+      url: dl,
+      method: "GET",
+      responseType: "stream"
+    });
 
-      const songResponse = await fetch(downloadUrl, { headers });
+    const writer = fs.createWriteStream(file);
+    stream.data.pipe(writer);
 
-      if (!songResponse.ok) {
-        throw new Error(`Failed to fetch song. Status code: ${songResponse.status}`);
-      }
+    writer.on("finish", async () => {
+      const size = fs.statSync(file).size / 1024 / 1024;
 
-      // Set the filename based on the song title
-      const filename = `${metadata.title.replace(/[^\w\s-]/g, '')}.mp3`;
-      const downloadPath = path.join(__dirname, filename);
+      await api.sendMessage({
+        body: `🎵 **𝐌𝐔𝐒𝐈𝐂 𝐇𝐀𝐙𝐈𝐑 𝐇𝐀𝐈**\n━━━━━━━━━━━━━━━\n🎼 Title: ${video.title}\n📦 Size: ${size.toFixed(1)} MB\n🦅 Aura: Level 100`,
+        attachment: fs.createReadStream(file)
+      }, threadID, messageID);
 
-      const songBuffer = await songResponse.buffer();
+      fs.unlinkSync(file); // File delete karna taake storage na bharay
+      api.unsendMessage(wait.messageID);
+    });
 
-      // Save the song file locally
-      fs.writeFileSync(downloadPath, songBuffer);
-
-      api.setMessageReaction("✅", event.messageID, () => {}, true);
-
-      // Create message with metadata
-      let messageBody = `🎵 Title: ${metadata.title}\n`;
-      messageBody += `👤 Channel: ${metadata.channel}\n`;
-      messageBody += `⏱️ Duration: ${Math.floor(metadata.duration / 60)}:${(metadata.duration % 60).toString().padStart(2, '0')}\n`;
-      messageBody += `👀 Views: ${metadata.view_count.toLocaleString()}\n`;
-      messageBody += `👍 Likes: ${metadata.like_count.toLocaleString()}\n`;
-      messageBody += `\n🎧 Here is your audio file:`;
-
-      await api.sendMessage(
-        {
-          attachment: fs.createReadStream(downloadPath),
-          body: messageBody,
-        },
-        event.threadID,
-        () => {
-          fs.unlinkSync(downloadPath);
-          api.unsendMessage(processingMessage.messageID);
-        },
-        event.messageID
-      );
-    } catch (error) {
-      console.error(`Failed to download and send song: ${error.message}`);
-      api.sendMessage(
-        `❌ Failed to download song: ${error.message}`,
-        event.threadID,
-        event.messageID
-      );
-      api.unsendMessage(processingMessage.messageID);
-    }
-  },
+  } catch (e) {
+    api.unsendMessage(wait.messageID);
+    api.sendMessage("❌ Download error: " + e.message, threadID, messageID);
+  }
 };

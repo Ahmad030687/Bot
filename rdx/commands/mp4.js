@@ -101,7 +101,7 @@ module.exports.handleReply = async function ({ api, event, data }) {
       const size = fs.statSync(file).size / 1024 / 1024;
 
       await api.sendMessage({
-        body: `🎬 **𝐉𝐀𝐖𝐀𝐁 𝐇𝐀𝐙𝐈𝐑 𝐇𝐀𝐈**\n━━━━━━━━━━━━━━━\n📽️ 𝐓𝐢𝐭𝐥𝐞: ${video.title}\n📦 𝐒𝐢𝐳𝐞: ${size.toFixed(1)} MB\n👑 𝐎𝐰𝐧𝐞𝐫: ${OWNER_NAME}`,
+        body: `🎬 **𝐕𝐈𝐃𝐄𝐎 𝐇𝐀𝐙𝐈𝐑 𝐇𝐀𝐈**\n━━━━━━━━━━━━━━━\n📽️ 𝐓𝐢𝐭𝐥𝐞: ${video.title}\n📦 𝐒𝐢𝐳𝐞: ${size.toFixed(1)} MB\n👑 𝐎𝐰𝐧𝐞𝐫: ${OWNER_NAME}`,
         attachment: fs.createReadStream(file)
       }, threadID, messageID);
 

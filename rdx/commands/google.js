@@ -2,12 +2,12 @@ const axios = require("axios");
 
 module.exports.config = {
   name: "google",
-  version: "8.0.0",
+  version: "21.0.0",
   hasPermssion: 0,
   credits: "AHMAD RDX",
-  description: "Sirf Jawab (Max 3-4 Lines)",
+  description: "RapidAPI stable search with Urdu translation",
   commandCategory: "Education",
-  usages: "[sawal]",
+  usages: "[aapka sawal]",
   cooldowns: 5
 };
 
@@ -15,29 +15,42 @@ module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID } = event;
   const query = args.join(" ");
 
-  if (!query) return api.sendMessage("❓ Bhai, sawal to likho taake jawab doon.", threadID, messageID);
+  // 1. Check if query is empty
+  if (!query) {
+    return api.sendMessage("❓ Ustad ji, kuch toh poochein! (Maslan: #google What is Bitcoin)", threadID, messageID);
+  }
+
+  // 2. Initial response (Bot is thinking)
+  // Note: Typing indicator listen.js se pehle hi on ho chuka hoga
+  api.sendMessage("🦅 **AHMAD RDX** maloomat ikathi kar raha hai...", threadID, messageID);
 
   try {
-    // 🔗 Aapka Apna RDX Backend (HTML Scraper)
-    const res = await axios.get(`https://yt-api-7mfm.onrender.com/api/search?q=${encodeURIComponent(query)}`);
+    // 3. Render API Call
+    // Aapki stable API ka endpoint
+    const res = await axios.get(`https://yt-api-7mfm.onrender.com/api/smart-urdu?q=${encodeURIComponent(query)}`);
 
-    if (res.data.status && res.data.results.length > 0) {
-      
-      // 🧠 Logic: Sirf pehla result uthao
-      let answer = res.data.results[0].snippet;
+    if (res.data.status) {
+      const urduAnswer = res.data.translated;
+      const englishOriginal = res.data.original;
 
-      // ✂️ Cutting Logic: Agar jawab 350 words se bara ho to kaat do (3-4 lines)
-      if (answer.length > 350) {
-        answer = answer.substring(0, 350) + "...";
-      }
+      // 4. Final Formatting
+      const responseMessage = 
+        `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐉𝐀𝐖𝐀𝐁**\n` +
+        `━━━━━━━━━━━━━━━\n\n` +
+        `${urduAnswer}\n\n` +
+        `━━━━━━━━━━━━━━━\n` +
+        `🔍 *Original Info:* ${englishOriginal.substring(0, 100)}...`;
 
-      // 🦅 Sirf Jawab Bhejna (Roman Urdu Header ke sath)
-      return api.sendMessage(`🦅 **AHMAD RDX JAWAB:**\n━━━━━━━━━━━━━━━\n${answer}\n━━━━━━━━━━━━━━━`, threadID, messageID);
+      return api.sendMessage(responseMessage, threadID, messageID);
 
     } else {
-      return api.sendMessage("❌ Iska jawab nahi mila.", threadID, messageID);
+      // Agar API ke pas jawab na ho
+      return api.sendMessage("❌ Maaf kijiye, is sawal ka jawab database mein nahi mila.", threadID, messageID);
     }
-  } catch (e) {
-    return api.sendMessage(`❌ Error: ${e.message}`, threadID, messageID);
+
+  } catch (error) {
+    // Error handling
+    console.error("Google Command Error:", error);
+    return api.sendMessage("❌ Server Error: API connect nahi ho saki. Render check karein!", threadID, messageID);
   }
 };

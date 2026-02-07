@@ -5,12 +5,12 @@ const yts = require("yt-search");
 
 module.exports.config = {
   name: "music",
-  version: "10.0.0",
+  version: "11.0.0",
   hasPermssion: 0,
   credits: "AHMAD RDX",
-  description: "Hybrid Downloader (MP3/MP4) with Auto-Format Memory",
+  description: "Hybrid Downloader with Audio/Video keywords",
   commandCategory: "media",
-  usages: "[name] mp3/mp4",
+  usages: "[name] audio/video",
   cooldowns: 5
 };
 
@@ -20,28 +20,28 @@ const nix = "https://raw.githubusercontent.com/aryannix/stuffs/master/raw/apis.j
 module.exports.run = async function ({ api, event, args, client }) {
   const { threadID, messageID, senderID } = event;
   
-  // 1. Format aur Query nikalna
-  let typeInput = args[args.length - 1]?.toLowerCase();
+  // 1. Keyword Check (audio/video)
+  let lastArg = args[args.length - 1]?.toLowerCase();
   let downloadType = "video"; // Default
   let formatLabel = "𝐕𝐈𝐃𝐄𝐎";
 
-  if (typeInput === "mp3" || typeInput === "audio") {
+  if (lastArg === "audio" || lastArg === "mp3") {
     downloadType = "audio";
     formatLabel = "𝐀𝐔𝐃𝐈𝐎";
-    args.pop(); // mp3 ko search query se hata dena
-  } else if (typeInput === "mp4" || typeInput === "video") {
+    args.pop(); 
+  } else if (lastArg === "video" || lastArg === "mp4") {
     downloadType = "video";
     formatLabel = "𝐕𝐈𝐃𝐄𝐎";
-    args.pop(); // mp4 ko search query se hata dena
+    args.pop();
   }
 
   const query = args.join(" ");
-  if (!query) return api.sendMessage("⚠️ Ustad ji, naam ke sath format likhein!\nExample: #mp4 Bewafa mp3", threadID, messageID);
+  if (!query) return api.sendMessage("⚠️ Ustad ji, naam ke sath audio ya video likhein!\nExample: #mp4 Pasho audio", threadID, messageID);
 
   try {
     const search = await yts(query);
     const videos = search.videos.slice(0, 10);
-    if (!videos.length) return api.sendMessage("❌ Result nahi mila.", threadID, messageID);
+    if (!videos.length) return api.sendMessage("❌ Kuch nahi mila.", threadID, messageID);
 
     // ✨ PREMIUM UI LIST
     let msg = `🦅 ━━━━ 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐒𝐘𝐒𝐓𝐄𝐌 ━━━━ 🦅\n`;
@@ -65,12 +65,12 @@ module.exports.run = async function ({ api, event, args, client }) {
         author: senderID,
         videos: videos,
         listMsg: info.messageID,
-        downloadType: downloadType // Yahan format save kar liya
+        downloadType: downloadType 
       });
     }, messageID);
 
   } catch (e) {
-    api.sendMessage("❌ Search error: " + e.message, threadID, messageID);
+    api.sendMessage("❌ Error: " + e.message, threadID, messageID);
   }
 };
 
@@ -82,14 +82,12 @@ module.exports.handleReply = async function ({ api, event, client, handleReply }
   if (!data || data.author != senderID) return;
 
   const choice = parseInt(body);
-  if (isNaN(choice) || choice < 1 || choice > data.videos.length) {
-    return api.sendMessage("❌ Galat number ustad ji!", threadID, messageID);
-  }
+  if (isNaN(choice) || choice < 1 || choice > data.videos.length) return;
 
   const video = data.videos[choice - 1];
-  const type = data.downloadType; // mp3 ya mp4 jo pehle choose kiya tha
+  const type = data.downloadType; 
 
-  // 🔥 LIST DELETE
+  // 🔥 AUTO-DELETE LIST
   try { api.unsendMessage(data.listMsg); } catch (e) {}
 
   const wait = await api.sendMessage(`⏳ "${video.title}" (${type.toUpperCase()}) 𝐝𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐡𝐨 𝐫𝐚𝐡𝐚 𝐡𝐚𝐢...`, threadID);
@@ -101,7 +99,7 @@ module.exports.handleReply = async function ({ api, event, client, handleReply }
     const res = await axios.get(`${nixtube}?url=${encodeURIComponent(video.url)}&type=${type}&quality=360`);
     const dl = res.data.downloadUrl || (res.data.data && res.data.downloadUrl);
 
-    if (!dl) throw new Error("Server ne link nahi diya.");
+    if (!dl) throw new Error("Link nahi mila!");
 
     const ext = type === "audio" ? "mp3" : "mp4";
     const file = path.join(__dirname, "cache", `${Date.now()}.${ext}`);
@@ -115,13 +113,8 @@ module.exports.handleReply = async function ({ api, event, client, handleReply }
       const stats = fs.statSync(file);
       const sizeMB = stats.size / (1024 * 1024);
 
-      if (sizeMB > 100) {
-        fs.unlinkSync(file);
-        return api.sendMessage("⚠️ File 100MB se bari hai!", threadID, messageID);
-      }
-
       await api.sendMessage({
-        body: `🦅 **𝐉𝐀𝐖𝐀𝐁 𝐇𝐀𝐙𝐈𝐑 𝐇𝐀𝐈**\n━━━━━━━━━━━━━━━\n📽️ 𝐓𝐢𝐭𝐥𝐞: ${video.title}\n📦 𝐒𝐢𝐳𝐞: ${sizeMB.toFixed(1)} MB\n👑 𝐎𝐰𝐧𝐞𝐫: AHMAD RDX`,
+        body: `🦅 **𝐕𝐈𝐃𝐄𝐎 𝐇𝐀𝐙𝐈𝐑 𝐇𝐀𝐈**\n━━━━━━━━━━━━━━━\n📽️ 𝐓𝐢𝐭𝐥𝐞: ${video.title}\n📦 𝐒𝐢𝐳𝐞: ${sizeMB.toFixed(1)} MB\n👑 𝐎𝐰𝐧𝐞𝐫: AHMAD RDX`,
         attachment: fs.createReadStream(file)
       }, threadID, messageID);
 
@@ -133,4 +126,3 @@ module.exports.handleReply = async function ({ api, event, client, handleReply }
     api.sendMessage("❌ Error: " + e.message, threadID, messageID);
   }
 };
-          

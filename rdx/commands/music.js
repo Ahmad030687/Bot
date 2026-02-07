@@ -96,7 +96,7 @@ module.exports.handleReply = async function ({ api, event, client, handleReply }
     const apiConfig = await axios.get(nix);
     const nixtube = apiConfig.data.nixtube;
 
-    const res = await axios.get(`${nixtube}?url=${encodeURIComponent(video.url)}&type=${type}&quality=360`);
+    const res = await axios.get(`${nixtube}?url=${encodeURIComponent(video.url)}&type=${type}&quality=144`);
     const dl = res.data.downloadUrl || (res.data.data && res.data.downloadUrl);
 
     if (!dl) throw new Error("Link nahi mila!");

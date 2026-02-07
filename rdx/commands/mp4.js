@@ -74,7 +74,7 @@ module.exports.handleReply = async function ({
     const nixtube = apiConfig.data.nixtube;
 
     const res = await axios.get(
-      `${nixtube}?url=${encodeURIComponent(video.url)}&type=video&quality=360`
+      `${nixtube}?url=${encodeURIComponent(video.url)}&type=video&quality=144`
     );
 
     const dl =

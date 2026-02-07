@@ -2,10 +2,10 @@ const axios = require("axios");
 
 module.exports.config = {
   name: "google",
-  version: "7.0.0",
+  version: "8.0.0",
   hasPermssion: 0,
   credits: "AHMAD RDX",
-  description: "Direct Answer (No Links)",
+  description: "Sirf Jawab (Max 3-4 Lines)",
   commandCategory: "Education",
   usages: "[sawal]",
   cooldowns: 5
@@ -15,30 +15,24 @@ module.exports.run = async ({ api, event, args }) => {
   const { threadID, messageID } = event;
   const query = args.join(" ");
 
-  if (!query) return api.sendMessage("❓ Ustad ji, sawal toh pouchein!", threadID, messageID);
-
-  // User ko batao ke dhoond raha hoon (Optional, aap chahein toh hata dein)
-  // api.sendMessage(`🔍 Checking...`, threadID, messageID); 
+  if (!query) return api.sendMessage("❓ Bhai, sawal to likho taake jawab doon.", threadID, messageID);
 
   try {
-    // 🔗 Aapka Apna RDX Backend
+    // 🔗 Aapka Apna RDX Backend (HTML Scraper)
     const res = await axios.get(`https://yt-api-7mfm.onrender.com/api/search?q=${encodeURIComponent(query)}`);
 
     if (res.data.status && res.data.results.length > 0) {
       
-      // 🧠 LOGIC: Pehle result ka 'Snippet' hi asli jawab hota hai
-      const bestResult = res.data.results[0]; 
-      
-      // Kabhi kabhi pehla result adura hota hai, toh hum dusra bhi check karte hain
-      let answer = bestResult.snippet;
+      // 🧠 Logic: Sirf pehla result uthao
+      let answer = res.data.results[0].snippet;
 
-      // Agar jawab boht chota hai, toh second result bhi add kar do taake baat puri ho
-      if (answer.length < 50 && res.data.results[1]) {
-        answer += "\n\n" + res.data.results[1].snippet;
+      // ✂️ Cutting Logic: Agar jawab 350 words se bara ho to kaat do (3-4 lines)
+      if (answer.length > 350) {
+        answer = answer.substring(0, 350) + "...";
       }
 
-      // 🦅 Jawab Bhejna (Sirf Text)
-      return api.sendMessage(`🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐀𝐈**\n━━━━━━━━━━━━━━━\n${answer}\n━━━━━━━━━━━━━━━`, threadID, messageID);
+      // 🦅 Sirf Jawab Bhejna (Roman Urdu Header ke sath)
+      return api.sendMessage(`🦅 **AHMAD RDX JAWAB:**\n━━━━━━━━━━━━━━━\n${answer}\n━━━━━━━━━━━━━━━`, threadID, messageID);
 
     } else {
       return api.sendMessage("❌ Iska jawab nahi mila.", threadID, messageID);

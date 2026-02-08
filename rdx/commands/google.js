@@ -4,10 +4,10 @@ module.exports = {
   config: {
     name: "google",
     aliases: ["ask", "ai", "search"],
-    version: "4.0",
+    version: "5.0",
     hasPermssion: 0,
     credits: "AHMAD RDX",
-    description: "Latest AI Search (Fixed Model)",
+    description: "2026 Updated AI Search (v2 API)",
     commandCategory: "ai",
     usages: "[question]",
     cooldowns: 3
@@ -17,7 +17,7 @@ module.exports = {
     const { threadID, messageID } = event;
     const question = args.join(" ");
 
-    if (!question) return api.sendMessage("❌ Ahmad bhai, sawal toh likho!", threadID, messageID);
+    if (!question) return api.sendMessage("❌ Sawal likho Ahmad bhai.", threadID, messageID);
 
     try {
       api.setMessageReaction("⌛", messageID, () => {}, true);
@@ -26,34 +26,43 @@ module.exports = {
 
       const res = await axios({
         method: 'post',
-        url: 'https://api.cohere.ai/v1/chat',
+        // 🔥 Endpoint changed to v2 for 2026 compatibility
+        url: 'https://api.cohere.ai/v2/chat', 
         headers: {
           'Authorization': `Bearer ${API_KEY}`,
           'Content-Type': 'application/json'
         },
         data: {
-          // 🔥 MODEL UPDATED TO LATEST VERSION
-          model: "command-r-plus", 
-          message: question,
-          connectors: [{ id: "web-search" }],
-          preamble: "Respond in 2-3 lines in Roman Urdu. Use current web info. Be precise.",
-          temperature: 0.3
-        },
-        timeout: 20000 
+          model: "command-r-plus",
+          messages: [
+            {
+              role: "user",
+              content: question
+            }
+          ],
+          // 🔥 NEW 2026 WAY: Using tools for web search
+          tools: [
+            {
+              type: "web_search"
+            }
+          ],
+          // Instruction for Roman Urdu
+          preamble: "Respond in 2-3 lines in Roman Urdu. Use the provided web search results for the latest info."
+        }
       });
 
-      const answer = res.data.text || "Jawab nahi mil saka.";
+      // v2 API ka response structure thora badal gaya hai
+      const answer = res.data.message.content[0].text || "Jawab nahi mil saka.";
 
       api.setMessageReaction("✅", messageID, () => {}, true);
-      return api.sendMessage(`🦅 **RDX LIVE AI**\n\n${answer.trim()}`, threadID, messageID);
+      return api.sendMessage(`🦅 **RDX V2 ENGINE**\n\n${answer.trim()}`, threadID, messageID);
 
     } catch (e) {
-      // Debugging for logs
-      console.log("--- NEW ERROR LOG ---");
+      console.log("--- 2026 API ERROR LOG ---");
       console.log(e.response?.data || e.message);
       
       api.setMessageReaction("❌", messageID, () => {}, true);
-      return api.sendMessage(`❌ AI Error: Model update ki zaroorat hai ya key check karein.`, threadID, messageID);
+      return api.sendMessage(`❌ AI fail ho gaya. API update ho gayi hai.`, threadID, messageID);
     }
   }
 };

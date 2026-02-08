@@ -4,7 +4,7 @@ module.exports = {
   config: {
     name: "google",
     aliases: ["ask", "ai"],
-    version: "3.1",
+    version: "4.0",
     hasPermssion: 0,
     credits: "AHMAD RDX",
     description: "AI question answering in Roman Urdu",
@@ -28,39 +28,37 @@ module.exports = {
 
     try {
       api.setMessageReaction("⌛", messageID, () => {}, true);
-
       waitMsg = await api.sendMessage("🔎 Soch raha hoon...", threadID);
 
       const response = await axios({
         method: "POST",
-        url: "https://api.cohere.ai/v1/chat",
+        url: "https://api.cohere.ai/v2/chat",
         headers: {
           Authorization: `Bearer ${API_KEY}`,
           "Content-Type": "application/json"
         },
         timeout: 20000,
         data: {
-          model: "command-r-plus",   // ✅ NEW MODEL
-          message: `Roman Urdu me sirf 2 ya 3 lines me seedha jawab do:\n${query}`,
-          temperature: 0.2
+          model: "command-a",   // ✅ 2026 working
+          messages: [
+            {
+              role: "user",
+              content: `Roman Urdu me sirf 2 ya 3 lines me seedha jawab do:\n${query}`
+            }
+          ],
+          temperature: 0.3
         }
       });
 
-      let answer =
-        response?.data?.text ||
-        response?.data?.reply ||
-        "";
-
-      if (!answer) answer = "Jawab nahi mila.";
+      const answer =
+        response?.data?.message?.content?.[0]?.text || "Jawab nahi mila.";
 
       api.setMessageReaction("✅", messageID, () => {}, true);
 
       return api.sendMessage(
-        { body: `🧠 **AI Answer (Roman Urdu)**\n\n${answer.trim()}` },
+        { body: `🧠 AI Answer:\n\n${answer.trim()}` },
         threadID,
-        () => {
-          if (waitMsg) api.unsendMessage(waitMsg.messageID);
-        },
+        () => waitMsg && api.unsendMessage(waitMsg.messageID),
         messageID
       );
 

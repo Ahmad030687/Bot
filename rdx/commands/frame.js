@@ -1,8 +1,8 @@
 module.exports.config = {
     name: "frame",
-    version: "7.3.2", // Version updated
+    version: "7.3.3",
     hasPermssion: 0,
-    credits: "AZIZ", ///don't change my Credit Coz i Edit 
+    credits: "AZIZ", 
     description: "Get Pair From Mention or Reply",
     commandCategory: "img",
     usages: "[@mention or Reply]",
@@ -16,8 +16,8 @@ module.exports.config = {
 };
 
 module.exports.onLoad = async() => {
-    const { resolve } = global.nodemodule["path"];
-    const { existsSync, mkdirSync } = global.nodemodule["fs-extra"];
+    const { resolve } = require("path");
+    const { existsSync, mkdirSync } = require("fs-extra");
     const { downloadFile } = global.utils;
     const dirMaterial = __dirname + `/cache/canvas/`;
     const path = resolve(__dirname, 'cache/canvas', 'frame.jpeg');
@@ -26,10 +26,10 @@ module.exports.onLoad = async() => {
 }
 
 async function makeImage({ one, two }) {
-    const fs = global.nodemodule["fs-extra"];
-    const path = global.nodemodule["path"];
-    const axios = global.nodemodule["axios"]; 
-    const jimp = global.nodemodule["jimp"];
+    const fs = require("fs-extra");
+    const path = require("path");
+    const axios = require("axios"); 
+    const jimp = require("jimp");
     const __root = path.resolve(__dirname, "cache", "canvas");
 
     let batgiam_img = await jimp.read(__root + "/frame.jpeg");
@@ -47,7 +47,6 @@ async function makeImage({ one, two }) {
     let circleOne = await jimp.read(await circle(avatarOne));
     let circleTwo = await jimp.read(await circle(avatarTwo));
     
-    // Positioning update kar dijiye agar frame change ho
     batgiam_img.composite(circleOne.resize(230, 230), 540, 120).composite(circleTwo.resize(350, 350), 65, 65);
     
     let raw = await batgiam_img.getBufferAsync("image/jpeg");
@@ -67,7 +66,7 @@ async function circle(image) {
 }
 
 module.exports.run = async function ({ event, api, args }) {    
-    const fs = global.nodemodule["fs-extra"];
+    const fs = require("fs-extra");
     const { threadID, messageID, senderID } = event;
     const mention = Object.keys(event.mentions);
     

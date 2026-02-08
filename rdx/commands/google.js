@@ -3,11 +3,11 @@ const axios = require("axios");
 module.exports = {
   config: {
     name: "google",
-    aliases: ["ask", "ai", "search"],
-    version: "6.0",
+    aliases: ["ask", "ai"],
+    version: "3.0",
     hasPermssion: 0,
     credits: "AHMAD RDX",
-    description: "2026 v2 Chat API Fixed",
+    description: "AI question answering in Roman Urdu",
     commandCategory: "ai",
     usages: "[question]",
     cooldowns: 3
@@ -15,49 +15,76 @@ module.exports = {
 
   run: async function ({ api, event, args }) {
     const { threadID, messageID } = event;
-    const question = args.join(" ");
 
-    if (!question) return api.sendMessage("❌ Ahmad bhai, sawal likho!", threadID, messageID);
+    const query = args.join(" ");
+    if (!query)
+      return api.sendMessage("❌ Apna sawal likho.", threadID, messageID);
+
+    const API_KEY = process.env.COHERE_API_KEY;
+    if (!API_KEY)
+      return api.sendMessage("❌ COHERE_API_KEY ENV me set nahi.", threadID, messageID);
+
+    let waitMsg;
 
     try {
       api.setMessageReaction("⌛", messageID, () => {}, true);
-      const API_KEY = process.env.COHERE_API_KEY;
 
-      const res = await axios({
-        method: 'post',
-        url: 'https://api.cohere.ai/v2/chat',
+      waitMsg = await api.sendMessage(
+        "🔎 Soch raha hoon...",
+        threadID
+      );
+
+      const response = await axios({
+        method: "POST",
+        url: "https://api.cohere.ai/v1/chat",
         headers: {
-          'Authorization': `Bearer ${API_KEY}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json"
         },
+        timeout: 20000,
         data: {
-          model: "command-r-plus",
-          // 🔥 NEW: 'message' ki jagah 'messages' array use hoga
-          messages: [
-            {
-              role: "user",
-              content: question
-            }
-          ],
-          // 🔥 NEW: Tools for internet search
-          tools: [{ type: "web_search" }]
+          model: "command-r",
+          message: `Roman Urdu me sirf 2 ya 3 lines me seedha aur short jawab do:\n${query}`,
+          temperature: 0.2
         }
       });
 
-      // v2 Response path: res.data.message.content[0].text
-      const answer = res.data.message.content[0].text;
+      // ✅ Different response formats handle kare
+      let answer =
+        response?.data?.text ||
+        response?.data?.message ||
+        response?.data?.reply ||
+        "";
+
+      if (!answer || answer.length < 2) {
+        answer = "Jawab nahi mila.";
+      }
 
       api.setMessageReaction("✅", messageID, () => {}, true);
-      return api.sendMessage(`🦅 **RDX V2 LIVE**\n\n${answer.trim()}`, threadID, messageID);
 
-    } catch (e) {
-      // 🛠️ BETTER LOGGING: Asli wajah janne ke liye
-      const errorDetail = e.response ? JSON.stringify(e.response.data, null, 2) : e.message;
-      console.log("--- 🦅 RDX DEBUGGER ---");
-      console.log(errorDetail);
+      return api.sendMessage(
+        {
+          body: `🧠 **AI Answer (Roman Urdu)**\n\n${answer.trim()}`
+        },
+        threadID,
+        () => {
+          if (waitMsg) api.unsendMessage(waitMsg.messageID);
+        },
+        messageID
+      );
+
+    } catch (err) {
+      console.log("AI ERROR:", err.response?.data || err.message);
 
       api.setMessageReaction("❌", messageID, () => {}, true);
-      return api.sendMessage(`❌ AI Error: Check Render Logs for detail.`, threadID, messageID);
+
+      if (waitMsg) api.unsendMessage(waitMsg.messageID);
+
+      return api.sendMessage(
+        "❌ AI server se reply nahi aya. Baad me try karo.",
+        threadID,
+        messageID
+      );
     }
   }
 };

@@ -3,11 +3,11 @@ const axios = require("axios");
 module.exports = {
   config: {
     name: "google",
-    aliases: ["ask", "ai"],
-    version: "1.2",
+    aliases: ["ask", "ai", "search", "latest"],
+    version: "3.0",
     hasPermssion: 0,
     credits: "AHMAD RDX",
-    description: "Roman Urdu AI with Live Web Search",
+    description: "Real-time AI (Last 1 minute knowledge)",
     commandCategory: "ai",
     usages: "[question]",
     cooldowns: 3
@@ -15,52 +15,53 @@ module.exports = {
 
   run: async function ({ api, event, args }) {
     const { threadID, messageID } = event;
-
     const question = args.join(" ");
-    if (!question)
-      return api.sendMessage("❌ Ahmad bhai, sawal toh likho.", threadID, messageID);
+
+    if (!question) return api.sendMessage("❌ Ahmad bhai, kya search karun? Kuch likhein.", threadID, messageID);
 
     try {
       api.setMessageReaction("⌛", messageID, () => {}, true);
 
-      // --- 🔑 Apni Key Yahan Dalein ---
-      const COHERE_API_KEY = "cYfX7zC87MN6OOF56kvOaJdHt0dC2Qxmx6asfg6A"; 
+      const API_KEY = process.env.COHERE_API_KEY;
 
-      const response = await axios.post(
+      const res = await axios.post(
         "https://api.cohere.ai/v1/chat",
         {
-          model: "command-r", // Best for Search & Urdu
+          model: "command-r",
           message: question,
-          // 🧐 Yeh preamble AI ko Roman Urdu aur search karne par majboor karega
-          preamble: "You are Sardar RDX AI. Respond in 2-3 short lines in Roman Urdu. Use a friendly Pakistani style. Always use the web search results provided to you.",
-          connectors: [{ id: "web-search" }], // 🌐 Yeh line dunya bhar ki info layegi
-          temperature: 0.3
+          // 🔥 Yeh hai asli game changer: Web Search Connector
+          connectors: [{ id: "web-search" }], 
+          // 🧐 AI ko sakht hidayat ke internet se taaza data uthaye
+          preamble: "You are Sardar RDX AI with real-time internet access. Provide the most recent information available from the web, even if it happened minutes ago. Answer in 3-4 short lines in Roman Urdu. Mention the source if it's a very fresh news.",
+          temperature: 0.1, // Low temperature taake AI apni taraf se kahani na banaye, sirf facts bole
+          prompt_truncation: "AUTO" 
         },
         {
           headers: {
-            Authorization: `Bearer ${COHERE_API_KEY}`,
+            Authorization: `Bearer ${API_KEY}`,
             "Content-Type": "application/json"
           }
         }
       );
 
-      const answer = response.data.text || "Jawab nahi mil saka, ustad ji.";
+      // AI ka jawab aur references (links) uthana
+      const answer = res.data.text;
+      const sources = res.data.documents && res.data.documents.length > 0 
+                      ? `\n\n🔗 *Source:* ${res.data.documents[0].url}` 
+                      : "";
 
       api.setMessageReaction("✅", messageID, () => {}, true);
+      
+      return api.sendMessage(
+        `🦅 **RDX LIVE ENGINE**\n\n${answer.trim()}${sources}`, 
+        threadID, 
+        messageID
+      );
 
-      return api.sendMessage(
-        `🦅 **SARDAR RDX AI**\n\n${answer.trim()}`,
-        threadID,
-        messageID
-      );
-    } catch (err) {
-      console.log(err.response?.data || err.message);
+    } catch (e) {
+      console.log(e.response?.data || e.message);
       api.setMessageReaction("❌", messageID, () => {}, true);
-      return api.sendMessage(
-        "❌ Server busy hai ya API key expire ho gayi hai.",
-        threadID,
-        messageID
-      );
+      return api.sendMessage("❌ AI fail ho gaya. Key ya internet ka masla hai.", threadID, messageID);
     }
   }
 };

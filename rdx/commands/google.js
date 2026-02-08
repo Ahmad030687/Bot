@@ -26,7 +26,7 @@ module.exports = {
 
       const res = await axios({
         method: 'post',
-        url: 'https://api.cohere.ai/v1/chat',
+        url: 'https://api.cohere.ai/v2/chat',
         headers: {
           'Authorization': `Bearer ${API_KEY}`,
           'Content-Type': 'application/json'

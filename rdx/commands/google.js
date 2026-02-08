@@ -3,11 +3,11 @@ const axios = require("axios");
 module.exports = {
   config: {
     name: "google",
-    aliases: ["ask", "ai", "search", "latest"],
-    version: "3.0",
+    aliases: ["ask", "ai", "search"],
+    version: "3.5",
     hasPermssion: 0,
     credits: "AHMAD RDX",
-    description: "Real-time AI (Last 1 minute knowledge)",
+    description: "Real-time AI (Render Fix)",
     commandCategory: "ai",
     usages: "[question]",
     cooldowns: 3
@@ -17,51 +17,50 @@ module.exports = {
     const { threadID, messageID } = event;
     const question = args.join(" ");
 
-    if (!question) return api.sendMessage("❌ Ahmad bhai, kya search karun? Kuch likhein.", threadID, messageID);
+    if (!question) return api.sendMessage("❌ Sawal likho Ahmad bhai.", threadID, messageID);
 
     try {
       api.setMessageReaction("⌛", messageID, () => {}, true);
 
+      // Render Dashboard se key uthayega (Check karein wahan COHERE_API_KEY hi likha hai na?)
       const API_KEY = process.env.COHERE_API_KEY;
 
-      const res = await axios.post(
-        "https://api.cohere.ai/v1/chat",
-        {
+      const res = await axios({
+        method: 'post',
+        url: 'https://api.cohere.ai/v1/chat',
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        data: {
           model: "command-r",
           message: question,
-          // 🔥 Yeh hai asli game changer: Web Search Connector
-          connectors: [{ id: "web-search" }], 
-          // 🧐 AI ko sakht hidayat ke internet se taaza data uthaye
-          preamble: "You are Sardar RDX AI with real-time internet access. Provide the most recent information available from the web, even if it happened minutes ago. Answer in 3-4 short lines in Roman Urdu. Mention the source if it's a very fresh news.",
-          temperature: 0.1, // Low temperature taake AI apni taraf se kahani na banaye, sirf facts bole
-          prompt_truncation: "AUTO" 
+          preamble: "Respond in 2-3 lines in Roman Urdu. Use current web info.",
+          temperature: 0.3
         },
-        {
-          headers: {
-            Authorization: `Bearer ${API_KEY}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
+        timeout: 15000 // Render ke liye 15 sec ka intezar
+      });
 
-      // AI ka jawab aur references (links) uthana
-      const answer = res.data.text;
-      const sources = res.data.documents && res.data.documents.length > 0 
-                      ? `\n\n🔗 *Source:* ${res.data.documents[0].url}` 
-                      : "";
+      const answer = res.data.text || "Jawab nahi mil saka.";
 
       api.setMessageReaction("✅", messageID, () => {}, true);
-      
-      return api.sendMessage(
-        `🦅 **RDX LIVE ENGINE**\n\n${answer.trim()}${sources}`, 
-        threadID, 
-        messageID
-      );
+      return api.sendMessage(`🦅 **RDX LIVE ENGINE**\n\n${answer.trim()}`, threadID, messageID);
 
     } catch (e) {
-      console.log(e.response?.data || e.message);
+      // --- 🔍 ASLI ERROR YAHA DIKHEGA ---
+      let errorMsg = e.message;
+      if (e.response && e.response.data) {
+        errorMsg = JSON.stringify(e.response.data);
+      }
+      
+      console.log("--- COHERE ERROR LOG ---");
+      console.log(errorMsg);
+      
       api.setMessageReaction("❌", messageID, () => {}, true);
-      return api.sendMessage("❌ AI fail ho gaya. Key ya internet ka masla hai.", threadID, messageID);
+      
+      // Agar 401 hai toh key ka masla hai, agar 429 hai toh limit ka
+      return api.sendMessage(`❌ AI fail ho gaya.\nReason: ${e.message}`, threadID, messageID);
     }
   }
 };

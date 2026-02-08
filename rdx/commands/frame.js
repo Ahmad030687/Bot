@@ -1,86 +1,101 @@
+const axios = require("axios");
+const fs = require("fs-extra");
+const path = require("path");
+const jimp = require("jimp");
+
 module.exports.config = {
-    name: "frame",
-    version: "7.3.3",
-    hasPermssion: 0,
-    credits: "AZIZ", 
-    description: "Get Pair From Mention or Reply",
-    commandCategory: "img",
-    usages: "[@mention or Reply]",
-    cooldowns: 5,
-    dependencies: {
-        "axios": "",
-        "fs-extra": "",
-        "path": "",
-        "jimp": ""
-    }
+  name: "frame",
+  version: "1.0",
+  hasPermssion: 0,
+  credits: "Ahmad",
+  description: "Frame with two profile pictures",
+  commandCategory: "image",
+  usages: "@mention or reply",
+  cooldowns: 5
 };
 
-module.exports.onLoad = async() => {
-    const { resolve } = require("path");
-    const { existsSync, mkdirSync } = require("fs-extra");
-    const { downloadFile } = global.utils;
-    const dirMaterial = __dirname + `/cache/canvas/`;
-    const path = resolve(__dirname, 'cache/canvas', 'frame.jpeg');
-    if (!existsSync(dirMaterial + "canvas")) mkdirSync(dirMaterial, { recursive: true });
-    if (!existsSync(path)) await downloadFile("https://i.imgur.com/jcoNOZ2.jpg", path);
+// frame background auto download
+module.exports.onLoad = async () => {
+  const dir = path.join(__dirname, "cache");
+  const framePath = path.join(dir, "frame.jpg");
+
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+  if (!fs.existsSync(framePath)) {
+    const img = (await axios.get("https://i.imgur.com/jcoNOZ2.jpg", {
+      responseType: "arraybuffer"
+    })).data;
+    fs.writeFileSync(framePath, Buffer.from(img));
+  }
+};
+
+async function circle(imgPath) {
+  const img = await jimp.read(imgPath);
+  img.circle();
+  return await img.getBufferAsync("image/png");
 }
 
-async function makeImage({ one, two }) {
-    const fs = require("fs-extra");
-    const path = require("path");
-    const axios = require("axios"); 
-    const jimp = require("jimp");
-    const __root = path.resolve(__dirname, "cache", "canvas");
+async function makeImage(one, two) {
+  const dir = path.join(__dirname, "cache");
+  const framePath = path.join(dir, "frame.jpg");
 
-    let batgiam_img = await jimp.read(__root + "/frame.jpeg");
-    let pathImg = __root + `/batman${one}_${two}.jpeg`;
-    let avatarOne = __root + `/avt_${one}.jpeg`;
-    let avatarTwo = __root + `/avt_${two}.jpeg`;
-    
-    // Graph API se Avatar lena
-    let getAvatarOne = (await axios.get(`https://graph.facebook.com/${one}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`, { responseType: 'arraybuffer' })).data;
-    fs.writeFileSync(avatarOne, Buffer.from(getAvatarOne, 'utf-8'));
-    
-    let getAvatarTwo = (await axios.get(`https://graph.facebook.com/${two}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`, { responseType: 'arraybuffer' })).data;
-    fs.writeFileSync(avatarTwo, Buffer.from(getAvatarTwo, 'utf-8'));
-    
-    let circleOne = await jimp.read(await circle(avatarOne));
-    let circleTwo = await jimp.read(await circle(avatarTwo));
-    
-    batgiam_img.composite(circleOne.resize(230, 230), 540, 120).composite(circleTwo.resize(350, 350), 65, 65);
-    
-    let raw = await batgiam_img.getBufferAsync("image/jpeg");
-    
-    fs.writeFileSync(pathImg, raw);
-    fs.unlinkSync(avatarOne);
-    fs.unlinkSync(avatarTwo);
-    
-    return pathImg;
+  const avatarOne = path.join(dir, `avt_${one}.jpg`);
+  const avatarTwo = path.join(dir, `avt_${two}.jpg`);
+  const output = path.join(dir, `frame_${one}_${two}.jpg`);
+
+  // avatars download
+  const av1 = (await axios.get(`https://graph.facebook.com/${one}/picture?width=512&height=512`, { responseType: "arraybuffer" })).data;
+  fs.writeFileSync(avatarOne, Buffer.from(av1));
+
+  const av2 = (await axios.get(`https://graph.facebook.com/${two}/picture?width=512&height=512`, { responseType: "arraybuffer" })).data;
+  fs.writeFileSync(avatarTwo, Buffer.from(av2));
+
+  const base = await jimp.read(framePath);
+  const c1 = await jimp.read(await circle(avatarOne));
+  const c2 = await jimp.read(await circle(avatarTwo));
+
+  // positions (same style)
+  base
+    .composite(c1.resize(230, 230), 540, 120)
+    .composite(c2.resize(350, 350), 65, 65);
+
+  await base.writeAsync(output);
+
+  fs.unlinkSync(avatarOne);
+  fs.unlinkSync(avatarTwo);
+
+  return output;
 }
 
-async function circle(image) {
-    const jimp = require("jimp");
-    image = await jimp.read(image);
-    image.circle();
-    return await image.getBufferAsync("image/png");
-}
+module.exports.run = async function ({ api, event }) {
+  const { threadID, messageID, senderID } = event;
 
-module.exports.run = async function ({ event, api, args }) {    
-    const fs = require("fs-extra");
-    const { threadID, messageID, senderID } = event;
-    const mention = Object.keys(event.mentions);
-    
-    let two;
+  const mention = Object.keys(event.mentions);
+  let target;
 
-    // Logic: Pehle Mention check karega, agar nahi hai to Reply check karega
-    if (mention[0]) {
-        two = mention[0];
-    } else if (event.type == "message_reply") {
-        two = event.messageReply.senderID;
-    } else {
-        return api.sendMessage("❌ Please mention 1 person OR Reply to their message.", threadID, messageID);
-    }
+  if (mention[0]) target = mention[0];
+  else if (event.type === "message_reply") target = event.messageReply.senderID;
+  else {
+    return api.sendMessage(
+      "❌ Kisi ko mention karo ya uske message ka reply karo.",
+      threadID,
+      messageID
+    );
+  }
 
-    const one = senderID;
-    return makeImage({ one, two }).then(path => api.sendMessage({ body: "💜😇😇😇", attachment: fs.createReadStream(path) }, threadID, () => fs.unlinkSync(path), messageID));
-}
+  try {
+    const imgPath = await makeImage(senderID, target);
+
+    return api.sendMessage(
+      {
+        body: "💜 Here is your frame",
+        attachment: fs.createReadStream(imgPath)
+      },
+      threadID,
+      () => fs.unlinkSync(imgPath),
+      messageID
+    );
+  } catch (e) {
+    return api.sendMessage("❌ Image banane me error aya.", threadID, messageID);
+  }
+};

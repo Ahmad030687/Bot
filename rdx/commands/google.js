@@ -4,7 +4,7 @@ module.exports = {
   config: {
     name: "google",
     aliases: ["ask", "ai"],
-    version: "3.0",
+    version: "3.1",
     hasPermssion: 0,
     credits: "AHMAD RDX",
     description: "AI question answering in Roman Urdu",
@@ -29,10 +29,7 @@ module.exports = {
     try {
       api.setMessageReaction("⌛", messageID, () => {}, true);
 
-      waitMsg = await api.sendMessage(
-        "🔎 Soch raha hoon...",
-        threadID
-      );
+      waitMsg = await api.sendMessage("🔎 Soch raha hoon...", threadID);
 
       const response = await axios({
         method: "POST",
@@ -43,29 +40,23 @@ module.exports = {
         },
         timeout: 20000,
         data: {
-          model: "command-r",
-          message: `Roman Urdu me sirf 2 ya 3 lines me seedha aur short jawab do:\n${query}`,
+          model: "command-r-plus",   // ✅ NEW MODEL
+          message: `Roman Urdu me sirf 2 ya 3 lines me seedha jawab do:\n${query}`,
           temperature: 0.2
         }
       });
 
-      // ✅ Different response formats handle kare
       let answer =
         response?.data?.text ||
-        response?.data?.message ||
         response?.data?.reply ||
         "";
 
-      if (!answer || answer.length < 2) {
-        answer = "Jawab nahi mila.";
-      }
+      if (!answer) answer = "Jawab nahi mila.";
 
       api.setMessageReaction("✅", messageID, () => {}, true);
 
       return api.sendMessage(
-        {
-          body: `🧠 **AI Answer (Roman Urdu)**\n\n${answer.trim()}`
-        },
+        { body: `🧠 **AI Answer (Roman Urdu)**\n\n${answer.trim()}` },
         threadID,
         () => {
           if (waitMsg) api.unsendMessage(waitMsg.messageID);
@@ -77,11 +68,10 @@ module.exports = {
       console.log("AI ERROR:", err.response?.data || err.message);
 
       api.setMessageReaction("❌", messageID, () => {}, true);
-
       if (waitMsg) api.unsendMessage(waitMsg.messageID);
 
       return api.sendMessage(
-        "❌ AI server se reply nahi aya. Baad me try karo.",
+        "❌ AI server se reply nahi aya.",
         threadID,
         messageID
       );

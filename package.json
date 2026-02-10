@@ -20,6 +20,7 @@
     "axios": "^1.13.2",
     "better-sqlite3": "^12.5.0",
     "canvas": "^3.2.0",
+    "canvacord": "^5.4.8",
     "chalk": "^4.1.2",
     "express": "^5.2.1",
     "fs-extra": "^11.3.3",

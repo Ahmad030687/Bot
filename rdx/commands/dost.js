@@ -3,7 +3,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 module.exports.config = {
-    name: "friend",
+    name: "dost",
     version: "3.0.0",
     hasPermssion: 0,
     credits: "Ahmad RDX",

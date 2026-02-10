@@ -1,78 +1,63 @@
 const axios = require("axios");
+const cheerio = require("cheerio");
 
-module.exports = {
-  config: {
+module.exports.config = {
     name: "google",
-    aliases: ["ask", "ai"],
-    version: "4.0",
+    version: "3.0.0",
     hasPermssion: 0,
-    credits: "AHMAD RDX",
-    description: "AI question answering in Roman Urdu",
-    commandCategory: "ai",
-    usages: "[question]",
-    cooldowns: 3
-  },
+    credits: "Ahmad RDX",
+    description: "براہ راست گوگل سے سرچ کریں (اکیلی کمانڈ)",
+    commandCategory: "tools",
+    usages: "[سرچ کریں]",
+    cooldowns: 5
+};
 
-  run: async function ({ api, event, args }) {
+module.exports.run = async function ({ api, event, args }) {
     const { threadID, messageID } = event;
-
     const query = args.join(" ");
-    if (!query)
-      return api.sendMessage("❌ Apna sawal likho.", threadID, messageID);
 
-    const API_KEY = process.env.COHERE_API_KEY;
-    if (!API_KEY)
-      return api.sendMessage("❌ COHERE_API_KEY ENV me set nahi.", threadID, messageID);
+    if (!query) return api.sendMessage("🔍 احمد بھائی، کچھ لکھیں تو صحیح کہ سرچ کیا کرنا ہے؟", threadID, messageID);
 
-    let waitMsg;
+    api.sendMessage(`🚀 **RDX سسٹم گوگل پر ڈھونڈ رہا ہے...**\n"${query}"`, threadID, messageID);
 
     try {
-      api.setMessageReaction("⌛", messageID, () => {}, true);
-      waitMsg = await api.sendMessage("🔎 Soch raha hoon...", threadID);
+        // گوگل سرچ کا لنک
+        const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=ur`;
+        
+        // گوگل کو دھوکہ دینے کے لیے براؤزر جیسا ہیڈر
+        const headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        };
 
-      const response = await axios({
-        method: "POST",
-        url: "https://api.cohere.ai/v2/chat",
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        timeout: 20000,
-        data: {
-          model: "command-a",   // ✅ 2026 working
-          messages: [
-            {
-              role: "user",
-              content: `Roman Urdu me sirf 2 ya 3 lines me seedha jawab do:\n${query}`
+        const response = await axios.get(url, { headers });
+        const $ = cheerio.load(response.data);
+        let results = [];
+
+        // گوگل کے رزلٹس نکالنے کا لاجک
+        $(".tF2Cpc").each((i, el) => {
+            const title = $(el).find("h3").text();
+            const link = $(el).find("a").attr("href");
+            const description = $(el).find(".VwiC3b").text();
+
+            if (title && link) {
+                results.push({ title, link, description });
             }
-          ],
-          temperature: 0.3
-        }
-      });
+        });
 
-      const answer =
-        response?.data?.message?.content?.[0]?.text || "Jawab nahi mila.";
+        if (results.length === 0) return api.sendMessage("❌ معذرت احمد بھائی، گوگل پر کچھ نہیں ملا۔", threadID, messageID);
 
-      api.setMessageReaction("✅", messageID, () => {}, true);
+        // جواب کو خوبصورت بنانا
+        let replyMsg = `🌐 **گوگل سرچ رزلٹس (RDX)** 🌐\n\n`;
 
-      return api.sendMessage(
-        { body: `🧠 AI Answer:\n\n${answer.trim()}` },
-        threadID,
-        () => waitMsg && api.unsendMessage(waitMsg.messageID),
-        messageID
-      );
+        results.slice(0, 3).forEach((item, index) => {
+            replyMsg += `📍 **${index + 1}. ${item.title}**\n`;
+            replyMsg += `🔗 ${item.link}\n`;
+            replyMsg += `📝 ${item.description.substring(0, 100)}...\n\n`;
+        });
 
-    } catch (err) {
-      console.log("AI ERROR:", err.response?.data || err.message);
+        api.sendMessage(replyMsg, threadID, messageID);
 
-      api.setMessageReaction("❌", messageID, () => {}, true);
-      if (waitMsg) api.unsendMessage(waitMsg.messageID);
-
-      return api.sendMessage(
-        "❌ AI server se reply nahi aya.",
-        threadID,
-        messageID
-      );
+    } catch (error) {
+        api.sendMessage("❌ سرور میں مسئلہ آ گیا ہے، دوبارہ کوشش کریں۔", threadID, messageID);
     }
-  }
 };

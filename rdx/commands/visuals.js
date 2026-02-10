@@ -1,42 +1,41 @@
 const canvacord = require("canvacord");
 const fs = require("fs-extra");
+const path = require("path");
 
 module.exports.config = {
     name: "visuals",
-    version: "3.0.0",
+    version: "3.1.0",
     hasPermssion: 0,
     credits: "Ahmad RDX",
-    description: "Visual Effects Pack (Works with # Prefix)",
+    description: "Visual Effects (Fixed Slice Error)",
     commandCategory: "img",
     usages: "[mention or reply]",
     cooldowns: 5,
-    // Ye aliases zaroori hain taake bot in sab commands par react kare
     aliases: ["wanted", "jail", "wasted", "rip", "trash", "trigger"]
 };
 
 module.exports.run = async function ({ api, event, args }) {
     const { threadID, messageID, senderID, body } = event;
     
-    // --- PREFIX HANDLING ---
-    // args[0] aapka pehla lafz hai (e.g., #jail)
-    // .slice(1) ka matlab hai pehla character (#) hata do
-    const cmd = args[0].slice(1).toLowerCase();
+    // --- FIX: Error Yahan Tha ---
+    // Hum ab 'args' ki bajaye direct 'body' se command nikal rahe hain
+    // Example: Body = "#jail @Ali" -> split -> ["#jail", "@Ali"] -> 0 index = "#jail" -> slice(1) = "jail"
+    const cmd = body.split(" ")[0].slice(1).toLowerCase();
 
     // --- TARGET SELECTION LOGIC ---
-    let targetID = senderID; // Default: Aap khud (Agar mention/reply na ho)
+    let targetID = senderID; // Default: Aap khud
 
     if (Object.keys(event.mentions).length > 0) {
-        // 1. Agar Mention kiya hai
+        // 1. Mention Check
         targetID = Object.keys(event.mentions)[0];
     } else if (event.type == "message_reply") {
-        // 2. Agar Reply kiya hai
+        // 2. Reply Check
         targetID = event.messageReply.senderID;
     }
 
-    // Facebook se HD Avatar uthana
+    // Facebook Avatar URL
     const avatarUrl = `https://graph.facebook.com/${targetID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
 
-    // Loading Reaction
     api.setMessageReaction("🎨", messageID, () => {}, true);
     api.sendMessage(`⏳ **Applying ${cmd.toUpperCase()} effect...**`, threadID, messageID);
 
@@ -49,7 +48,7 @@ module.exports.run = async function ({ api, event, args }) {
                 image = await canvacord.Canvas.wanted(avatarUrl);
                 break;
             case "jail":
-                image = await canvacord.Canvas.jail(avatarUrl, true); // true = Greyscale (Black & white)
+                image = await canvacord.Canvas.jail(avatarUrl, true);
                 break;
             case "wasted":
                 image = await canvacord.Canvas.wasted(avatarUrl);
@@ -64,21 +63,17 @@ module.exports.run = async function ({ api, event, args }) {
                 image = await canvacord.Canvas.trigger(avatarUrl);
                 break;
             default:
-                // Agar koi aur command ho toh ignore kare
-                return;
+                return api.sendMessage("❌ Unknown visual command.", threadID, messageID);
         }
 
-        // Image Save karna
-        const path = __dirname + `/cache/${cmd}_${targetID}.png`;
-        fs.writeFileSync(path, image);
+        const filePath = path.join(__dirname, "cache", `${cmd}_${targetID}.png`);
+        fs.writeFileSync(filePath, image);
 
-        // Image Bhejna
         api.sendMessage({
             body: `🦅 **RDX VISUALS: ${cmd.toUpperCase()}**`,
-            attachment: fs.createReadStream(path)
+            attachment: fs.createReadStream(filePath)
         }, threadID, () => {
-            // Message jaane ke baad file delete (Space bachanay ke liye)
-            fs.unlinkSync(path);
+            fs.unlinkSync(filePath);
         }, messageID);
 
     } catch (error) {
@@ -86,4 +81,3 @@ module.exports.run = async function ({ api, event, args }) {
         api.sendMessage(`❌ Error: ${error.message}`, threadID, messageID);
     }
 };
-                  

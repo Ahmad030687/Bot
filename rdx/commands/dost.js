@@ -1,88 +1,126 @@
-const axios = require("axios");
+const Canvas = require("canvas");
 const fs = require("fs-extra");
 const path = require("path");
+const axios = require("axios");
 
-module.exports = {
-  config: {
+module.exports.config = {
     name: "dost",
-    aliases: ["friendship", "bestie"],
-    description: "Create Friendship Frame with real FB PFPs",
-    credits: "SARDAR RDX",
-    usage: "dost [mention/reply]",
-    category: "Graphics",
-    prefix: true
-  },
+    version: "2.0.0",
+    hasPermssion: 0,
+    credits: "Ahmad RDX",
+    description: "Make a Beautiful Friendship Frame",
+    commandCategory: "img",
+    usages: "[mention or reply]",
+    cooldowns: 10,
+    aliases: ["bff", "dosti", "friends"]
+};
 
-  async run({ api, event }) {
-    const { threadID, messageID, senderID, mentions, messageReply } = event;
+// --- IMAGE CIRCLE FUNCTION (Gol Tasveer) ---
+function drawCircle(ctx, image, x, y, size) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(image, x, y, size, size);
+    ctx.restore();
+    // Border add karte hain
+    ctx.beginPath();
+    ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = "#ffffff"; // White Border
+    ctx.stroke();
+}
 
-    let uid1 = senderID;
-    let uid2;
+module.exports.run = async function ({ api, event, args }) {
+    const { threadID, messageID, senderID, body } = event;
 
-    // ✅ Mention / Reply (SAFE)
-    if (mentions && Object.keys(mentions).length > 0) {
-      uid2 = Object.keys(mentions)[0];
-    } else if (messageReply) {
-      uid2 = messageReply.senderID;
-    } else {
-      return api.sendMessage(
-        "🚫 Kisi dost ko mention ya reply karo!",
-        threadID,
-        messageID
-      );
+    // --- TARGET LOGIC (Fixed for Reply) ---
+    let targetID;
+    
+    // 1. Agar Mention kiya hai
+    if (Object.keys(event.mentions).length > 0) {
+        targetID = Object.keys(event.mentions)[0];
+    } 
+    // 2. Agar Reply kiya hai (Yeh wala part fix kiya hai)
+    else if (event.type === "message_reply") {
+        targetID = event.messageReply.senderID;
+    } 
+    else {
+        return api.sendMessage("❌ Kisi dost ko Mention karo ya Reply karo!", threadID, messageID);
     }
 
-    api.sendMessage("⏳ Dostana frame ban raha hai...", threadID, messageID);
+    api.setMessageReaction("💖", messageID, () => {}, true);
+    api.sendMessage("✨ **Designing Best Friends Frame...**", threadID, messageID);
 
     try {
-      // ✅ SAME token as user.js (locked IDs bhi)
-      const token = "6628568379|c1e620fa708a1d5696fb991c1bde5662";
+        // --- 1. SETUP CANVAS ---
+        const width = 1200;
+        const height = 675;
+        const canvas = Canvas.createCanvas(width, height);
+        const ctx = canvas.getContext("2d");
 
-      // ✅ Direct FB image URLs (NO download)
-      const pfp1 = `https://graph.facebook.com/${uid1}/picture?type=large&access_token=${token}`;
-      const pfp2 = `https://graph.facebook.com/${uid2}/picture?type=large&access_token=${token}`;
+        // --- 2. BACKGROUND (Attractive Gradient) ---
+        const gradient = ctx.createLinearGradient(0, 0, width, height);
+        gradient.addColorStop(0, "#8EC5FC"); // Light Blue
+        gradient.addColorStop(0.5, "#E0C3FC"); // Light Purple
+        gradient.addColorStop(1, "#FF9A9E"); // Pinkish
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
 
-      // ✅ API expects GET + URLs
-      const apiUrl =
-        `https://ytdownload-8wpk.onrender.com/api/dost` +
-        `?u1=${encodeURIComponent(pfp1)}` +
-        `&u2=${encodeURIComponent(pfp2)}`;
+        // Frame Border
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 30;
+        ctx.strokeRect(15, 15, width - 30, height - 30);
 
-      const res = await axios.get(apiUrl, {
-        responseType: "arraybuffer",
-        timeout: 20000
-      });
+        // --- 3. LOAD AVATARS ---
+        const avatar1Url = `https://graph.facebook.com/${senderID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+        const avatar2Url = `https://graph.facebook.com/${targetID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
 
-      const cacheDir = path.join(__dirname, "cache");
-      fs.ensureDirSync(cacheDir);
+        const avatar1 = await Canvas.loadImage(avatar1Url);
+        const avatar2 = await Canvas.loadImage(avatar2Url);
+        // Dil (Heart) Image load karna (Online link se)
+        const heart = await Canvas.loadImage("https://i.imgur.com/g8vK3fP.png"); // Heart Icon
 
-      const outPath = path.join(
-        cacheDir,
-        `dost_${uid1}_${uid2}.png`
-      );
+        // --- 4. DRAWING ---
+        
+        // Photos Draw karna (Circle Function se)
+        drawCircle(ctx, avatar1, 150, 180, 350); // Aap (Left)
+        drawCircle(ctx, avatar2, 700, 180, 350); // Dost (Right)
 
-      fs.writeFileSync(outPath, Buffer.from(res.data));
+        // Heart Center mein
+        ctx.drawImage(heart, 525, 280, 150, 150);
 
-      await api.sendMessage(
-        {
-          body: "🦅 SARDAR RDX DOSTI FRAME 🦅",
-          attachment: fs.createReadStream(outPath)
-        },
-        threadID,
-        messageID
-      );
+        // Text: BEST FRIENDS
+        ctx.font = "bold 80px Sans";
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.shadowColor = "rgba(0,0,0,0.5)";
+        ctx.shadowBlur = 10;
+        ctx.fillText("BEST FRIENDS", width / 2, 120);
+        
+        // Text: Forever
+        ctx.font = "bold 60px Sans";
+        ctx.fillStyle = "#FF416C"; // Dark Pink
+        ctx.fillText("FOREVER", width / 2, 600);
 
-      setTimeout(() => {
-        try { fs.unlinkSync(outPath); } catch {}
-      }, 5000);
+        // Quote
+        ctx.font = "italic 35px Sans";
+        ctx.fillStyle = "#333333";
+        ctx.fillText(`"${"True friendship consists not in the multitude of friends,"}`, width / 2, 650);
 
-    } catch (err) {
-      console.error(err);
-      return api.sendMessage(
-        "❌ Image load nahi hui. Ab blank frame nahi aana chahiye.",
-        threadID,
-        messageID
-      );
+        // --- 5. SENDING ---
+        const filePath = path.join(__dirname, "cache", `friend_${senderID}_${targetID}.png`);
+        const buffer = canvas.toBuffer("image/png");
+        fs.writeFileSync(filePath, buffer);
+
+        api.sendMessage({
+            body: `💖 **FRIENDSHIP GOALS** 💖\n✨ ${senderID} 🤝 ${targetID}`,
+            attachment: fs.createReadStream(filePath)
+        }, threadID, () => fs.unlinkSync(filePath), messageID);
+
+    } catch (e) {
+        console.log(e);
+        api.sendMessage("❌ Error generating frame. Please try again.", threadID, messageID);
     }
-  }
 };

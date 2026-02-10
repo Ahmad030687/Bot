@@ -3,21 +3,22 @@ const path = require("path");
 
 module.exports.config = {
     name: "gclock",
-    version: "1.0.0",
-    hasPermssion: 2, // Sirf Bot Admin/Owner is command ko On/Off kare
+    version: "2.0.0", // Updated Version
+    hasPermssion: 1, // Admin/Group Admin
     credits: "Ahmad RDX",
-    description: "Prevent Name/Emoji Change (Without Admin)",
+    description: "Anti-Change Name & Emoji",
     commandCategory: "system",
     usages: "[on/off]",
     cooldowns: 5
 };
 
-// Database file taake yaad rahe ke original name/emoji kya tha
 const dbPath = path.join(__dirname, "cache", "guard_settings.json");
 
-// Helper Functions
+// Settings Load/Save Functions
 function loadSettings() {
-    if (!fs.existsSync(dbPath)) fs.writeFileSync(dbPath, JSON.stringify({}));
+    if (!fs.existsSync(dbPath)) {
+        fs.writeFileSync(dbPath, JSON.stringify({}));
+    }
     return JSON.parse(fs.readFileSync(dbPath));
 }
 
@@ -31,72 +32,88 @@ module.exports.run = async function ({ api, event, args }) {
     const cmd = args[0] ? args[0].toLowerCase() : "";
 
     if (cmd === "on") {
-        // Current Group Info Save kar lo
-        const threadInfo = await api.getThreadInfo(threadID);
-        
-        settings[threadID] = {
-            status: true,
-            name: threadInfo.threadName,
-            emoji: threadInfo.emoji,
-            color: threadInfo.color
-        };
-        saveSettings(settings);
-        return api.sendMessage("🛡️ **Guard Mode ON!**\nاب اگر کسی نے نام یا ایموجی بدلا تو میں فوراً واپس تبدیل کر دوں گا۔", threadID);
+        try {
+            // Current Group Info fetch karna zaroori hai
+            const threadInfo = await api.getThreadInfo(threadID);
+            
+            settings[threadID] = {
+                status: true,
+                originalName: threadInfo.threadName,
+                originalEmoji: threadInfo.emoji,
+                originalColor: threadInfo.color
+            };
+            
+            saveSettings(settings);
+            console.log(`[GUARD] Saved Settings for Group: ${threadID}`);
+            return api.sendMessage(`🛡️ **Guard Active!**\nName: ${threadInfo.threadName}\nEmoji: ${threadInfo.emoji}\nAb agar koi change karega to mai wapis yehi laga dunga.`, threadID);
+        } catch (e) {
+            return api.sendMessage("❌ Error: Mai group info nahi le pa raha.", threadID);
+        }
     } 
     else if (cmd === "off") {
         if (settings[threadID]) {
             settings[threadID].status = false;
             saveSettings(settings);
         }
-        return api.sendMessage("😴 **Guard Mode OFF!**\nاب آپ تبدیلیاں کر سکتے ہیں۔", threadID);
+        return api.sendMessage("😴 **Guard OFF!**", threadID);
     } 
     else {
-        return api.sendMessage("❌ Use: `#guard on` or `#guard off`", threadID);
+        return api.sendMessage("Usage: `#guard on` or `#guard off`", threadID);
     }
 };
 
-// --- YEH EVENT LISTENER HAI (Jo changes ko pakrega) ---
+// --- MAIN EVENT HANDLER ---
 module.exports.handleEvent = async function ({ api, event }) {
+    // Sirf Admin logs check karne hain
+    if (!event.logMessageType) return;
+
     const { threadID, logMessageType, logMessageData } = event;
     const settings = loadSettings();
 
-    // Agar Guard Mode OFF hai ya is group ka data nahi hai to wapis jao
+    // 1. Check agar Guard ON hai
     if (!settings[threadID] || !settings[threadID].status) return;
 
-    // 1. Agar kisi ne GROUP NAME change kiya
+    // --- CASE 1: NAME CHANGE ---
     if (logMessageType === "log:thread-name") {
+        console.log(`[GUARD] Name Change Detected in ${threadID}`);
+        
         const newName = logMessageData.name;
-        const oldName = settings[threadID].name;
+        const oldName = settings[threadID].originalName;
 
-        // Agar naya naam original se alag hai
+        // Agar naam different hai
         if (newName !== oldName) {
-            // Wapis change karo
+            console.log(`[GUARD] Reverting Name to: ${oldName}`);
+            
+            // Wapis Old Name set karo
             api.setTitle(oldName, threadID, (err) => {
-                if (!err) {
-                    api.sendMessage(`⚠️ **Allowed نہیں ہے!**\nنام واپس "${oldName}" کر دیا گیا ہے۔`, threadID);
+                if (err) {
+                    console.error("[GUARD ERROR] Cannot change name (No Permission?)");
+                    api.sendMessage("❌ Mai Name wapis nahi badal saka! Shayad mujhe Admin permission chahiye.", threadID);
+                } else {
+                    api.sendMessage(`⚠️ **Not Allowed!**\nName wapis "${oldName}" kar diya gaya hai.`, threadID);
                 }
             });
         }
     }
 
-    // 2. Agar kisi ne EMOJI change kiya
+    // --- CASE 2: EMOJI CHANGE ---
     if (logMessageType === "log:thread-icon") {
+        console.log(`[GUARD] Emoji Change Detected in ${threadID}`);
+
         const newEmoji = logMessageData.thread_icon;
-        const oldEmoji = settings[threadID].emoji;
+        const oldEmoji = settings[threadID].originalEmoji;
 
         if (newEmoji !== oldEmoji) {
-            api.changeThreadColor(settings[threadID].color || "", threadID); // Color aksar emoji ke sath reset hota hai
+            console.log(`[GUARD] Reverting Emoji to: ${oldEmoji}`);
+            
             api.changeThreadEmoji(oldEmoji, threadID, (err) => {
-                if (!err) {
+                if (err) {
+                    console.error("[GUARD ERROR] Cannot change emoji");
+                    api.sendMessage("❌ Emoji wapis change nahi ho raha! (Check Admin Rights)", threadID);
+                } else {
                     api.sendMessage(`⚠️ **Emoji Change Mana Hai!**`, threadID);
                 }
             });
         }
-    }
-    
-    // 3. DP (Image) Lock (Thora mushkil hai baghair admin ke, lekin try karega)
-    if (logMessageType === "log:thread-image") {
-       api.sendMessage("⚠️ **DP Change Detect hui!**\nچونکہ میں ایڈمن نہیں ہوں، میں پرانی DP واپس اپلوڈ نہیں کر سکتا، لیکن خبردار کر رہا ہوں!", threadID);
-       // Note: DP wapis lagane ke liye bot ke paas image file honi chahiye.
     }
 };

@@ -4,55 +4,53 @@ const path = require("path");
 
 module.exports.config = {
     name: "dosti",
-    version: "3.1.0", // Same version logic as visuals
+    version: "12.0.0",
     hasPermssion: 0,
     credits: "Ahmad RDX",
-    description: "Interaction Commands (Visuals Logic)",
+    description: "Slap/Kiss/Bed (Visuals Logic Copy)",
     commandCategory: "img",
-    usages: "[mention or reply]",
+    usages: "[reply or mention]",
     cooldowns: 5,
     aliases: ["slap", "spank", "kiss", "bed"]
 };
 
 module.exports.run = async function ({ api, event, args }) {
     const { threadID, messageID, senderID, body } = event;
-    
-    // --- 1. COMMAND LOGIC (SAME AS VISUALS.JS) ---
-    // Body se command nikalna: #slap -> slap
-    // Visuals.js wala exact tareeka
+
+    // --- 1. COMMAND NAME (Visuals.js Style) ---
+    // Body: "#slap @Ali" -> split -> "#slap" -> slice(1) -> "slap"
     const cmd = body.split(" ")[0].slice(1).toLowerCase();
 
-    // --- 2. TARGET SELECTION LOGIC (SAME AS VISUALS.JS) ---
+    // --- 2. TARGET LOGIC (Exact Copy of Visuals.js) ---
     let targetID;
 
+    // Pehle Mention Check
     if (Object.keys(event.mentions).length > 0) {
-        // 1. Mention Check
         targetID = Object.keys(event.mentions)[0];
-    } else if (event.type == "message_reply") {
-        // 2. Reply Check
+    } 
+    // Phir Reply Check
+    else if (event.type == "message_reply") {
         targetID = event.messageReply.senderID;
-    } else {
-        // Visuals main default 'senderID' hota hai, lekin yahan 2 log chahiye.
-        // Agar koi nahi mila to error dena parega.
-        return api.sendMessage("❌ Bhai kisi ko Mention karo ya Reply karo!", threadID, messageID);
+    } 
+    else {
+        // Agar dono nahi mile
+        return api.sendMessage("❌ Bhai kisi ke message par Reply karo ya Mention karo!", threadID, messageID);
     }
 
     // Khud par try rokne ke liye
     if (targetID === senderID) return api.sendMessage("❌ Khud par try mat karo!", threadID, messageID);
 
-    // --- 3. AVATAR URLS (SAME AS VISUALS.JS) ---
-    // Hum wohi link use kar rahe hain jo visuals.js mai 100% work kar raha hai
-    const avatar1 = `https://graph.facebook.com/${senderID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
-    const avatar2 = `https://graph.facebook.com/${targetID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
-
+    // --- 3. REACTION & URLS ---
     api.setMessageReaction("🤜", messageID, () => {}, true);
-    // api.sendMessage(`⏳ **Applying ${cmd.toUpperCase()}...**`, threadID, messageID); // Optional Message
 
     try {
+        // Direct URLs (Jese Visuals.js mai hain)
+        const avatar1 = `https://graph.facebook.com/${senderID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+        const avatar2 = `https://graph.facebook.com/${targetID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+
         let image;
         
-        // --- 4. EFFECT SELECTION ---
-        // Canvacord ko direct URL de rahe hain (Visuals style)
+        // --- 4. ACTION ---
         switch (cmd) {
             case "slap":
                 image = await canvacord.Canvas.slap(avatar1, avatar2);
@@ -67,21 +65,19 @@ module.exports.run = async function ({ api, event, args }) {
                 image = await canvacord.Canvas.bed(avatar1, avatar2);
                 break;
             default:
-                // Fallback (Agar command match na ho to Slap)
+                // Agar ghalati se koi aur command match ho jaye to default Slap
                 image = await canvacord.Canvas.slap(avatar1, avatar2);
                 break;
         }
 
-        // Image Save karna
+        // --- 5. SAVE & SEND ---
         const filePath = path.join(__dirname, "cache", `${cmd}_${senderID}.png`);
         fs.writeFileSync(filePath, image);
 
-        // Image Bhejna
         api.sendMessage({
             body: `🦅 **RDX ACTION: ${cmd.toUpperCase()}**`,
             attachment: fs.createReadStream(filePath)
         }, threadID, () => {
-            // Message jaane ke baad file delete
             fs.unlinkSync(filePath);
         }, messageID);
 

@@ -3,10 +3,10 @@ const path = require("path");
 
 module.exports.config = {
     name: "gclock",
-    version: "3.0.0", // Network Fix Version
-    hasPermssion: 1, // Admin Only
+    version: "4.0.0", // Debug Version
+    hasPermssion: 0, // Sab ke liye on rakha hai testing ke liye
     credits: "Ahmad RDX",
-    description: "Anti-Change Name & Emoji (Crash Proof)",
+    description: "Guard with Live Debugging",
     commandCategory: "system",
     usages: "[on/off]",
     cooldowns: 5
@@ -31,16 +31,18 @@ module.exports.run = async function ({ api, event, args }) {
     if (cmd === "on") {
         try {
             const threadInfo = await api.getThreadInfo(threadID);
+            
             settings[threadID] = {
                 status: true,
                 originalName: threadInfo.threadName,
                 originalEmoji: threadInfo.emoji,
                 originalColor: threadInfo.color
             };
+            
             saveSettings(settings);
-            return api.sendMessage(`🛡️ **Guard Active!**\nName: ${threadInfo.threadName}\nEmoji: ${threadInfo.emoji}`, threadID);
+            return api.sendMessage(`🛡️ **GUARD ACTIVE!**\n💾 Saved Name: "${threadInfo.threadName}"\n💾 Saved Emoji: "${threadInfo.emoji}"\nAb agar change hua to main cheekh kar bataunga!`, threadID);
         } catch (e) {
-            return api.sendMessage("❌ Error: Mai group info nahi le pa raha.", threadID);
+            return api.sendMessage(`❌ Error saving info: ${e.message}`, threadID);
         }
     } 
     else if (cmd === "off") {
@@ -49,52 +51,61 @@ module.exports.run = async function ({ api, event, args }) {
             saveSettings(settings);
         }
         return api.sendMessage("😴 **Guard OFF!**", threadID);
-    }
+    } 
     else {
-        return api.sendMessage("Use: `#guard on`", threadID);
+        return api.sendMessage("Likhein: `#guard on`", threadID);
     }
 };
 
 module.exports.handleEvent = async function ({ api, event }) {
+    // 1. Sirf Log messages check karo (Name/Emoji change events)
     if (!event.logMessageType) return;
 
     const { threadID, logMessageType, logMessageData } = event;
     const settings = loadSettings();
 
+    // 2. Check karo Guard ON hai ya nahi
     if (!settings[threadID] || !settings[threadID].status) return;
 
-    // --- NAME REVERT ---
+    // --- CASE 1: NAME CHANGE ---
     if (logMessageType === "log:thread-name") {
+        console.log(`[DEBUG] Name change event detected in ${threadID}`);
+        
         const newName = logMessageData.name;
         const oldName = settings[threadID].originalName;
 
+        // Group mein batao ke event pakra gaya
+        // api.sendMessage(`🕵️ **Detect:** Name change hua hai!\nNew: ${newName}\nOld: ${oldName}`, threadID);
+
         if (newName !== oldName) {
-            console.log(`[GUARD] Changing Name back to: ${oldName}`);
+            api.sendMessage(`🚨 **Alert:** Name Change Detect Hua!\nWapis "${oldName}" kar raha hoon...`, threadID);
             
-            // Yahan hum promise use karenge taake error catch ho sake
             api.setTitle(oldName, threadID, (err) => {
                 if (err) {
-                    console.log("[GUARD ERROR] Failed to change name (Network/Permission Issue)");
-                    // Agar fail ho jaye to user ko bata do
-                    api.sendMessage("⚠️ Group Name change detect hua, lekin network error ki wajah se wapis nahi kar saka.", threadID);
+                    console.error(err);
+                    api.sendMessage(`❌ **Fail:** Main naam wapis nahi badal saka!\nReason: ${err.error || err.message || "Unknown Error"}\n(Shayad main Admin nahi hoon?)`, threadID);
                 } else {
-                    api.sendMessage(`⚠️ **Allowed nahi hai!** Name wapis "${oldName}" kar diya gaya hai.`, threadID);
+                    api.sendMessage(`✅ **Success:** Naam wapis set kar diya!`, threadID);
                 }
             });
         }
     }
 
-    // --- EMOJI REVERT ---
+    // --- CASE 2: EMOJI CHANGE ---
     if (logMessageType === "log:thread-icon") {
+        console.log(`[DEBUG] Emoji change event detected in ${threadID}`);
+
         const newEmoji = logMessageData.thread_icon;
         const oldEmoji = settings[threadID].originalEmoji;
 
         if (newEmoji !== oldEmoji) {
-            console.log(`[GUARD] Changing Emoji back to: ${oldEmoji}`);
-            
+            api.sendMessage(`🚨 **Alert:** Emoji Change Detect Hua! Reverting...`, threadID);
+
             api.changeThreadEmoji(oldEmoji, threadID, (err) => {
-                if (!err) {
-                    api.sendMessage(`⚠️ **Emoji Change Mana Hai!**`, threadID);
+                if (err) {
+                    api.sendMessage(`❌ **Fail:** Emoji revert nahi ho saka.`, threadID);
+                } else {
+                    api.sendMessage(`✅ **Success:** Emoji wapis set kar diya!`, threadID);
                 }
             });
         }

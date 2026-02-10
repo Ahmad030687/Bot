@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 module.exports.config = {
-    name: "guard",
+    name: "gclock",
     version: "3.0.0", // Network Fix Version
     hasPermssion: 1, // Admin Only
     credits: "Ahmad RDX",

@@ -21,6 +21,7 @@
     "better-sqlite3": "^12.5.0",
     "canvas": "^3.2.0",
     "canvacord": "^5.4.8",
+    "cheerio": "^1.0.0-rc.12",
     "chalk": "^4.1.2",
     "express": "^5.2.1",
     "fs-extra": "^11.3.3",

@@ -3,12 +3,12 @@ const cheerio = require("cheerio");
 
 module.exports.config = {
     name: "google",
-    version: "3.0.0",
+    version: "4.0.0",
     hasPermssion: 0,
     credits: "Ahmad RDX",
-    description: "براہ راست گوگل سے سرچ کریں (اکیلی کمانڈ)",
+    description: "گوگل سرچ کا اپڈیٹڈ ورژن (Urdu Results)",
     commandCategory: "tools",
-    usages: "[سرچ کریں]",
+    usages: "[search query]",
     cooldowns: 5
 };
 
@@ -16,48 +16,62 @@ module.exports.run = async function ({ api, event, args }) {
     const { threadID, messageID } = event;
     const query = args.join(" ");
 
-    if (!query) return api.sendMessage("🔍 احمد بھائی، کچھ لکھیں تو صحیح کہ سرچ کیا کرنا ہے؟", threadID, messageID);
+    if (!query) return api.sendMessage("🔍 احمد بھائی، سرچ کرنے کے لیے کچھ لکھیں تو صحیح!", threadID, messageID);
 
-    api.sendMessage(`🚀 **RDX سسٹم گوگل پر ڈھونڈ رہا ہے...**\n"${query}"`, threadID, messageID);
+    api.sendMessage(`🚀 **RDX سسٹم ڈیٹا نکال رہا ہے...**`, threadID, messageID);
 
     try {
-        // گوگل سرچ کا لنک
-        const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=ur`;
+        // Google Search URL (Urdu interface)
+        const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=ur&gl=pk`;
         
-        // گوگل کو دھوکہ دینے کے لیے براؤزر جیسا ہیڈر
+        // Modern Browser Headers
         const headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9,ur;q=0.8"
         };
 
         const response = await axios.get(url, { headers });
         const $ = cheerio.load(response.data);
+        
         let results = [];
 
-        // گوگل کے رزلٹس نکالنے کا لاجک
-        $(".tF2Cpc").each((i, el) => {
+        // Naye selectors jo zyada stable hain
+        $("div.MjjYud").each((i, el) => {
             const title = $(el).find("h3").text();
             const link = $(el).find("a").attr("href");
-            const description = $(el).find(".VwiC3b").text();
+            const snippet = $(el).find("div.VwiC3b").text() || $(el).find("div.kb0Odf").text();
 
-            if (title && link) {
-                results.push({ title, link, description });
+            if (title && link && link.startsWith("http")) {
+                results.push({ title, link, snippet });
             }
         });
 
-        if (results.length === 0) return api.sendMessage("❌ معذرت احمد بھائی، گوگل پر کچھ نہیں ملا۔", threadID, messageID);
+        if (results.length === 0) {
+            // Fallback: Agar upar wala fail ho jaye to purana tariqa try karein
+            $("div.g").each((i, el) => {
+                const title = $(el).find("h3").text();
+                const link = $(el).find("a").attr("href");
+                if (title && link) results.push({ title, link, snippet: "" });
+            });
+        }
 
-        // جواب کو خوبصورت بنانا
-        let replyMsg = `🌐 **گوگل سرچ رزلٹس (RDX)** 🌐\n\n`;
+        if (results.length === 0) {
+            return api.sendMessage("❌ معذرت احمد بھائی، گوگل نے ڈیٹا دینے سے انکار کر دیا (Captcha یا Block)۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔", threadID, messageID);
+        }
 
-        results.slice(0, 3).forEach((item, index) => {
-            replyMsg += `📍 **${index + 1}. ${item.title}**\n`;
+        let replyMsg = `🌐 **گوگل رزلٹس (RDX اپڈیٹ)** 🌐\n\n`;
+
+        results.slice(0, 4).forEach((item, index) => {
+            replyMsg += `🔥 **${index + 1}. ${item.title}**\n`;
             replyMsg += `🔗 ${item.link}\n`;
-            replyMsg += `📝 ${item.description.substring(0, 100)}...\n\n`;
+            if (item.snippet) replyMsg += `📝 ${item.snippet.substring(0, 120)}...\n`;
+            replyMsg += `\n`;
         });
 
         api.sendMessage(replyMsg, threadID, messageID);
 
     } catch (error) {
-        api.sendMessage("❌ سرور میں مسئلہ آ گیا ہے، دوبارہ کوشش کریں۔", threadID, messageID);
+        console.log(error);
+        api.sendMessage("❌ احمد بھائی، گوگل سائیڈ پر کوئی مسئلہ آ رہا ہے۔", threadID, messageID);
     }
 };

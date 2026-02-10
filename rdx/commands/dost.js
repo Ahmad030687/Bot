@@ -105,7 +105,7 @@ module.exports.run = async function ({ api, event }) {
         // Text Shadow for 3D effect
         ctx.shadowColor = "#FFD700"; // Gold shadow
         ctx.shadowBlur = 15;
-        ctx.fillText("ROYAL BOND", width / 2, 120);
+        ctx.fillText("LOYAL FRIENDS", width / 2, 120);
         ctx.shadowBlur = 0; // Reset
 
         // Subtitle

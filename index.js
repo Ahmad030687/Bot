@@ -1,3 +1,12 @@
+// --- IPV6 ERROR FIX (RDX) ---
+const dns = require("dns");
+try {
+    dns.setDefaultResultOrder("ipv4first");
+} catch (e) {
+    console.log("IPv4 Force Failed (Old Node Version), ignoring...");
+}
+// -----------------------------
+
 const fs = require('fs-extra');
 const path = require('path');
 const express = require('express'); // Express shamil kiya

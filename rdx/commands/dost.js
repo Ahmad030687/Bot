@@ -3,74 +3,132 @@ const fs = require("fs-extra");
 const path = require("path");
 
 module.exports.config = {
-    name: "dost",
-    version: "6.0.0",
+    name: "friend",
+    version: "8.0.0", // Ultimate Version
     hasPermssion: 0,
     credits: "Ahmad RDX",
-    description: "Royal Frame (Fits Perfectly)",
+    description: "Premium Gold/Silver Frame (No Links)",
     commandCategory: "img",
-    usages: "[mention or reply]",
-    cooldowns: 5,
-    aliases: ["bff", "dosti"]
+    usages: "[reply or mention]",
+    cooldowns: 10,
+    aliases: ["bff", "dosti", "royalfriend"]
 };
+
+// --- HELPER FUNCTION: DRAW CIRCULAR AVATAR WITH BORDER ---
+function drawStyledAvatar(ctx, image, x, y, size, borderColor1, borderColor2) {
+    ctx.save();
+    
+    // 1. Define Circle Path & Clip
+    ctx.beginPath();
+    ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
+    ctx.closePath();
+    ctx.clip();
+    // Draw Image
+    ctx.drawImage(image, x, y, size, size);
+    ctx.restore(); // Restore context to stop clipping
+
+    // 2. Draw Metallic Border (Gradient Stroke)
+    const gradient = ctx.createLinearGradient(x, y, x + size, y + size);
+    gradient.addColorStop(0, borderColor1);   // Light part
+    gradient.addColorStop(0.5, borderColor2); // Dark part
+    gradient.addColorStop(1, borderColor1);   // Light part again
+
+    ctx.beginPath();
+    ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
+    ctx.lineWidth = 25; // Thick Premium Border
+    ctx.strokeStyle = gradient;
+    // Add Glow Shadow
+    ctx.shadowColor = borderColor1;
+    ctx.shadowBlur = 20;
+    ctx.stroke();
+    
+    // Reset Shadow for next elements
+    ctx.shadowBlur = 0;
+}
 
 module.exports.run = async function ({ api, event }) {
     const { threadID, messageID, senderID } = event;
     let targetID;
 
-    // --- TARGET LOGIC ---
+    // --- ROBUST TARGET LOGIC ---
     if (event.type == "message_reply") {
-        targetID = event.messageReply.senderID || event.messageReply.author;
+        targetID = event.messageReply.senderID;
     } else if (Object.keys(event.mentions).length > 0) {
         targetID = Object.keys(event.mentions)[0];
     } else {
-        return api.sendMessage("❌ Kisi dost ko Mention karo ya Reply karo!", threadID, messageID);
+        return api.sendMessage("👑 شاہی فریم کے لیے کسی دوست کو Reply یا Mention کریں!", threadID, messageID);
     }
 
-    if (targetID === senderID) return api.sendMessage("❌ Khud par try mat karo!", threadID, messageID);
+    if (targetID === senderID) return api.sendMessage("❌ خود اکیلے فریم میں اچھے نہیں لگو گے!", threadID, messageID);
 
-    api.setMessageReaction("💖", messageID, () => {}, true);
-    api.sendMessage("✨ **Designing Royal Frame...**", threadID, messageID);
+    api.setMessageReaction("✨", messageID, () => {}, true);
+    api.sendMessage("🎨 **Creating Premium Masterpiece...**", threadID, messageID);
 
     try {
-        // --- 1. LOAD FRAME FIRST (To get size) ---
-        // Yahan wo link dalein jo aapne upload kiya (Postimg wala link best hai)
-        const frameImageUrl = "https://i.postimg.cc/8PZkmmJG/1770355527236.png"; 
-        const frame = await Canvas.loadImage(frameImageUrl);
-        
-        // Canvas size same as frame
-        const canvas = Canvas.createCanvas(frame.width, frame.height);
+        // --- 1. SETUP CANVAS ---
+        const width = 1280;
+        const height = 720;
+        const canvas = Canvas.createCanvas(width, height);
         const ctx = canvas.getContext("2d");
 
-        // --- 2. LOAD AVATARS ---
+        // --- 2. DRAW ROYAL BACKGROUND ---
+        const bgGrad = ctx.createRadialGradient(width/2, height/2, 100, width/2, height/2, 800);
+        bgGrad.addColorStop(0, "#001f3f"); // Deep Royal Blue Center
+        bgGrad.addColorStop(1, "#000000"); // Black Edges
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, width, height);
+
+        // Add some decorative faint patterns (Optional - simple lines)
+        ctx.strokeStyle = "rgba(255, 215, 0, 0.1)"; // Faint Gold
+        ctx.lineWidth = 5;
+        ctx.strokeRect(50, 50, width-100, height-100);
+
+        // --- 3. LOAD AVATARS (HD) ---
         const avatar1 = await Canvas.loadImage(`https://graph.facebook.com/${senderID}/picture?width=720&height=720&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`);
         const avatar2 = await Canvas.loadImage(`https://graph.facebook.com/${targetID}/picture?width=720&height=720&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`);
 
-        // --- 3. DRAW AVATARS (BEHIND THE FRAME) ---
-        // Yeh coordinates maine andazan set kiye hain frame ke hisaab se.
-        // Agar pic thori idhar udhar ho to X aur Y change karein.
+        // --- 4. DRAW AVATARS WITH PREMIUM BORDERS ---
+        const avatarSize = 400;
+        const yPos = 160;
 
-        // LEFT GOLD FRAME (Sender)
-        // x=165, y=200, width=285, height=390
-        ctx.drawImage(avatar1, 165, 200, 285, 390);
+        // Left Avatar (GOLD THEME) - Sender
+        drawStyledAvatar(ctx, avatar1, 150, yPos, avatarSize, "#FFD700", "#DAA520");
 
-        // RIGHT SILVER FRAME (Target)
-        // x=665, y=200, width=285, height=390
-        ctx.drawImage(avatar2, 665, 200, 285, 390);
+        // Right Avatar (SILVER THEME) - Target
+        drawStyledAvatar(ctx, avatar2, 730, yPos, avatarSize, "#C0C0C0", "#A9A9A9");
 
-        // --- 4. DRAW FRAME ON TOP (Covering edges) ---
-        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+        // --- 5. ADD PREMIUM TEXT ---
+        // Main Title
+        ctx.font = "bold 80px Sans";
+        ctx.fillStyle = "#FFFFFF";
+        ctx.textAlign = "center";
+        // Text Shadow for 3D effect
+        ctx.shadowColor = "#FFD700"; // Gold shadow
+        ctx.shadowBlur = 15;
+        ctx.fillText("ROYAL BOND", width / 2, 120);
+        ctx.shadowBlur = 0; // Reset
 
-        // --- 5. SAVE & SEND ---
-        const filePath = path.join(__dirname, "cache", `friend_royal_${senderID}.png`);
+        // Subtitle
+        ctx.font = "italic 40px Sans";
+        ctx.fillStyle = "#E0E0E0";
+        ctx.fillText("An Unbreakable Friendship", width / 2, 650);
+        
+        // Center Element (e.g., a small crown or symbol)
+        ctx.font = "60px Sans";
+        ctx.fillText("👑", width / 2, height / 2);
+
+
+        // --- 6. SAVE & SEND ---
+        const filePath = path.join(__dirname, "cache", `friend_premium_${senderID}.png`);
         fs.writeFileSync(filePath, canvas.toBuffer());
 
         api.sendMessage({
-            body: `💖 **SIDE-BY-SIDE ON THE JOURNEY**`,
+            body: `✨ **A Premium Frame for Premium Friends** ✨`,
             attachment: fs.createReadStream(filePath)
         }, threadID, () => fs.unlinkSync(filePath), messageID);
 
     } catch (e) {
+        console.error(e);
         api.sendMessage(`❌ Error: ${e.message}`, threadID, messageID);
     }
 };

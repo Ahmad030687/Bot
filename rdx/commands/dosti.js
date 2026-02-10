@@ -4,70 +4,89 @@ const path = require("path");
 
 module.exports.config = {
     name: "dosti",
-    version: "7.0.0",
+    version: "3.1.0", // Same version logic as visuals
     hasPermssion: 0,
     credits: "Ahmad RDX",
-    description: "Slap/Kiss/Bed (Simple Version)",
+    description: "Interaction Commands (Visuals Logic)",
     commandCategory: "img",
-    usages: "[reply or mention]",
+    usages: "[mention or reply]",
     cooldowns: 5,
     aliases: ["slap", "spank", "kiss", "bed"]
 };
 
-module.exports.run = async function ({ api, event }) {
+module.exports.run = async function ({ api, event, args }) {
     const { threadID, messageID, senderID, body } = event;
     
-    // Command Name (e.g. #slap -> slap)
-    // Simple tareeka: Body ka pehla lafz lo, # hata do
-    const cmd = body.split(" ")[0].replace(/^./, "").toLowerCase();
+    // --- 1. COMMAND LOGIC (SAME AS VISUALS.JS) ---
+    // Body se command nikalna: #slap -> slap
+    // Visuals.js wala exact tareeka
+    const cmd = body.split(" ")[0].slice(1).toLowerCase();
 
-    // --- TARGET LOGIC (Direct Copy from Friend.js) ---
-    let targetID = null;
+    // --- 2. TARGET SELECTION LOGIC (SAME AS VISUALS.JS) ---
+    let targetID;
 
-    if (event.type == "message_reply") {
-        targetID = event.messageReply.senderID;
-    } else if (Object.keys(event.mentions).length > 0) {
+    if (Object.keys(event.mentions).length > 0) {
+        // 1. Mention Check
         targetID = Object.keys(event.mentions)[0];
+    } else if (event.type == "message_reply") {
+        // 2. Reply Check
+        targetID = event.messageReply.senderID;
+    } else {
+        // Visuals main default 'senderID' hota hai, lekin yahan 2 log chahiye.
+        // Agar koi nahi mila to error dena parega.
+        return api.sendMessage("❌ Bhai kisi ko Mention karo ya Reply karo!", threadID, messageID);
     }
 
-    // DEBUGGING LINE (Console check karein agar error aye)
-    console.log(`[RDX DEBUG] Sender: ${senderID}, Target: ${targetID}, Cmd: ${cmd}`);
-
-    if (!targetID) {
-        return api.sendMessage("🚫 Yar kisi ke msg par Reply karo ya Mention karo!", threadID, messageID);
-    }
-
+    // Khud par try rokne ke liye
     if (targetID === senderID) return api.sendMessage("❌ Khud par try mat karo!", threadID, messageID);
 
-    // --- ACTION ---
+    // --- 3. AVATAR URLS (SAME AS VISUALS.JS) ---
+    // Hum wohi link use kar rahe hain jo visuals.js mai 100% work kar raha hai
+    const avatar1 = `https://graph.facebook.com/${senderID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+    const avatar2 = `https://graph.facebook.com/${targetID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+
     api.setMessageReaction("🤜", messageID, () => {}, true);
+    // api.sendMessage(`⏳ **Applying ${cmd.toUpperCase()}...**`, threadID, messageID); // Optional Message
 
     try {
-        // Avatars
-        const avatar1 = `https://graph.facebook.com/${senderID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
-        const avatar2 = `https://graph.facebook.com/${targetID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
-
         let image;
-        // Commands check
-        if (cmd.includes("slap")) image = await canvacord.Canvas.slap(avatar1, avatar2);
-        else if (cmd.includes("spank")) image = await canvacord.Canvas.spank(avatar1, avatar2);
-        else if (cmd.includes("kiss")) image = await canvacord.Canvas.kiss(avatar1, avatar2);
-        else if (cmd.includes("bed")) image = await canvacord.Canvas.bed(avatar1, avatar2);
-        else {
-             // Agar command naam match na kare to default Slap
-             image = await canvacord.Canvas.slap(avatar1, avatar2);
+        
+        // --- 4. EFFECT SELECTION ---
+        // Canvacord ko direct URL de rahe hain (Visuals style)
+        switch (cmd) {
+            case "slap":
+                image = await canvacord.Canvas.slap(avatar1, avatar2);
+                break;
+            case "spank":
+                image = await canvacord.Canvas.spank(avatar1, avatar2);
+                break;
+            case "kiss":
+                image = await canvacord.Canvas.kiss(avatar1, avatar2);
+                break;
+            case "bed":
+                image = await canvacord.Canvas.bed(avatar1, avatar2);
+                break;
+            default:
+                // Fallback (Agar command match na ho to Slap)
+                image = await canvacord.Canvas.slap(avatar1, avatar2);
+                break;
         }
 
-        const filePath = path.join(__dirname, "cache", `dost_action_${senderID}.png`);
+        // Image Save karna
+        const filePath = path.join(__dirname, "cache", `${cmd}_${senderID}.png`);
         fs.writeFileSync(filePath, image);
 
+        // Image Bhejna
         api.sendMessage({
             body: `🦅 **RDX ACTION: ${cmd.toUpperCase()}**`,
             attachment: fs.createReadStream(filePath)
-        }, threadID, () => fs.unlinkSync(filePath), messageID);
+        }, threadID, () => {
+            // Message jaane ke baad file delete
+            fs.unlinkSync(filePath);
+        }, messageID);
 
     } catch (error) {
-        console.log(error);
+        console.error(error);
         api.sendMessage(`❌ Error: ${error.message}`, threadID, messageID);
     }
 };

@@ -638,11 +638,10 @@ async function handleAIChat(api, event, send, config, client, userMessage, userN
   const stylizedOwner = toPremium("AHMAD RDX");
 
   const finalMessage = `🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐒𝐘𝐒𝐓𝐄𝐌 🦅\n` +
-                       `👤 𝐔𝐬𝐞𝐫: ${stylizedUser}\n` +
                        `━━━━━━━━━━━━━━━━\n` +
                        `${stylizedReply}\n` +
                        `━━━━━━━━━━━━━━━━\n` +
-                       
+                       `👤 𝐔𝐬𝐞𝐫: ${stylizedUser}\n` +
                        `✨ 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 ${stylizedOwner}`;
 
   const info = await api.sendMessage(finalMessage, threadID, messageID);
@@ -696,11 +695,10 @@ module.exports = {
       const stylizedOwner = toPremium("AHMAD RDX");
 
       const finalMessage = `🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐒𝐘𝐒𝐓𝐄𝐌 🦅\n` +
-                           `👤 𝐔𝐬𝐞𝐫: ${stylizedUser}\n` +
                            `━━━━━━━━━━━━━━━━\n` +
                            `${stylizedReaction}\n` +
                            `━━━━━━━━━━━━━━━━\n` +
-                           
+                           `👤 𝐔𝐬𝐞𝐫: ${stylizedUser}\n` +
                            `✨ 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 ${stylizedOwner}`;
 
       const info = await api.sendMessage(finalMessage, threadID, messageID);
@@ -745,10 +743,10 @@ module.exports = {
       const stylizedOwner = toPremium("AHMAD RDX");
 
       const finalMessage = `🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐒𝐘𝐒𝐓𝐄𝐌 🦅\n` +
-                           `👤 𝐔𝐬𝐞𝐫: ${stylizedUser}\n` +
                            `━━━━━━━━━━━━━━━━\n` +
                            `${stylizedResponse}\n` +
                            `━━━━━━━━━━━━━━━━\n` +
+                           `👤 𝐔𝐬𝐞𝐫: ${stylizedUser}\n` +
                            `✨ 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 ${stylizedOwner}`;
 
       const info = await api.sendMessage(finalMessage, threadID, messageID);

@@ -4,115 +4,117 @@ const path = require("path");
 
 module.exports.config = {
     name: "auto",
-    version: "3.5.0",
+    version: "40.0.0", // Ultra Pro Version
     hasPermssion: 0,
-    credits: "Ahmad RDX",
-    description: "Premium Video Downloader with Real Animation",
-    commandCategory: "media",
+    credits: "Ahmad Ali Safdar",
+    description: "Premium Universal Downloader with Advanced Animation",
+    commandCategory: "downloader",
     usages: "[link]",
-    cooldowns: 5,
-    aliases: ["fb", "insta", "tiktok", "dl", "video"]
+    cooldowns: 5
 };
 
-// --- RDX ANIMATION ENGINE ---
-async function animateLoading(api, threadID, messageID) {
-    const states = [
-        { bar: "[▒▒▒▒▒▒▒▒▒▒]", pct: "10%", status: "🔎 SEARCHING URL..." },
-        { bar: "[██▒▒▒▒▒▒▒▒]", pct: "30%", status: "📡 ESTABLISHING CONNECTION..." },
-        { bar: "[████▒▒▒▒▒▒]", pct: "50%", status: "🔓 VIDEO FIND..." },
-        { bar: "[██████▒▒▒▒]", pct: "70%", status: "📥 EXTRACTING VIDEO DATA..." },
-        { bar: "[████████▒▒]", pct: "90%", status: "💾 SAVING TO SERVER..." },
-        { bar: "[██████████]", pct: "100%", status: "✅ SENDING TO CHAT..." }
-    ];
+// --- ANIMATION ENGINE ---
+const frames = [
+    "⠋ Connecting to RDX Server...",
+    "⠙ Verifying URL integrity...",
+    "⠹ Bypassing Security...",
+    "⠸ Extracting Media Data...",
+    "⠼ Downloading Content...",
+    "⠴ Optimizing Video Quality...",
+    "⠦ Finalizing..."
+];
 
-    for (let state of states) {
-        await new Promise(resolve => setTimeout(resolve, 1200)); // 1.2 Second delay for realism
-        await api.editMessage(
-            `🚀 **RDX DOWNLOADER**\n\n` +
-            `▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
-            `${state.bar} **${state.pct}**\n` +
-            `📂 Status: ${state.status}\n` +
-            `▬▬▬▬▬▬▬▬▬▬▬▬▬▬`,
-            messageID
-        );
-    }
-}
-
-// --- UNIVERSAL SCRAPER LOGIC (Smart Switch) ---
-async function getLink(url) {
-    try {
-        // Method 1: Primary Heavy Scraper (TikTok/FB/Insta Friendly)
-        const { data } = await axios.post("https://co.wuk.sh/api/json", {
-            url: url,
-            vQuality: "720",
-            filenamePattern: "basic"
-        }, {
-            headers: { "Accept": "application/json", "Content-Type": "application/json" }
-        });
-        if (data && data.url) return { url: data.url, type: "video" };
-
-        // Method 2: Backup Scraper (Agar pehla fail ho)
-        const backup = await axios.get(`https://api.tiklydown.eu.org/api/download?url=${url}`);
-        if (backup.data && backup.data.video && backup.data.video.url) return { url: backup.data.video.url, type: "video" };
-
-        return null;
-    } catch (e) {
-        return null;
-    }
-}
+const progressBar = (percentage) => {
+    const filled = Math.round(percentage / 10);
+    const empty = 10 - filled;
+    return `[${'█'.repeat(filled)}${'▒'.repeat(empty)}] ${percentage}%`;
+};
 
 module.exports.run = async function ({ api, event, args }) {
     const { threadID, messageID } = event;
     const link = args.join(" ");
 
-    if (!link) return api.sendMessage("❌ احمد بھائی، لنک تو دیں! (FB, Insta, TikTok, YT)", threadID, messageID);
+    if (!link) return api.sendMessage("❌ **RDX SYSTEM:** Link to dein Ahmad bhai!", threadID, messageID);
 
-    // 1. Start Initial Message
-    const initialMsg = await api.sendMessage(`🚀 **RDX SYSTEM STARTING...**`, threadID);
-    const animMessageID = initialMsg.messageID;
+    // 1. Initial Loading Message
+    let loadingMsg = await api.sendMessage(`🔄 **RDX SERVER INITIALIZING...**\n\n${progressBar(0)}\nStatus: Request Received`, threadID);
 
     try {
-        // 2. Start Animation (Background mein chalega)
-        const animationPromise = animateLoading(api, threadID, animMessageID);
-        
-        // 3. Start Scraping (Real work)
-        const scraperPromise = getLink(link);
-
-        // Dono ko parallel chalayenge lekin wait karenge result ka
-        const [_, result] = await Promise.all([animationPromise, scraperPromise]);
-
-        if (!result || !result.url) {
-            return api.editMessage("❌ **FAILED:** لنک پرائیویٹ ہے یا سکریپر ایکسپائر ہو گیا ہے۔", animMessageID);
+        // --- ANIMATION PHASE 1: Fetching Data ---
+        // Fake loading effect to show "Premium" feel
+        for (let i = 0; i < 4; i++) {
+            await new Promise(resolve => setTimeout(resolve, 800));
+            await api.editMessage(
+                `🚀 **RDX PREMIUM DOWNLOADER**\n\n${progressBar((i + 1) * 20)}\nStatus: ${frames[i]}`,
+                loadingMsg.messageID
+            );
         }
 
-        // 4. Video Download
-        const filePath = path.join(__dirname, "cache", `rdx_vid_${Date.now()}.mp4`);
-        const writer = fs.createWriteStream(filePath);
+        // 2. Real API Call (Using New Endpoint)
+        const RDX_API = `https://ahmad-rdx-api-cos1.onrender.com/ahmad-dl?url=${encodeURIComponent(link)}`;
         
+        const res = await axios.get(RDX_API);
+        const data = res.data;
+
+        if (!data.url) {
+            return api.editMessage("❌ **FAILED:** Link Expired or Private Video.", loadingMsg.messageID);
+        }
+
+        // --- ANIMATION PHASE 2: Downloading File ---
+        await api.editMessage(
+            `🚀 **RDX PREMIUM DOWNLOADER**\n\n${progressBar(90)}\nStatus: ${frames[5]}`,
+            loadingMsg.messageID
+        );
+
+        // 3. File Handling
+        const cacheDir = path.join(__dirname, "cache");
+        if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+        const filePath = path.join(cacheDir, `rdx_${Date.now()}.mp4`);
+
         const videoResponse = await axios({
-            url: result.url,
             method: 'GET',
+            url: data.url,
             responseType: 'stream'
         });
 
+        const writer = fs.createWriteStream(filePath);
         videoResponse.data.pipe(writer);
 
-        writer.on('finish', () => {
-            // 5. Send Final Video
-            api.unsendMessage(animMessageID); // Loading message delete
+        writer.on('finish', async () => {
+            // Check File Size
+            const stats = fs.statSync(filePath);
+            if (stats.size < 2000) {
+                fs.unlinkSync(filePath);
+                return api.editMessage("❌ Error: Corrupted File Received.", loadingMsg.messageID);
+            }
             
+            const sizeMB = stats.size / (1024 * 1024);
+            if (sizeMB > 50) { // Increased limit slightly for HD
+                fs.unlinkSync(filePath);
+                return api.editMessage(`⚠️ **LIMIT EXCEEDED:** Video (${sizeMB.toFixed(2)}MB) is too large for Messenger.`, loadingMsg.messageID);
+            }
+
+            // --- FINAL PHASE: Sending ---
+            await api.editMessage(
+                `🚀 **RDX PREMIUM DOWNLOADER**\n\n${progressBar(100)}\nStatus: ✅ Uploading to Chat...`,
+                loadingMsg.messageID
+            );
+
+            // Thora sa delay taake user 100% dekh sake
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            api.unsendMessage(loadingMsg.messageID);
+
             api.sendMessage({
-                body: `✅ **Download Complete!**\n🎥 Source: Universal Scraper`,
+                body: `🦅 **AHMAD RDX PREMIUM**\n\n📌 **Title:** ${data.title || "Unknown"}\n📊 **Size:** ${sizeMB.toFixed(2)} MB\n✨ **Quality:** High Definition`,
                 attachment: fs.createReadStream(filePath)
             }, threadID, () => fs.unlinkSync(filePath), messageID);
         });
 
         writer.on('error', (err) => {
-            api.editMessage("❌ ویڈیو ڈاؤنلوڈ کرتے وقت ایرر آ گیا۔", animMessageID);
+            api.editMessage(`❌ **FILE ERROR:** ${err.message}`, loadingMsg.messageID);
         });
 
-    } catch (e) {
-        console.error(e);
-        api.editMessage("❌ سسٹم کریش! دوبارہ کوشش کریں۔", animMessageID);
+    } catch (error) {
+        api.editMessage(`❌ **SERVER ERROR:** System Busy or API Down.`, loadingMsg.messageID);
     }
 };

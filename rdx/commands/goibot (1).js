@@ -800,7 +800,17 @@ async function handleAIChat(api, event, send, config, client, userMessage, userN
   
   api.setMessageReaction("✅", messageID, () => {}, true);
   
-  const info = await api.sendMessage(aiResponse, threadID, messageID);
+  const info = await send.reply(`
+╔══════════════════════╗
+✨ 𝐇𝐄𝐋𝐋𝐎 ${userName} ✨
+╚══════════════════════╝
+
+${emojiReaction}
+
+╔══════════════════════╗
+🤖 𝐂𝐑𝐄𝐃𝐈𝐓: 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗
+╚══════════════════════╝
+`);
   
   if (client.replies && info?.messageID) {
     client.replies.set(info.messageID, {
@@ -845,7 +855,17 @@ module.exports = {
     // Check for emoji reactions FIRST (before prefix check so emojis work without prefix)
     const emojiReaction = detectAndGetEmojiResponse(body);
     if (emojiReaction) {
-      const info = await send.reply(emojiReaction);
+      const info = await send.reply(`
+╔══════════════════════╗
+✨ 𝐇𝐄𝐋𝐋𝐎 ${userName} ✨
+╚══════════════════════╝
+
+${emojiReaction}
+
+╔══════════════════════╗
+🤖 𝐂𝐑𝐄𝐃𝐈𝐓: 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗
+╚══════════════════════╝
+`);
       if (client.replies && info?.messageID) {
         client.replies.set(info.messageID, {
           commandName: 'goibot',
@@ -880,7 +900,17 @@ module.exports = {
         response = funnyResponses[Math.floor(Math.random() * funnyResponses.length)];
         response = response.replace(/\byaar\b/gi, userName);
       }
-      const info = await send.reply(response);
+      const info = await send.reply(`
+╔══════════════════════╗
+✨ 𝐇𝐄𝐋𝐋𝐎 ${userName} ✨
+╚══════════════════════╝
+
+${response}
+
+╔══════════════════════╗
+🤖 𝐂𝐑𝐄𝐃𝐈𝐓: 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗
+╚══════════════════════╝
+`);
       
       if (client.replies && info?.messageID) {
         client.replies.set(info.messageID, {

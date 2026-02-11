@@ -3,90 +3,95 @@ const fs = require("fs-extra");
 const path = require("path");
 
 module.exports.config = {
-  name: "auto",
-  version: "30.0.0", // Verified Engine
-  hasPermssion: 0,
-  credits: "Ahmad Ali Safdar",
-  description: "Universal Downloader (Same as TikTok)",
-  commandCategory: "downloader",
-  usages: "[link]",
-  cooldowns: 5
+    name: "auto",
+    version: "2.0.0",
+    hasPermssion: 0,
+    credits: "Ahmad RDX",
+    description: "Universal Downloader (FB, Insta, TikTok, YT)",
+    commandCategory: "media",
+    usages: "[link]",
+    cooldowns: 5,
+    aliases: ["fb", "insta", "tiktok", "dl"]
 };
 
 module.exports.run = async function ({ api, event, args }) {
-  const { threadID, messageID } = event;
-  const link = args.join(" ");
+    const { threadID, messageID } = event;
+    const link = args.join(" ");
 
-  if (!link) return api.sendMessage("❌ Link to dein Ahmad bhai!", threadID, messageID);
+    if (!link) return api.sendMessage("❌ احمد بھائی، لنک تو دیں! (FB, Insta, TikTok)", threadID, messageID);
 
-  // 1. Platform Detection (Sirf Message ke liye)
-  let platform = "Media";
-  if (link.includes("facebook") || link.includes("fb.watch")) platform = "Facebook";
-  else if (link.includes("instagram")) platform = "Instagram";
-  else if (link.includes("tiktok")) platform = "TikTok";
+    // 1. Animation Frames
+    const frames = [
+        "📥 Video Find... 10%",
+        "📥 Processing... 25%",
+        "📥 Detected... 50%",
+        "📥 Downloading... 75%",
+        "📥 Completed... 100%"
+    ];
 
-  // 2. Wohi API Logic jo TikTok command mein chal rahi hai
-  const RDX_API = `https://ahmad-rdx-api.onrender.com/ahmad-dl?url=${encodeURIComponent(link)}`;
+    // 2. Initial Message bhejna
+    let infoMsg = await api.sendMessage(frames[0], threadID);
 
-  api.sendMessage(`⏳ **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗** - Fetching ${platform} Video...`, threadID, messageID);
+    try {
+        // --- ANIMATION LOOP (Fake Loading to look cool) ---
+        for (let i = 1; i < frames.length - 1; i++) {
+            await new Promise(resolve => setTimeout(resolve, 800)); // 0.8 second delay
+            await api.editMessage(frames[i], infoMsg.messageID);
+        }
 
-  try {
-    const res = await axios.get(RDX_API);
-    const data = res.data;
+        // 3. API Call (Cobalt Universal Engine)
+        // Ye API kabhi expire nahi hoti kyunke ye open-source heavy engine hai
+        const headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        };
+        
+        const res = await axios.post("https://co.wuk.sh/api/json", { 
+            url: link,
+            vQuality: "720",
+            filenamePattern: "basic"
+        }, { headers });
 
-    if (!data.status || !data.url) {
-      return api.sendMessage("❌ Link expire hai ya Private video hai.", threadID, messageID);
+        if (!res.data || !res.data.url) {
+            return api.editMessage("❌ ویڈیو نہیں ملی! لنک پرائیویٹ ہو سکتا ہے۔", infoMsg.messageID);
+        }
+
+        const videoUrl = res.data.url;
+
+        // 4. Video Download karna
+        await api.editMessage(frames[3], infoMsg.messageID); // "Downloading... 75%"
+
+        const filePath = path.join(__dirname, "cache", `video_${Date.now()}.mp4`);
+        const writer = fs.createWriteStream(filePath);
+        const response = await axios({
+            url: videoUrl,
+            method: 'GET',
+            responseType: 'stream'
+        });
+
+        response.data.pipe(writer);
+
+        return new Promise((resolve, reject) => {
+            writer.on('finish', async () => {
+                // 5. Completed & Send
+                await api.editMessage(frames[4], infoMsg.messageID); // "Completed... 100%"
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Thora wait taake user 100% dekh sake
+                
+                // Loading message delete kar ke video bhejna
+                api.unsendMessage(infoMsg.messageID);
+
+                api.sendMessage({
+                    body: `✅ **Download Successful!**\n🎥 Quality: High (RDX Server)`,
+                    attachment: fs.createReadStream(filePath)
+                }, threadID, () => fs.unlinkSync(filePath), messageID);
+                
+                resolve();
+            });
+            writer.on('error', reject);
+        });
+
+    } catch (e) {
+        console.error(e);
+        api.editMessage("❌ یہ لنک ایکسپائر ہے یا سرور بزی ہے۔", infoMsg.messageID);
     }
-
-    // 3. Cache Folder Setup
-    const cacheDir = path.join(__dirname, "cache");
-    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-    
-    // Har file ka naam alag hoga taake mix na ho
-    const filePath = path.join(cacheDir, `rdx_${Date.now()}.mp4`);
-
-    // 4. Download Stream (TikTok command wala same code)
-    const videoResponse = await axios({
-      method: 'GET',
-      url: data.url,
-      responseType: 'stream',
-      timeout: 120000 // 2 Minutes timeout
-    });
-
-    const writer = fs.createWriteStream(filePath);
-    videoResponse.data.pipe(writer);
-
-    writer.on('finish', () => {
-      // 🛡️ Empty Check
-      if (!fs.existsSync(filePath) || fs.statSync(filePath).size < 2000) {
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        return api.sendMessage("❌ Error: Download fail (Empty File).", threadID, messageID);
-      }
-
-      // 🛡️ Size Check (25MB)
-      const sizeMB = fs.statSync(filePath).size / (1024 * 1024);
-      if (sizeMB > 25) {
-        api.sendMessage(`⚠️ Video (${sizeMB.toFixed(2)}MB) Messenger limit se bari hai.\n🔗 Link: ${data.url}`, threadID, () => {
-           if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        }, messageID);
-        return;
-      }
-
-      // 5. Send Video
-      api.sendMessage({
-        body: `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗**\n📌 **Platform:** ${platform}\n📝 **Title:** ${data.title || "Video"}`,
-        attachment: fs.createReadStream(filePath)
-      }, threadID, () => {
-        // Delete after send
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      }, messageID);
-    });
-
-    writer.on('error', (err) => {
-        api.sendMessage(`❌ File Error: ${err.message}`, threadID, messageID);
-    });
-
-  } catch (error) {
-    api.sendMessage(`❌ Server Error: ${error.message}`, threadID, messageID);
-  }
 };

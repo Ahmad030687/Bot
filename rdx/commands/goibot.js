@@ -800,7 +800,20 @@ async function handleAIChat(api, event, send, config, client, userMessage, userN
   
   api.setMessageReaction("✅", messageID, () => {}, true);
   
-  const info = await api.sendMessage(aiResponse, threadID, messageID);
+const finalMsg = `
+╔══════════════════════╗
+✨ 𝐇𝐄𝐋𝐋𝐎 ${userName} ✨
+╚══════════════════════╝
+
+${aiResponse}
+
+╔══════════════════════╗
+🤖 𝐂𝐑𝐄𝐃𝐈𝐓: 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗
+╚══════════════════════╝
+`;
+
+const info = await api.sendMessage(finalMsg, threadID, messageID);
+
   
   if (client.replies && info?.messageID) {
     client.replies.set(info.messageID, {

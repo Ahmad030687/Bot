@@ -1,111 +1,157 @@
-const axios = require("axios");
-const fs = require("fs-extra");
-const path = require("path");
+const axios = require('axios');
+const fs = require('fs-extra');
+const path = require('path');
+const { ndown } = require("nayan-media-downloader"); // Anabot's Favorite Scraper
+const { getFbVideoInfo } = require("fb-downloader-scrapper");
+const instagramGetUrl = require("instagram-url-direct");
 
 module.exports.config = {
     name: "auto",
-    version: "60.0.0", // Your API Edition
+    version: "11.0.0", // ANABOT SOURCE
     hasPermssion: 0,
-    credits: "Ahmad Ali Safdar",
-    description: "Universal Downloader using Ahmad API",
-    commandCategory: "downloader",
+    credits: "AHMAD RDX",
+    description: "Real Anabot Scraper (No API Key)",
+    commandCategory: "media",
     usages: "[link]",
-    cooldowns: 5
+    cooldowns: 2
 };
 
-// --- RDX PREMIUM ANIMATION ---
-const progressBar = (percentage) => {
-    const filled = Math.round(percentage / 10);
-    const empty = 10 - filled;
-    return `[${'█'.repeat(filled)}${'▒'.repeat(empty)}] ${percentage}%`;
+// --- RDX PREMIUM FONT ENGINE ---
+const toPremium = (text) => {
+    if (!text) return "";
+    const map = {
+        a: "𝐚", b: "𝐛", c: "𝐜", d: "𝐝", e: "𝐞", f: "𝐟", g: "𝐠", h: "𝐡", i: "𝐢", j: "𝐣", k: "𝐤", l: "𝐥", m: "𝐦", n: "𝐧", o: "𝐨", p: "𝐩", q: "𝐪", r: "𝐫", s: "𝐬", t: "𝐭", u: "𝐮", v: "𝐯", w: "𝐰", x: "𝐱", y: "𝐲", z: "𝐳",
+        A: "𝐀", B: "𝐁", C: "𝐂", D: "𝐃", E: "𝐄", F: "𝐅", G: "𝐆", H: "𝐇", I: "𝐈", J: "𝐉", K: "𝐊", L: "𝐋", M: "𝐌", N: "𝐍", O: "𝐎", P: "𝐏", Q: "𝐐", R: "𝐑", S: "𝐒", T: "𝐓", U: "𝐔", V: "𝐕", W: "𝐖", X: "𝐗", Y: "𝐘", Z: "𝐙",
+        0: "𝟎", 1: "𝟏", 2: "𝟐", 3: "𝟑", 4: "𝟒", 5: "𝟓", 6: "𝟔", 7: "𝟕", 8: "𝟖", 9: "𝟗"
+    };
+    return text.split('').map(c => map[c] || c).join('');
 };
 
-const frames = [
-    "⠋ Connecting to Ahmad RDX Server...",
-    "⠙ Analyzing Link...",
-    "⠹ Extracting Media Info...",
-    "⠸ Bypass Successful...",
-    "✅ Finalizing Download..."
-];
+// --- ANABOT SCRAPER LOGIC ---
+async function anabotScraper(url, type) {
+    let videoUrl = null;
+    let quality = "SD";
 
-module.exports.run = async function ({ api, event, args }) {
-    const { threadID, messageID } = event;
-    const link = args.join(" ");
-
-    if (!link) return api.sendMessage("❌ **RDX AUTO:** Link to dein Ahmad bhai!", threadID, messageID);
-
-    // 1. Initial Loading
-    let loadingMsg = await api.sendMessage(`🔄 **RDX SYSTEM**\n\n${progressBar(0)}\nStatus: Request Sent...`, threadID);
-
+    // 🔥 METHOD 1: Nayan Downloader (Anabot Base)
     try {
-        // --- ANIMATION STEP 1 ---
-        await new Promise(r => setTimeout(r, 800));
-        await api.editMessage(`🔄 **RDX SYSTEM**\n\n${progressBar(25)}\nStatus: ${frames[0]}`, loadingMsg.messageID);
-
-        // 2. YOUR PERSONAL API CALL
-        // Note: Render free servers sleep, so timeout increased
-        const RDX_API = `https://ahmad-rdx-api-cos1.onrender.com/ahmad-dl?url=${encodeURIComponent(link)}`;
-        
-        const res = await axios.get(RDX_API);
-        const data = res.data;
-
-        if (!data.url) {
-            return api.editMessage("❌ **FAILED:** Link Expire hai ya API Down hai.", loadingMsg.messageID);
+        console.log("Trying Nayan Scraper...");
+        const res = await ndown(url);
+        if (res.data && res.data[0] && res.data[0].url) {
+            videoUrl = res.data[0].url;
+            return { videoUrl, engine: "Nayan Scraper" };
         }
+    } catch (e) {}
 
-        // --- ANIMATION STEP 2 ---
-        await api.editMessage(`⬇️ **RDX SYSTEM**\n\n${progressBar(60)}\nStatus: ${frames[2]}`, loadingMsg.messageID);
-
-        // 3. Platform Check (For Decoration)
-        let platform = "Media";
-        if (link.includes("facebook")) platform = "Facebook";
-        else if (link.includes("instagram")) platform = "Instagram";
-        else if (link.includes("tiktok")) platform = "TikTok";
-
-        // 4. File Downloading (THE INSTA FIX IS HERE)
-        const cacheDir = path.join(__dirname, "cache");
-        if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-        const filePath = path.join(cacheDir, `rdx_${Date.now()}.mp4`);
-
-        // 🔥 IMPORTANT: Headers added to fix Instagram 403 Forbidden Error
-        const videoResponse = await axios({
-            method: 'GET',
-            url: data.url,
-            responseType: 'stream',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-        });
-
-        const writer = fs.createWriteStream(filePath);
-        videoResponse.data.pipe(writer);
-
-        writer.on('finish', async () => {
-            // Check Size
-            const stats = fs.statSync(filePath);
-            if (stats.size < 2000) {
-                fs.unlinkSync(filePath);
-                return api.editMessage("❌ **ERROR:** Empty File (Instagram Blocked Request).", loadingMsg.messageID);
-            }
-
-            // --- FINAL ANIMATION ---
-            await api.editMessage(`✅ **RDX SYSTEM**\n\n${progressBar(100)}\nStatus: Uploading...`, loadingMsg.messageID);
-            await new Promise(r => setTimeout(r, 800));
-            api.unsendMessage(loadingMsg.messageID);
-
-            // 5. Send Video
-            api.sendMessage({
-                body: `🦅 **AHMAD RDX API**\n\n📌 **Platform:** ${platform}\n📝 **Title:** ${data.title || "Unknown"}\n✨ **Quality:** HD`,
-                attachment: fs.createReadStream(filePath)
-            }, threadID, () => fs.unlinkSync(filePath), messageID);
-        });
-
-        writer.on('error', (err) => {
-            api.editMessage(`❌ **Download Error:** ${err.message}`, loadingMsg.messageID);
-        });
-
-    } catch (error) {
-        console.error(error);
-        api.editMessage(`❌ **API Error:** Apka Render server shayed sleep mode mein hai ya link private hai.`, loadingMsg.messageID);
+    // 🔥 METHOD 2: FB Scrapper (Library)
+    if (type === 'Facebook') {
+        try {
+            console.log("Trying FB Lib Scraper...");
+            const res = await getFbVideoInfo(url);
+            videoUrl = res.sd; // SD is safer, HD sometimes expires
+            if (res.hd) videoUrl = res.hd;
+            return { videoUrl, engine: "FB Library" };
+        } catch (e) {}
     }
+
+    // 🔥 METHOD 3: Insta Scrapper (Library)
+    if (type === 'Instagram') {
+        try {
+            console.log("Trying Insta Lib Scraper...");
+            const res = await instagramGetUrl(url);
+            if (res.url_list && res.url_list.length > 0) {
+                videoUrl = res.url_list[0];
+                return { videoUrl, engine: "Insta Library" };
+            }
+        } catch (e) {}
+    }
+
+    // 🔥 METHOD 4: Generic Backup (SnapSave Logic)
+    if (!videoUrl) {
+        try {
+            // Using a hidden scraper used by many bots
+            const res = await axios.get(`https://api.vreden.web.id/api/downloader/all?url=${encodeURIComponent(url)}`);
+            if (res.data?.data?.url) {
+                videoUrl = res.data.data.url;
+                return { videoUrl, engine: "Vreden Scraper" };
+            }
+        } catch(e) {}
+    }
+
+    return { videoUrl: null, engine: "Failed" };
+}
+
+module.exports.handleEvent = async function({ api, event }) {
+    const { body, threadID, messageID } = event;
+    if (!body) return;
+
+    const fbRegex = /(https?:\/\/)(www\.|web\.|m\.)?(facebook|fb)\.(com|watch)\/+/;
+    const instaRegex = /(https?:\/\/)(www\.)?instagram\.com\/(p|reel|tv)\//;
+
+    let url = null;
+    let type = "";
+
+    if (fbRegex.test(body)) {
+        url = body.match(fbRegex)[0];
+        if(url.length < 10) url = body.split(' ')[0];
+        type = "Facebook";
+    } else if (instaRegex.test(body)) {
+        url = body.match(instaRegex)[0];
+        if(url.length < 10) url = body.split(' ')[0];
+        type = "Instagram";
+    }
+
+    if (url) {
+        api.setMessageReaction("⏳", messageID, () => {}, true);
+
+        try {
+            // Call Anabot Logic
+            const { videoUrl, engine } = await anabotScraper(url, type);
+
+            if (!videoUrl) {
+                api.setMessageReaction("❌", messageID, () => {}, true);
+                return;
+            }
+
+            const stylizedHeader = toPremium("AHMAD RDX SYSTEM");
+            const stylizedType = toPremium(type);
+            const stylizedEngine = toPremium(engine);
+
+            const filePath = path.join(__dirname, "cache", `anabot_${Date.now()}.mp4`);
+            const writer = fs.createWriteStream(filePath);
+            
+            const videoStream = await axios({
+                url: videoUrl,
+                method: 'GET',
+                responseType: 'stream'
+            });
+
+            videoStream.data.pipe(writer);
+
+            writer.on('finish', () => {
+                api.setMessageReaction("✅", messageID, () => {}, true);
+                
+                const finalMsg = `🦅 ${stylizedHeader} 🦅\n` +
+                                 `━━━━━━━━━━━━━━━━\n` +
+                                 `📥 ${stylizedType} 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐝\n` +
+                                 `⚙️ 𝐓𝐞𝐜𝐡: ${stylizedEngine}\n` +
+                                 `━━━━━━━━━━━━━━━━\n` +
+                                 `✨ 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`;
+
+                api.sendMessage({
+                    body: finalMsg,
+                    attachment: fs.createReadStream(filePath)
+                }, threadID, () => {
+                    fs.unlinkSync(filePath);
+                }, messageID);
+            });
+
+        } catch (error) {
+            console.error(error);
+            api.setMessageReaction("⚠️", messageID, () => {}, true);
+        }
+    }
+};
+
+module.exports.run = async function({ api, event }) {
+    api.sendMessage("Link bhejo, yeh Anabot Wala System hai! 🦅", event.threadID);
 };

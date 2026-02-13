@@ -5,88 +5,94 @@ const yts = require("yt-search");
 
 module.exports.config = {
     name: "music",
-    version: "20.0.0",
+    version: "100.0.0",
     hasPermssion: 0,
     credits: "AHMAD RDX",
-    description: "Ultra Fast YouTube Audio/Video Downloader",
+    description: "Premium Ultra-Fast Music/Video Downloader",
     commandCategory: "media",
     usages: "[song name] [audio/video]",
-    cooldowns: 2
+    cooldowns: 1
+};
+
+// --- 💎 PREMIUM UI SYSTEM ---
+const rdx_header = "🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐏𝐑𝐄𝐌𝐈𝐔𝐌 🦅";
+const line = "━━━━━━━━━━━━━━━━━━";
+
+const getProgressBar = (pct) => {
+    const size = 10;
+    const filled = Math.round(size * pct / 100);
+    const empty = size - filled;
+    return `[${'█'.repeat(filled)}${'▒'.repeat(empty)}] ${pct}%`;
 };
 
 module.exports.run = async function ({ api, event, args }) {
     const { threadID, messageID } = event;
 
-    // 1. INPUT HANDLING (Fast Detection)
-    let lastArg = args[args.length - 1]?.toLowerCase();
-    let isVideo = ["video", "mp4", "watch"].includes(lastArg);
-    let isAudio = ["audio", "mp3", "song"].includes(lastArg);
+    // 🚀 FAST PARSING
+    const isVideo = args.includes("video") || args.includes("mp4");
+    const query = args.filter(a => !["video", "mp4", "audio", "mp3"].includes(a.toLowerCase())).join(" ");
+
+    if (!query) return api.sendMessage(`${rdx_header}\n${line}\n⚠️ 𝐔𝐬𝐭𝐚𝐝 𝐣𝐢, 𝐠𝐚𝐧𝐞 𝐤𝐚 𝐧𝐚𝐚𝐦 𝐥𝐢𝐤𝐡𝐞𝐢𝐧!\n${line}`, threadID, messageID);
+
+    const type = isVideo ? "video" : "audio";
+    const ext = isVideo ? "mp4" : "mp3";
     
-    let type = isVideo ? "mp4" : "mp3"; 
-    if (isAudio || isVideo) args.pop(); 
-
-    const query = args.join(" ");
-    if (!query) return api.sendMessage("⚠️ Ustad ji, gane ka naam likhein!\nExample: #music Sadqay audio", threadID, messageID);
-
-    const rdx_header = "🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐒𝐘𝐒𝐓𝐄𝐌 🦅";
-    const line = "━━━━━━━━━━━━━━━━━━";
-
-    let statusMsg = await api.sendMessage(`${rdx_header}\n${line}\n🔍 𝐒𝐞𝐚𝐫𝐜𝐡𝐢𝐧𝐠... 🚀\n${line}`, threadID);
+    // 1. INITIAL PREMIUM STATUS
+    let statusMsg = await api.sendMessage(`${rdx_header}\n${line}\n🔍 𝐒𝐞𝐚𝐫𝐜𝐡𝐢𝐧𝐠... 🚀\n${getProgressBar(15)}\n${line}`, threadID);
 
     try {
-        // 2. FAST SEARCH
-        const search = await yts(query);
-        const video = search.videos[0];
-        if (!video) throw new Error("Gana nahi mila!");
+        // 🚀 PARALLEL LOGIC (Searching + Server Preparation)
+        const [searchResult] = await Promise.all([yts(query)]);
+        const video = searchResult.videos[0];
+        if (!video) throw new Error("Media not found!");
 
-        await api.editMessage(`${rdx_header}\n${line}\n⚡ 𝐅𝐞𝐭𝐜𝐡𝐢𝐧𝐠: ${video.title.substring(0, 25)}...\n📥 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐢𝐧𝐠...`, statusMsg.messageID, threadID);
+        // 2. EXTRACTION STATUS
+        if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n⚡ 𝐄𝐱𝐭𝐫𝐚𝐜𝐭𝐢𝐧𝐠: ${video.title.substring(0, 20)}...\n${getProgressBar(45)}\n${line}`, statusMsg.messageID, threadID);
 
-        // 3. HIGH SPEED API (No GitHub latency)
-        // Using Ryzen API for YouTube (Fast & Stable)
-        const apiRes = await axios.get(`https://api.ryzendesu.vip/api/downloader/ytdl?url=${encodeURIComponent(video.url)}`);
-        
-        let downloadUrl = "";
-        if (type === "mp4") {
-            downloadUrl = apiRes.data.data?.video || apiRes.data.video;
-        } else {
-            downloadUrl = apiRes.data.data?.audio || apiRes.data.audio;
-        }
+        const nixtube = "https://nixtube.aryannix.workers.dev/api/download"; 
+        const dlRes = await axios.get(`${nixtube}?url=${encodeURIComponent(video.url)}&type=${type}`);
+        const dlLink = dlRes.data.downloadUrl || dlRes.data.data?.downloadUrl;
 
-        if (!downloadUrl) throw new Error("Download link nahi mila.");
+        if (!dlLink) throw new Error("Bypass Failed.");
 
-        // 4. STREAM DOWNLOAD (Direct Pipe for Max Speed)
+        // 3. DOWNLOAD STATUS
+        if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n📥 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐒𝐭𝐫𝐞𝐚𝐦...\n${getProgressBar(75)}\n${line}`, statusMsg.messageID, threadID);
+
         const cacheDir = path.join(__dirname, "cache");
         await fs.ensureDir(cacheDir);
-        const filePath = path.join(cacheDir, `rdx_${Date.now()}.${type}`);
+        const filePath = path.join(cacheDir, `rdx_pro_${Date.now()}.${ext}`);
 
+        // HIGH-SPEED STREAMING
         const response = await axios({
             method: 'GET',
-            url: downloadUrl,
-            responseType: 'stream'
+            url: dlLink,
+            responseType: 'stream',
+            headers: { 'User-Agent': 'Mozilla/5.0' }
         });
 
-        const writer = fs.createWriteStream(filePath);
+        const writer = fs.createWriteStream(filePath, { highWaterMark: 1024 * 1024 });
         response.data.pipe(writer);
 
         writer.on('finish', async () => {
             const stats = fs.statSync(filePath);
             const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
-            if (sizeMB > 48) {
-                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-                return api.editMessage(`⚠️ File (${sizeMB}MB) Messenger limit se bari hai.`, statusMsg.messageID, threadID);
-            }
+            // 4. UPLOAD STATUS
+            if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n📤 𝐔𝐩𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐭𝐨 𝐂𝐡𝐚𝐭...\n${getProgressBar(100)}\n${line}`, statusMsg.messageID, threadID);
 
-            await api.sendMessage({
-                body: `${rdx_header}\n${line}\n✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!\n🎵 **Title:** ${video.title}\n📦 **Size:** ${sizeMB} MB\n${line}\n🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`,
-                attachment: fs.createReadStream(filePath)
-            }, threadID, () => {
+            // FINAL PREMIUM BODY
+            const body = `${rdx_header}\n${line}\n✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!\n\n🎵 **Title:** ${video.title}\n📺 **Channel:** ${video.author.name}\n📦 **Size:** ${sizeMB} MB\n✨ **Status:** Success\n${line}\n🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`;
+
+            api.sendMessage({
+                body: body,
+                attachment: [fs.createReadStream(filePath)]
+            }, threadID, (err) => {
                 if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-                api.unsendMessage(statusMsg.messageID);
+                if (statusMsg) api.unsendMessage(statusMsg.messageID);
             }, messageID);
         });
 
     } catch (error) {
-        api.editMessage(`❌ ${rdx_header}\n${line}\n𝐄𝐫𝐫𝐨𝐫: ${error.message}\n${line}`, statusMsg.messageID, threadID);
+        if (statusMsg) api.editMessage(`${rdx_header}\n${line}\n❌ 𝐄𝐫𝐫𝐨𝐫: ${error.message}\n${line}`, statusMsg.messageID, threadID);
     }
 };

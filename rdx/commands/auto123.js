@@ -4,10 +4,10 @@ const path = require("path");
 
 module.exports.config = {
     name: "auto",
-    version: "60.0.0",
+    version: "70.0.0",
     hasPermssion: 0,
     credits: "AHMAD RDX",
-    description: "Turbo-Speed Downloader (FB, IG, TikTok HD)",
+    description: "Turbo-Speed Downloader (FB, IG, TT, SC)",
     commandCategory: "media",
     usages: "[link]",
     cooldowns: 2
@@ -29,7 +29,7 @@ module.exports.run = async function ({ api, event, args }) {
         let title = "RDX Media";
         let platform = "Media";
 
-        // --- 1. TIKTOK LOGIC (TikWM HD) ---
+        // --- 1. TIKTOK LOGIC ---
         if (link.includes("tiktok.com")) {
             platform = "TikTok HD";
             const res = await axios.post("https://www.tikwm.com/api/", { url: link, hd: 1 });
@@ -40,7 +40,7 @@ module.exports.run = async function ({ api, event, args }) {
             }
         }
 
-        // --- 2. FACEBOOK LOGIC (Koja FB2) ---
+        // --- 2. FACEBOOK LOGIC ---
         else if (link.includes("facebook.com") || link.includes("fb.watch")) {
             platform = "Facebook";
             const res = await axios.get(`https://kojaxd-api.vercel.app/downloader/facebook2?apikey=Koja&url=${encodeURIComponent(link)}`);
@@ -50,13 +50,30 @@ module.exports.run = async function ({ api, event, args }) {
             }
         }
 
-        // --- 3. INSTAGRAM LOGIC (Koja IG) ---
+        // --- 3. INSTAGRAM LOGIC ---
         else if (link.includes("instagram.com")) {
             platform = "Instagram";
             const res = await axios.get(`https://kojaxd-api.vercel.app/downloader/instagram?apikey=Koja&url=${encodeURIComponent(link)}`);
             if (res.data.status) {
                 downloadUrl = res.data.downloadUrl || res.data.videoUrl;
                 title = "IG Reel/Post";
+            }
+        }
+
+        // --- 4. SNAPCHAT LOGIC (New) ---
+        else if (link.includes("snapchat.com")) {
+            platform = "Snapchat";
+            const res = await axios.get(`https://kojaxd-api.vercel.app/downloader/aiodl?apikey=Koja&url=${encodeURIComponent(link)}`);
+            if (res.data.status && res.data.result) {
+                const result = res.data.result;
+                // Path based on your tester output
+                downloadUrl = result.links?.video[0]?.url || result.url;
+                title = result.title || "Snapchat Video";
+                
+                // Snapchat links often need a base domain if they are relative
+                if (downloadUrl && !downloadUrl.startsWith('http')) {
+                    downloadUrl = "https://dl1.mnmnmnmnrmnmnn.shop/" + downloadUrl;
+                }
             }
         }
 

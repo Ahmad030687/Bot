@@ -1,119 +1,67 @@
 const os = require("os");
-const fs = require("fs-extra");
-const axios = require("axios");
-const path = require("path");
 
-const startTime = new Date(); // Moved outside onStart
+module.exports.config = {
+  name: "upt",
+  version: "5.0.0",
+  hasPermssion: 0,
+  credits: "AHMAD RDX",
+  description: "Show RDX System uptime and status",
+  commandCategory: "system",
+  usages: "upt",
+  cooldowns: 2
+};
 
-module.exports = {
-  config: {
-    name: "uptime",
-    version: "1.0.0",
-    hasPermssion: 2,
-    credits: "SARDAR RDX",
-    description: "test",
-    commandCategory: "box",
-    usages: "test",
-    dependencies: {
-      "axios": ""
-    },
-    cooldowns: 5
-  },
-
-  run: async function ({ api, event, args }) {
-    try {
-      const uptimeInSeconds = (new Date() - startTime) / 1000;
-
-      const seconds = uptimeInSeconds;
-      const days = Math.floor(seconds / (3600 * 24));
-      const hours = Math.floor((seconds % (3600 * 24)) / 3600);
-      const minutes = Math.floor((seconds % 3600) / 60);
-      const secondsLeft = Math.floor(seconds % 60);
-      const uptimeFormatted = `${days}d ${hours}h ${minutes}m ${secondsLeft}s`;
-
-      const loadAverage = os.loadavg();
-      const cpuUsage =
-        os
-          .cpus()
-          .map((cpu) => cpu.times.user)
-          .reduce((acc, curr) => acc + curr) / os.cpus().length;
-
-      const totalMemoryGB = os.totalmem() / 1024 ** 3;
-      const freeMemoryGB = os.freemem() / 1024 ** 3;
-      const usedMemoryGB = totalMemoryGB - freeMemoryGB;
-
-      const currentDate = new Date();
-      const options = { year: "numeric", month: "numeric", day: "numeric" };
-      const date = currentDate.toLocaleDateString("en-US", options);
-      const time = currentDate.toLocaleTimeString("en-US", {
-        timeZone: "Asia/Kolkata",
-        hour12: true,
-      });
-
-     const timeStart = Date.now();
-await api.sendMessage({
-  body: "⚡ | Checking system status, please wait...",
-}, event.threadID);
-
-const ping = Date.now() - timeStart;
-
-let pingStatus = "❌ | Bad System";
-if (ping < 1000) {
-  pingStatus = "✅ | Smooth System";
+// 🦅 RDX TIME FORMATTER
+function formatUptime(seconds) {
+  const d = Math.floor(seconds / (3600 * 24));
+  const h = Math.floor((seconds % (3600 * 24)) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  return `${d > 0 ? d + "𝐝 " : ""}${h}𝐡 ${m}𝐦 ${s}𝐬`;
 }
 
-const systemInfo = `
-┏━━━━━༺༻━━━━━┓
-         𝐒𝐘𝐒𝐓𝐄𝐌 𝐈𝐍𝐅𝐎
-┗━━━━━༺༻━━━━━┛
+// 🦅 MAIN LOGIC
+async function sendRDXStatus(api, event) {
+  const { threadID, messageID } = event;
 
-╭──────[ ✦ ]──────╮
-➤ ⏳ 𝗨𝗣𝗧𝗜𝗠𝗘: ${uptimeFormatted}
-➤ 🖥️ 𝗢𝗦: ${os.type()} ${os.arch()}
-➤ ⚙️ 𝗡𝗢𝗗𝗘 𝗩𝗘𝗥: ${process.version}
-➤ 🧠 𝗖𝗣𝗨: ${os.cpus()[0].model}
-➤ 💾 𝗦𝗧𝗢𝗥𝗔𝗚𝗘: ${usedMemoryGB.toFixed(2)} GB / ${totalMemoryGB.toFixed(2)} GB
-➤ 📈 𝗖𝗣𝗨 𝗨𝗦𝗔𝗚𝗘: ${cpuUsage.toFixed(1)}%
-➤ 🧹 𝗥𝗔𝗠 𝗨𝗦𝗔𝗚𝗘: ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB
-╰──────[ ✦ ]──────╯
+  const uptime = process.uptime();
+  const now = new Date();
+  
+  // System Stats
+  const usedMem = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
+  const totalMem = (os.totalmem() / 1024 / 1024 / 1024).toFixed(2);
 
-┏━━━━━༺༻━━━━━┓
-         𝐒𝐘𝐒𝐓𝐄𝐌 𝐒𝐓𝐀𝐓𝐔𝐒
-┗━━━━━༺༻━━━━━┛
+  const rdx_header = "🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐒𝐘𝐒𝐓𝐄𝐌 🦅";
+  const line = "━━━━━━━━━━━━━━━━━━";
 
-➤ 📅 𝗗𝗔𝗧𝗘: ${date}
-➤ ⏰ 𝗧𝗜𝗠𝗘: ${time}
-➤ ⚡ 𝗣𝗜𝗡𝗚: ${ping} ms
-➤ ⭐ 𝗦𝗧𝗔𝗧𝗨𝗦: ${pingStatus}
-`;
+  // 🇵🇰 PAKISTAN TIME & DATE
+  const time = now.toLocaleTimeString("en-US", { timeZone: "Asia/Karachi", hour12: true, hour: '2-digit', minute: '2-digit' });
+  const date = now.toLocaleDateString("en-GB", { timeZone: "Asia/Karachi", day: "2-digit", month: "long", year: "numeric" });
+  const day = now.toLocaleDateString("en-US", { timeZone: "Asia/Karachi", weekday: "long" });
 
-      const imgPath = path.join(__dirname, "cache", "uptime.png");
-      const imgUrl = "https://i.ibb.co/TqwtBwF2/2c307b069cfd.gif"; // Updated with ibb link
+  const msg = `${rdx_header}
+${line}
+🚀 𝐑𝐔𝐍𝐓𝐈𝐌𝐄 ➪ ${formatUptime(uptime)}
+⏰ 𝐓𝐈𝐌𝐄      ➪ ${time}
+📅 𝐃𝐀𝐓𝐄      ➪ ${date}
+🗓️ 𝐃𝐀𝐘       ➪ ${day}
+📊 𝐑𝐀𝐌       ➪ ${usedMem} MB / ${totalMem} GB
+✨ 𝐒𝐓𝐀𝐓𝐔𝐒   ➪ Premium Active
+${line}
+🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`;
 
-      try {
-        const response = await axios.get(imgUrl, { responseType: "arraybuffer" });
-        await fs.outputFile(imgPath, Buffer.from(response.data));
-
-        api.sendMessage(
-          {
-            body: systemInfo,
-            attachment: fs.createReadStream(imgPath),
-          },
-          event.threadID,
-          () => {
-             if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
-          }
-        );
-      } catch (e) {
-        api.sendMessage(systemInfo, event.threadID);
-      }
-} catch (error) {
-  console.error("Error retrieving system information:", error);
-  api.sendMessage(
-    "Unable to retrieve system information.",
-    event.threadID,
-    event.messageID,
-  );
+  return api.sendMessage(msg, threadID, messageID);
 }
-},
+
+// ✅ NO-PREFIX SUPPORT (Agar koi sirf "upt" likhe)
+module.exports.handleEvent = async ({ api, event }) => {
+  if (!event.body) return;
+  if (event.body.trim().toLowerCase() === "upt") {
+    return sendRDXStatus(api, event);
+  }
+};
+
+// ✅ PREFIX SUPPORT (Agar koi "!upt" likhe)
+module.exports.run = async ({ api, event }) => {
+  return sendRDXStatus(api, event);
 };

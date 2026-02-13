@@ -4,10 +4,10 @@ const path = require("path");
 
 module.exports.config = {
     name: "auto",
-    version: "70.0.0",
+    version: "80.0.0",
     hasPermssion: 0,
     credits: "AHMAD RDX",
-    description: "Turbo-Speed Downloader (FB, IG, TT, SC)",
+    description: "Turbo-Speed Downloader - Fixed Attachment Error",
     commandCategory: "media",
     usages: "[link]",
     cooldowns: 2
@@ -29,57 +29,33 @@ module.exports.run = async function ({ api, event, args }) {
         let title = "RDX Media";
         let platform = "Media";
 
-        // --- 1. TIKTOK LOGIC ---
+        // --- PLATFORM DETECTION ---
         if (link.includes("tiktok.com")) {
             platform = "TikTok HD";
             const res = await axios.post("https://www.tikwm.com/api/", { url: link, hd: 1 });
-            const data = res.data.data;
-            if (data && data.play) {
-                downloadUrl = data.play;
-                title = data.title || "TikTok Video";
-            }
-        }
-
-        // --- 2. FACEBOOK LOGIC ---
+            downloadUrl = res.data.data?.play;
+            title = res.data.data?.title || "TikTok Video";
+        } 
         else if (link.includes("facebook.com") || link.includes("fb.watch")) {
             platform = "Facebook";
             const res = await axios.get(`https://kojaxd-api.vercel.app/downloader/facebook2?apikey=Koja&url=${encodeURIComponent(link)}`);
-            if (res.data.status) {
-                downloadUrl = res.data.video_HD?.url || res.data.video_SD?.url;
-                title = "FB Video/Reel";
-            }
-        }
-
-        // --- 3. INSTAGRAM LOGIC ---
+            downloadUrl = res.data.video_HD?.url || res.data.video_SD?.url;
+        } 
         else if (link.includes("instagram.com")) {
             platform = "Instagram";
             const res = await axios.get(`https://kojaxd-api.vercel.app/downloader/instagram?apikey=Koja&url=${encodeURIComponent(link)}`);
-            if (res.data.status) {
-                downloadUrl = res.data.downloadUrl || res.data.videoUrl;
-                title = "IG Reel/Post";
-            }
-        }
-
-        // --- 4. SNAPCHAT LOGIC (New) ---
+            downloadUrl = res.data.downloadUrl || res.data.videoUrl;
+        } 
         else if (link.includes("snapchat.com")) {
             platform = "Snapchat";
             const res = await axios.get(`https://kojaxd-api.vercel.app/downloader/aiodl?apikey=Koja&url=${encodeURIComponent(link)}`);
-            if (res.data.status && res.data.result) {
-                const result = res.data.result;
-                // Path based on your tester output
-                downloadUrl = result.links?.video[0]?.url || result.url;
-                title = result.title || "Snapchat Video";
-                
-                // Snapchat links often need a base domain if they are relative
-                if (downloadUrl && !downloadUrl.startsWith('http')) {
-                    downloadUrl = "https://dl1.mnmnmnmnrmnmnn.shop/" + downloadUrl;
-                }
-            }
+            downloadUrl = res.data.result?.links?.video[0]?.url || res.data.result?.url;
+            if (downloadUrl && !downloadUrl.startsWith('http')) downloadUrl = "https://dl1.mnmnmnmnrmnmnn.shop/" + downloadUrl;
         }
 
         if (!downloadUrl) throw new Error("Link not supported or Private.");
 
-        // --- 🚀 TURBO STREAMING DOWNLOAD ---
+        // --- SAFETY DOWNLOAD SYSTEM ---
         const cacheDir = path.join(__dirname, "cache");
         await fs.ensureDir(cacheDir);
         const filePath = path.join(cacheDir, `rdx_turbo_${Date.now()}.mp4`);
@@ -95,6 +71,11 @@ module.exports.run = async function ({ api, event, args }) {
         response.data.pipe(writer);
 
         writer.on('finish', async () => {
+            // 🛡️ CRITICAL CHECK: Does file exist and is not empty?
+            if (!fs.existsSync(filePath) || fs.statSync(filePath).size === 0) {
+                return api.editMessage(`❌ ${rdx_header}\n${line}\n𝐄𝐫𝐫𝐨𝐫: Download failed or file corrupted.\n${line}`, statusMsg.messageID, threadID);
+            }
+
             const stats = fs.statSync(filePath);
             const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
@@ -103,10 +84,12 @@ module.exports.run = async function ({ api, event, args }) {
                 return api.editMessage(`❌ ${rdx_header}\n${line}\n𝐒𝐢𝐳𝐞: ${sizeMB}MB (Too big for Messenger)\n${line}`, statusMsg.messageID, threadID);
             }
 
-            await api.sendMessage({
+            // 📤 SENDING WITH ERROR CATCHING
+            api.sendMessage({
                 body: `${rdx_header}\n${line}\n✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!\n📌 𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦: ${platform}\n📦 𝐒𝐢𝐳𝐞: ${sizeMB} MB\n${line}\n🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`,
                 attachment: fs.createReadStream(filePath)
-            }, threadID, () => {
+            }, threadID, (err) => {
+                if (err) console.error("Send Attachment Error:", err);
                 if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
                 if (statusMsg) api.unsendMessage(statusMsg.messageID);
             }, messageID);
@@ -115,7 +98,7 @@ module.exports.run = async function ({ api, event, args }) {
         writer.on('error', (err) => { throw err; });
 
     } catch (error) {
-        console.error(error);
+        console.error("RDX Error:", error.message);
         if (statusMsg) {
             api.editMessage(`❌ ${rdx_header}\n${line}\n𝐄𝐫𝐫𝐨𝐫: ${error.message}\n${line}`, statusMsg.messageID, threadID);
             setTimeout(() => api.unsendMessage(statusMsg.messageID), 5000);

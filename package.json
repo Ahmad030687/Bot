@@ -17,6 +17,7 @@
   "license": "ISC",
   "description": "Facebook Messenger Bot with Islamic posts and group management",
   "dependencies": {
+    "arif-babu-downloader": "^1.0.2",
     "axios": "^1.13.2",
     "better-sqlite3": "^12.5.0",
     "canvas": "^3.2.0",

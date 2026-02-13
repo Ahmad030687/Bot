@@ -4,10 +4,10 @@ const path = require("path");
 
 module.exports.config = {
     name: "auto",
-    version: "100.0.0",
+    version: "110.0.0",
     hasPermssion: 0,
     credits: "AHMAD RDX",
-    description: "Turbo Downloader - FCA Null Object Fix",
+    description: "Turbo Downloader - Final Attachment Fix",
     commandCategory: "media",
     usages: "[link]",
     cooldowns: 2
@@ -55,7 +55,7 @@ module.exports.run = async function ({ api, event, args }) {
 
         const cacheDir = path.join(__dirname, "cache");
         await fs.ensureDir(cacheDir);
-        const filePath = path.join(cacheDir, `rdx_turbo_${Date.now()}.mp4`);
+        const filePath = path.join(cacheDir, `rdx_${Date.now()}.mp4`);
 
         // --- 📥 TURBO DOWNLOAD ---
         const response = await axios({
@@ -69,35 +69,53 @@ module.exports.run = async function ({ api, event, args }) {
         response.data.pipe(writer);
 
         writer.on('finish', async () => {
-            // 🛡️ STREAM GUARD: Wait for file to settle
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            // 🛡️ WAIT & VALIDATE
+            await new Promise(r => setTimeout(r, 2000)); // 2 Seconds wait for Render disk
 
-            if (!fs.existsSync(filePath) || fs.statSync(filePath).size < 100) {
-                return api.editMessage(`❌ ${rdx_header}\n${line}\n𝐄𝐫𝐫𝐨𝐫: File download failed.\n${line}`, statusMsg.messageID, threadID);
+            if (!fs.existsSync(filePath)) {
+                return api.editMessage("❌ Error: File not found on server.", statusMsg.messageID, threadID);
             }
 
             const stats = fs.statSync(filePath);
-            const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-
-            if (sizeMB > 48) {
+            if (stats.size < 1000) { // If file is less than 1KB
                 if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-                return api.editMessage(`❌ ${rdx_header}\n${line}\n𝐒𝐢𝐳𝐞: ${sizeMB}MB (Limit 48MB)\n${line}`, statusMsg.messageID, threadID);
+                return api.editMessage("❌ Error: Download corrupted.", statusMsg.messageID, threadID);
             }
 
-            // 📤 STABLE SENDING (Attachment in Array)
-            const msg = {
-                body: `${rdx_header}\n${line}\n✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!\n📌 𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦: ${platform}\n📦 𝐒𝐢𝐳𝐞: ${sizeMB} MB\n${line}\n🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`,
-                attachment: [fs.createReadStream(filePath)] // 👈 Changed to Array for FCA stability
-            };
+            const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+            if (sizeMB > 48) {
+                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                return api.editMessage(`⚠️ Size: ${sizeMB}MB (Messenger limit 48MB)`, statusMsg.messageID, threadID);
+            }
 
-            api.sendMessage(msg, threadID, (err) => {
-                if (err) console.error("FCA Error:", err);
+            // --- 📤 STABLE SENDING ---
+            const attachmentStream = fs.createReadStream(filePath);
+            
+            // Handle stream errors before sending
+            attachmentStream.on('error', (err) => {
+                console.error("Stream Error:", err);
+                api.editMessage("❌ Stream Error occurred.", statusMsg.messageID, threadID);
+            });
+
+            api.sendMessage({
+                body: `${rdx_header}\n${line}\n✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!\n📌 𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦: ${platform}\n📦 𝐒𝐢𝐳𝐞: ${sizeMB} MB\n${line}\n🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`,
+                attachment: attachmentStream
+            }, threadID, (err) => {
+                if (err) {
+                    console.error("FCA SEND ERROR:", err);
+                    // If sending fails, try one last time with direct URL if possible
+                    api.sendMessage(`❌ Error sending file. You can watch here:\n🔗 ${downloadUrl}`, threadID);
+                }
+                // Cleanup
                 if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
                 if (statusMsg) api.unsendMessage(statusMsg.messageID);
             }, messageID);
         });
 
+        writer.on('error', (e) => { throw e; });
+
     } catch (error) {
+        console.error("RDX MASTER ERROR:", error);
         if (statusMsg) {
             api.editMessage(`❌ ${rdx_header}\n${line}\n𝐄𝐫𝐫𝐨𝐫: ${error.message}\n${line}`, statusMsg.messageID, threadID);
         }

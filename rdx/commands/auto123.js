@@ -4,10 +4,10 @@ const path = require("path");
 
 module.exports.config = {
     name: "auto",
-    version: "120.0.0",
+    version: "130.0.0",
     hasPermssion: 0,
     credits: "AHMAD RDX",
-    description: "Multi-Platform Turbo Downloader (Fixed Snapchat)",
+    description: "Multi-Platform Turbo Downloader (Auto-Domain Fix)",
     commandCategory: "media",
     usages: "[link]",
     cooldowns: 2
@@ -34,55 +34,53 @@ module.exports.run = async function ({ api, event, args }) {
         let platform = "Media";
         let title = "RDX Download";
 
-        // --- 1. TIKTOK DETECTION ---
+        // --- PLATFORM DETECTION ---
         if (link.includes("tiktok.com")) {
             platform = "TikTok HD";
-            await api.editMessage(`${rdx_header}\n${line}\n🎵 𝐓𝐢𝐤𝐓𝐨𝐤 𝐄𝐧𝐠𝐢𝐧𝐞 𝐀𝐜𝐭𝐢𝐯𝐞...\n${getBar(40)}\n${line}`, statusMsg.messageID, threadID);
             const res = await axios.post("https://www.tikwm.com/api/", { url: link, hd: 1 });
             downloadUrl = res.data.data?.play;
             title = res.data.data?.title || "TikTok Video";
         } 
-        // --- 2. FACEBOOK DETECTION ---
         else if (link.includes("facebook.com") || link.includes("fb.watch")) {
             platform = "Facebook";
-            await api.editMessage(`${rdx_header}\n${line}\n🔵 𝐅𝐚𝐜𝐞𝐛𝐨𝐨𝐤 𝐄𝐧𝐠𝐢𝐧𝐞 𝐀𝐜𝐭𝐢𝐯𝐞...\n${getBar(40)}\n${line}`, statusMsg.messageID, threadID);
             const res = await axios.get(`https://kojaxd-api.vercel.app/downloader/facebook2?apikey=Koja&url=${encodeURIComponent(link)}`);
             downloadUrl = res.data.video_HD?.url || res.data.video_SD?.url;
         } 
-        // --- 3. INSTAGRAM DETECTION ---
         else if (link.includes("instagram.com")) {
             platform = "Instagram";
-            await api.editMessage(`${rdx_header}\n${line}\n📸 𝐈𝐧𝐬𝐭𝐚𝐠𝐫𝐚𝐦 𝐄𝐧𝐠𝐢𝐧𝐞 𝐀𝐜𝐭𝐢𝐯𝐞...\n${getBar(40)}\n${line}`, statusMsg.messageID, threadID);
             const res = await axios.get(`https://kojaxd-api.vercel.app/downloader/instagram?apikey=Koja&url=${encodeURIComponent(link)}`);
             downloadUrl = res.data.downloadUrl || res.data.videoUrl;
         } 
-        // --- 4. SNAPCHAT DETECTION (New Logic) ---
         else if (link.includes("snapchat.com")) {
             platform = "Snapchat";
-            await api.editMessage(`${rdx_header}\n${line}\n👻 𝐒𝐧𝐚𝐩𝐜𝐡𝐚𝐭 𝐄𝐧𝐠𝐢𝐧𝐞 𝐀𝐜𝐭𝐢𝐯𝐞...\n${getBar(40)}\n${line}`, statusMsg.messageID, threadID);
             const res = await axios.get(`https://kojaxd-api.vercel.app/downloader/aiodl?apikey=Koja&url=${encodeURIComponent(link)}`);
             
             if (res.data.status && res.data.result) {
                 const snapData = res.data.result;
                 title = snapData.title || "Snapchat Snap";
-                // Snapchat ka link aksar extract karna parta hai
-                downloadUrl = snapData.links?.video[0]?.url || snapData.url;
+                let rawUrl = snapData.links?.video[0]?.url || snapData.url;
                 
-                // Agar URL direct nahi hai to snap server base lagana parega
-                if (downloadUrl && !downloadUrl.startsWith('http')) {
-                    downloadUrl = "https://dl1.mnmnmnmnrmnmnn.site/download.php?token=" + downloadUrl;
+                // 🦅 RDX INTELLIGENT DOMAIN EXTRACTION
+                if (rawUrl && !rawUrl.startsWith('http')) {
+                    // Thumbnail se domain nikalna (Kyuki server domain thumbnail wali hi hoti hai)
+                    const thumbUrl = snapData.thumbnail || "";
+                    const domainMatch = thumbUrl.match(/^https?:\/\/[^\/]+/);
+                    const baseDomain = domainMatch ? domainMatch[0] : "https://dl1.mnmnmnmnrmnmnn.shop";
+                    downloadUrl = `${baseDomain}/download.php?token=${rawUrl}`;
+                } else {
+                    downloadUrl = rawUrl;
                 }
             }
         }
 
-        if (!downloadUrl) throw new Error("Link not supported or Private.");
+        if (!downloadUrl) throw new Error("Video Link not found!");
 
-        // --- 📥 BUFFER DOWNLOAD SYSTEM ---
+        // --- 📥 TURBO BUFFER DOWNLOAD ---
         await api.editMessage(`${rdx_header}\n${line}\n📥 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐒𝐭𝐫𝐞𝐚𝐦...\n${getBar(70)}\n${line}`, statusMsg.messageID, threadID);
 
         const response = await axios.get(downloadUrl, { 
             responseType: 'arraybuffer',
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+            headers: { 'User-Agent': 'Mozilla/5.0' }
         });
 
         const cacheDir = path.join(__dirname, "cache");
@@ -93,18 +91,11 @@ module.exports.run = async function ({ api, event, args }) {
         const stats = fs.statSync(filePath);
         const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
-        if (sizeMB > 48) {
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-            return api.editMessage(`❌ ${rdx_header}\n${line}\n⚠️ 𝐒𝐢𝐳𝐞: ${sizeMB}MB (Messenger Limit 48MB)\n${line}`, statusMsg.messageID, threadID);
-        }
-
         // --- 📤 PREMIUM SENDING ---
         await api.editMessage(`${rdx_header}\n${line}\n📤 𝐔𝐩𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐭𝐨 𝐂𝐡𝐚𝐭...\n${getBar(100)}\n${line}`, statusMsg.messageID, threadID);
 
-        const body = `${rdx_header}\n${line}\n✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!\n\n📌 𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦: ${platform}\n📝 𝐓𝐢𝐭𝐥𝐞: ${title.substring(0, 30)}...\n📦 𝐒𝐢𝐳𝐞: ${sizeMB} MB\n✨ 𝐒𝐭𝐚𝐭𝐮𝐬: Premium High-Speed\n${line}\n🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`;
-
         api.sendMessage({
-            body: body,
+            body: `${rdx_header}\n${line}\n✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!\n📌 𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦: ${platform}\n📦 𝐒𝐢𝐳𝐞: ${sizeMB} MB\n${line}\n🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`,
             attachment: [fs.createReadStream(filePath)]
         }, threadID, (err) => {
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -112,6 +103,6 @@ module.exports.run = async function ({ api, event, args }) {
         }, messageID);
 
     } catch (error) {
-        if (statusMsg) api.editMessage(`❌ ${rdx_header}\n${line}\n𝐄𝐫𝐫𝐨𝐫: ${error.message}\n${line}`, statusMsg.messageID, threadID);
+        if (statusMsg) api.editMessage(`❌ ${rdx_header}\n${line}\n𝐄𝐫𝐫𝐨𝐫: Server Changed or Link Expired.\n${line}`, statusMsg.messageID, threadID);
     }
 };

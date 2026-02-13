@@ -1,100 +1,106 @@
-const axios = require("axios");
-const fs = require("fs-extra");
-const path = require("path");
+const axios = require('axios');
+const fs = require('fs-extra');
+const path = require('path');
 
-module.exports = {
-  config: {
+module.exports.config = {
     name: "auto",
-    version: "2026",
+    version: "25.0.0",
     hasPermssion: 0,
-    credits: "Ahmad",
-    description: "Universal downloader with detection",
-    commandCategory: "media",
-    usages: "#auto link",
+    credits: "AHMAD RDX",
+    description: "Universal Video Downloader with Prefix & Premium UI",
+    commandCategory: "downloader",
+    usages: "[link]",
     cooldowns: 5
-  },
+};
 
-  run: async function ({ api, event, args }) {
+module.exports.run = async function ({ api, event, args }) {
     const { threadID, messageID } = event;
-    const link = args.join(" ");
+    const videoUrl = args[0];
 
-    if (!link) return api.sendMessage("❌ Link do", threadID, messageID);
+    // 🦅 RDX UI Design
+    const rdx_header = "🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐒𝐘𝐒𝐓𝐄𝐌 🦅";
+    const line = "━━━━━━━━━━━━━━━━━━";
+    
+    // 💎 Animations Frames
+    const frames = [
+        " [▒▒▒▒▒▒▒▒▒▒] 10%",
+        " [██▒▒▒▒▒▒▒▒] 35%",
+        " [█████▒▒▒▒▒] 60%",
+        " [████████▒▒] 85%",
+        " [██████████] 100%"
+    ];
 
-    // ✅ Platform detect
-    let platform = "Media";
-    if (link.includes("facebook") || link.includes("fb.watch")) platform = "Facebook";
-    else if (link.includes("instagram")) platform = "Instagram";
-    else if (link.includes("tiktok")) platform = "TikTok";
-    else if (link.includes("youtube") || link.includes("youtu.be")) platform = "YouTube";
+    if (!videoUrl) {
+        return api.sendMessage(`${rdx_header}\n${line}\n❌ 𝐀𝐡𝐦𝐚𝐝 𝐛𝐡𝐚𝐢, 𝐥𝐢𝐧𝐤 𝐭𝐨 𝐝𝐞𝐢𝐧!\n${line}`, threadID, messageID);
+    }
 
-    let status;
+    let statusMsg = null;
+
     try {
-      status = await api.sendMessage(`⏳ ${platform} download ho raha...`, threadID);
-    } catch {}
+        // Step 1: Link Detection Animation
+        statusMsg = await api.sendMessage(`${rdx_header}\n${line}\n🔍 𝐋𝐢𝐧𝐤 𝐃𝐞𝐭𝐞𝐜𝐭𝐞𝐝...\n${frames[0]}\n${line}`, threadID);
 
-    try {
-      const apiURL = `https://kojaxd-api.vercel.app/downloader/aiodl?url=${encodeURIComponent(link)}&apikey=Koja`;
+        // Step 2: Fetching from Koja API
+        await api.editMessage(`${rdx_header}\n${line}\n⚡ 𝐑𝐃𝐗 𝐄𝐧𝐠𝐢𝐧𝐞 𝐅𝐞𝐭𝐜𝐡𝐢𝐧𝐠...\n${frames[1]}\n${line}`, statusMsg.messageID, threadID);
 
-      const res = await axios.get(apiURL);
-      const data = res.data;
+        const res = await axios.get(`https://kojaxd-api.vercel.app/downloader/aiodl`, {
+            params: { url: videoUrl, apikey: 'Koja' }
+        });
 
-      if (!data.status) throw new Error("Private ya invalid link");
+        const data = res.data;
+        if (!data.status || !data.result) throw new Error("Media info not found.");
 
-      const video =
-        data.result.links?.video?.hd?.url ||
-        data.result.links?.video?.sd?.url;
+        const result = data.result;
+        let finalDownloadUrl = null;
+        let title = result.title || "RDX Video";
 
-      if (!video) throw new Error("Video nahi mila");
-
-      const downloadLink = video.startsWith("http")
-        ? video
-        : `https://dl1.mnmnmnnnrmnmnnm.shop/${video}`;
-
-      const cacheDir = path.join(__dirname, "cache");
-      await fs.ensureDir(cacheDir);
-
-      const filePath = path.join(cacheDir, `${Date.now()}.mp4`);
-
-      const response = await axios({
-        url: downloadLink,
-        method: "GET",
-        responseType: "stream",
-        timeout: 120000
-      });
-
-      const writer = fs.createWriteStream(filePath);
-      response.data.pipe(writer);
-
-      writer.on("finish", async () => {
-        const size = fs.statSync(filePath).size / 1024 / 1024;
-
-        // Messenger limit
-        if (size > 25) {
-          fs.unlinkSync(filePath);
-          if (status) api.unsendMessage(status.messageID);
-          return api.sendMessage(
-            `⚠️ File bari hai (${size.toFixed(2)}MB)\n🔗 ${downloadLink}`,
-            threadID,
-            messageID
-          );
+        // 🛠️ SMART EXTRACTION (Based on your Tester Output)
+        if (result.links && result.links.video) {
+            const video = result.links.video;
+            // HD check karein, phir SD
+            finalDownloadUrl = video.hd?.url || video.sd?.url || (Array.isArray(video) ? video[0]?.url : null);
         }
 
-        await api.sendMessage(
-          {
-            body: `📥 Platform: ${platform}\n📦 Size: ${size.toFixed(2)} MB\n📝 ${data.result.title || "Video"}`,
+        if (!finalDownloadUrl) finalDownloadUrl = result.url || data.url;
+        if (!finalDownloadUrl) throw new Error("Download link nahi mila.");
+
+        // Step 3: Downloading Animation
+        await api.editMessage(`${rdx_header}\n${line}\n📥 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐌𝐞𝐝𝐢𝐚...\n${frames[2]}\n${line}`, statusMsg.messageID, threadID);
+
+        const cacheDir = path.join(__dirname, "cache");
+        await fs.ensureDir(cacheDir);
+        const filePath = path.join(cacheDir, `rdx_${Date.now()}.mp4`);
+
+        const fileRes = await axios({
+            method: 'GET',
+            url: finalDownloadUrl,
+            responseType: 'arraybuffer',
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+
+        // Step 4: Processing
+        await api.editMessage(`${rdx_header}\n${line}\n⚙️ 𝐏𝐫𝐨𝐜𝐞𝐬𝐬𝐢𝐧𝐠 𝐅𝐢𝐥𝐞...\n${frames[3]}\n${line}`, statusMsg.messageID, threadID);
+        fs.writeFileSync(filePath, Buffer.from(fileRes.data));
+
+        const stats = fs.statSync(filePath);
+        const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+
+        // Step 5: Final Uploading Animation
+        await api.editMessage(`${rdx_header}\n${line}\n📤 𝐔𝐩𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐭𝐨 𝐂𝐡𝐚𝐭...\n${frames[4]}\n${line}`, statusMsg.messageID, threadID);
+
+        await api.sendMessage({
+            body: `${rdx_header}\n${line}\n✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!\n📝 𝐓𝐢𝐭𝐥𝐞: ${title.substring(0, 50)}...\n📦 𝐒𝐢𝐳𝐞: ${sizeMB} MB\n${line}\n🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`,
             attachment: fs.createReadStream(filePath)
-          },
-          threadID,
-          () => fs.unlinkSync(filePath),
-          messageID
-        );
+        }, threadID, () => {
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            api.unsendMessage(statusMsg.messageID);
+        });
 
-        if (status) api.unsendMessage(status.messageID);
-      });
-
-    } catch (e) {
-      if (status) api.unsendMessage(status.messageID);
-      return api.sendMessage("❌ " + e.message, threadID, messageID);
+    } catch (error) {
+        console.error(error);
+        if (statusMsg) {
+            api.editMessage(`❌ ${rdx_header}\n${line}\n𝐄𝐫𝐫𝐨𝐫: ${error.message}\n${line}`, statusMsg.messageID, threadID);
+            setTimeout(() => api.unsendMessage(statusMsg.messageID), 5000);
+        }
     }
-  }
 };

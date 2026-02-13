@@ -4,20 +4,13 @@ const path = require("path");
 
 module.exports.config = {
     name: "auto",
-    version: "50.0.0",
+    version: "60.0.0",
     hasPermssion: 0,
     credits: "AHMAD RDX",
-    description: "Universal Downloader (FB, IG, TikTok HD)",
+    description: "Turbo-Speed Downloader (FB, IG, TikTok HD)",
     commandCategory: "media",
     usages: "[link]",
     cooldowns: 2
-};
-
-// --- RDX UI SYSTEM ---
-const progressBar = (percentage) => {
-    const filled = Math.round(percentage / 10);
-    const empty = 10 - filled;
-    return `[${'█'.repeat(filled)}${'▒'.repeat(empty)}] ${percentage}%`;
 };
 
 module.exports.run = async function ({ api, event, args }) {
@@ -29,19 +22,16 @@ module.exports.run = async function ({ api, event, args }) {
 
     if (!link) return api.sendMessage(`${rdx_header}\n${line}\n❌ 𝐀𝐡𝐦𝐚𝐝 𝐛𝐡𝐚𝐢, 𝐥𝐢𝐧𝐤 𝐭𝐨 𝐝𝐞𝐢𝐧!\n${line}`, threadID, messageID);
 
-    let statusMsg = null;
-    try {
-        statusMsg = await api.sendMessage(`${rdx_header}\n${line}\n🔍 𝐃𝐞𝐭𝐞𝐜𝐭𝐢𝐧𝐠 𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦...\n${progressBar(10)}\n${line}`, threadID);
+    let statusMsg = await api.sendMessage(`${rdx_header}\n${line}\n🚀 𝐓𝐮𝐫𝐛𝐨 𝐄𝐧𝐠𝐢𝐧𝐞 𝐒𝐭𝐚𝐫𝐭𝐢𝐧𝐠...\n${line}`, threadID);
 
+    try {
         let downloadUrl = "";
         let title = "RDX Media";
         let platform = "Media";
 
-        // --- 1. TIKTOK LOGIC ---
+        // --- 1. TIKTOK LOGIC (TikWM HD) ---
         if (link.includes("tiktok.com")) {
             platform = "TikTok HD";
-            if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n🎵 𝐓𝐢𝐤𝐓𝐨𝐤 𝐄𝐧𝐠𝐢𝐧ｅ 𝐀𝐜𝐭𝐢𝐯𝐞...\n${progressBar(30)}\n${line}`, statusMsg.messageID, threadID);
-            
             const res = await axios.post("https://www.tikwm.com/api/", { url: link, hd: 1 });
             const data = res.data.data;
             if (data && data.play) {
@@ -50,23 +40,19 @@ module.exports.run = async function ({ api, event, args }) {
             }
         }
 
-        // --- 2. FACEBOOK LOGIC ---
+        // --- 2. FACEBOOK LOGIC (Koja FB2) ---
         else if (link.includes("facebook.com") || link.includes("fb.watch")) {
             platform = "Facebook";
-            if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n🔵 𝐅𝐚𝐜𝐞𝐛𝐨𝐨𝐤 𝐄𝐧𝐠𝐢𝐧𝐞 𝐀𝐜𝐭𝐢𝐯𝐞...\n${progressBar(30)}\n${line}`, statusMsg.messageID, threadID);
-            
             const res = await axios.get(`https://kojaxd-api.vercel.app/downloader/facebook2?apikey=Koja&url=${encodeURIComponent(link)}`);
             if (res.data.status) {
                 downloadUrl = res.data.video_HD?.url || res.data.video_SD?.url;
-                title = "FB Reel/Video";
+                title = "FB Video/Reel";
             }
         }
 
-        // --- 3. INSTAGRAM LOGIC ---
+        // --- 3. INSTAGRAM LOGIC (Koja IG) ---
         else if (link.includes("instagram.com")) {
             platform = "Instagram";
-            if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n📸 𝐈𝐧𝐬𝐭𝐚𝐠𝐫𝐚𝐦 𝐄𝐧𝐠𝐢𝐧𝐞 𝐀𝐜𝐭𝐢𝐯𝐞...\n${progressBar(30)}\n${line}`, statusMsg.messageID, threadID);
-            
             const res = await axios.get(`https://kojaxd-api.vercel.app/downloader/instagram?apikey=Koja&url=${encodeURIComponent(link)}`);
             if (res.data.status) {
                 downloadUrl = res.data.downloadUrl || res.data.videoUrl;
@@ -74,39 +60,42 @@ module.exports.run = async function ({ api, event, args }) {
             }
         }
 
-        if (!downloadUrl) throw new Error("Video not found or link is private.");
+        if (!downloadUrl) throw new Error("Link not supported or Private.");
 
-        // --- DOWNLOAD & SEND ---
-        if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n📥 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐒𝐭𝐫𝐞𝐚𝐦...\n${progressBar(60)}\n${line}`, statusMsg.messageID, threadID);
-
+        // --- 🚀 TURBO STREAMING DOWNLOAD ---
         const cacheDir = path.join(__dirname, "cache");
         await fs.ensureDir(cacheDir);
-        const filePath = path.join(cacheDir, `rdx_${Date.now()}.mp4`);
+        const filePath = path.join(cacheDir, `rdx_turbo_${Date.now()}.mp4`);
 
-        const fileRes = await axios({
+        const response = await axios({
             method: 'GET',
             url: downloadUrl,
-            responseType: 'arraybuffer',
+            responseType: 'stream',
             headers: { 'User-Agent': 'Mozilla/5.0' }
         });
 
-        if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n⚙️ 𝐏𝐫𝐨𝐜𝐞𝐬𝐬𝐢ｎ𝐠 𝐅𝐢𝐥𝐞...\n${progressBar(90)}\n${line}`, statusMsg.messageID, threadID);
-        fs.writeFileSync(filePath, Buffer.from(fileRes.data));
+        const writer = fs.createWriteStream(filePath);
+        response.data.pipe(writer);
 
-        const stats = fs.statSync(filePath);
-        const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+        writer.on('finish', async () => {
+            const stats = fs.statSync(filePath);
+            const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
-        if (sizeMB > 45) {
-             throw new Error(`File size (${sizeMB}MB) is too large for Messenger.`);
-        }
+            if (sizeMB > 48) {
+                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                return api.editMessage(`❌ ${rdx_header}\n${line}\n𝐒𝐢𝐳𝐞: ${sizeMB}MB (Too big for Messenger)\n${line}`, statusMsg.messageID, threadID);
+            }
 
-        await api.sendMessage({
-            body: `${rdx_header}\n${line}\n✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!\n📌 𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦: ${platform}\n📝 𝐓𝐢𝐭𝐥𝐞: ${title.substring(0, 40)}...\n📦 𝐒𝐢𝐳𝐞: ${sizeMB} MB\n${line}\n🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`,
-            attachment: fs.createReadStream(filePath)
-        }, threadID, () => {
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-            if (statusMsg) api.unsendMessage(statusMsg.messageID);
-        }, messageID);
+            await api.sendMessage({
+                body: `${rdx_header}\n${line}\n✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!\n📌 𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦: ${platform}\n📦 𝐒𝐢𝐳𝐞: ${sizeMB} MB\n${line}\n🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`,
+                attachment: fs.createReadStream(filePath)
+            }, threadID, () => {
+                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                if (statusMsg) api.unsendMessage(statusMsg.messageID);
+            }, messageID);
+        });
+
+        writer.on('error', (err) => { throw err; });
 
     } catch (error) {
         console.error(error);

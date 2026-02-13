@@ -4,10 +4,10 @@ const path = require("path");
 
 module.exports.config = {
     name: "auto",
-    version: "200.0.0",
+    version: "210.0.0",
     hasPermssion: 0,
     credits: "AHMAD RDX",
-    description: "Universal AIODL - FB, IG, YT, TT, SC, TW",
+    description: "Universal AIODL with Intelligent Domain Fix",
     commandCategory: "media",
     usages: "[link]",
     cooldowns: 2
@@ -25,12 +25,11 @@ module.exports.run = async function ({ api, event, args }) {
     const { threadID, messageID } = event;
     const url = args[0];
 
-    if (!url) return api.sendMessage(`${rdx_header}\n${line}\n⚠️ 𝐔𝐬𝐭𝐚𝐝 𝐣𝐢, 𝐥𝐢𝐧𝐤 𝐭𝐨 𝐝𝐞𝐢𝐧!\n${line}`, threadID, messageID);
+    if (!url) return api.sendMessage(`${rdx_header}\n${line}\n⚠️ 𝐔𝐬𝐭𝐚𝐝 𝐣𝐢, 𝐥𝐢𝐧𝐤 𝐭о 𝐝𝐞𝐢𝐧!\n${line}`, threadID, messageID);
 
     let statusMsg = await api.sendMessage(`${rdx_header}\n${line}\n🚀 𝐀𝐈𝐎𝐃𝐋 𝐄𝐧𝐠𝐢𝐧𝐞 𝐀𝐜𝐭𝐢𝐯𝐚𝐭𝐢𝐧𝐠...\n${getBar(15)}\n${line}`, threadID);
 
     try {
-        // 1. CALL UNIVERSAL API
         const apiUrl = `https://kojaxd-api.vercel.app/downloader/aiodl?apikey=Koja&url=${encodeURIComponent(url)}`;
         const res = await axios.get(apiUrl);
 
@@ -41,30 +40,26 @@ module.exports.run = async function ({ api, event, args }) {
         let platform = result.extractor || "Universal";
         let title = result.title || "RDX Media";
 
-        // 🚀 DYNAMIC DOWNLOAD URL EXTRACTION
-        // Check for common link structures in AIODL
-        if (result.links && result.links.video && result.links.video.length > 0) {
-            downloadUrl = result.links.video[0].url;
-        } else if (result.links && result.links.mp4) {
-            downloadUrl = result.links.mp4;
-        } else {
-            downloadUrl = result.url || result.downloadUrl;
-        }
+        // 🚀 SMART URL EXTRACTION
+        let rawLink = result.links?.video?.[0]?.url || result.url || result.downloadUrl;
 
-        // 🦅 RDX DOMAIN FIXER (For Snapchat/Private Servers)
-        if (downloadUrl && !downloadUrl.startsWith('http')) {
+        // 🦅 RDX INTELLIGENT DOMAIN FIXER
+        // Agar link 'http' se shuru nahi ho raha, to domain khud nikalega
+        if (rawLink && !rawLink.startsWith('http')) {
             const thumbUrl = result.thumbnail || "";
             const domainMatch = thumbUrl.match(/^https?:\/\/[^\/]+/);
-            const baseDomain = domainMatch ? domainMatch[0] : "https://dl1.mnmnmnmnrmnmnn.shop";
-            downloadUrl = `${baseDomain}/download.php?token=${downloadUrl}`;
+            // Thumbnail se domain nikalo ya phir current active domain use karo
+            const baseDomain = domainMatch ? domainMatch[0] : "https://dl1.iiilllilliliiiill.shop";
+            downloadUrl = `${baseDomain}/download.php?token=${rawLink}`;
+        } else {
+            downloadUrl = rawLink;
         }
 
-        if (!downloadUrl) throw new Error("Direct Download Link not found.");
+        if (!downloadUrl) throw new Error("Download Link not found.");
 
-        // 2. DOWNLOAD ANIMATION
         await api.editMessage(`${rdx_header}\n${line}\n📥 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐢𝐧𝐠: ${platform.toUpperCase()}\n${getBar(65)}\n${line}`, statusMsg.messageID, threadID);
 
-        // 3. BUFFER DOWNLOAD (FCA Stability)
+        // 📥 BUFFER DOWNLOAD
         const response = await axios.get(downloadUrl, { 
             responseType: 'arraybuffer',
             headers: { 'User-Agent': 'Mozilla/5.0' }
@@ -80,13 +75,11 @@ module.exports.run = async function ({ api, event, args }) {
 
         if (sizeMB > 48) {
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-            return api.editMessage(`❌ ${rdx_header}\n${line}\n⚠️ 𝐒𝐢𝐳𝐞: ${sizeMB}MB (Messenger Limit 48MB)\n${line}`, statusMsg.messageID, threadID);
+            return api.editMessage(`❌ ${rdx_header}\n${line}\n⚠️ 𝐒𝐢𝐳𝐞: ${sizeMB}MB (Limit 48MB)\n${line}`, statusMsg.messageID, threadID);
         }
 
-        // 4. UPLOADING STATUS
         await api.editMessage(`${rdx_header}\n${line}\n📤 𝐔𝐩𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐭𝐨 𝐂𝐡𝐚𝐭...\n${getBar(100)}\n${line}`, statusMsg.messageID, threadID);
 
-        // 5. SEND PREMIUM RESPONSE
         api.sendMessage({
             body: `${rdx_header}\n${line}\n✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!\n\n📌 𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦: ${platform.toUpperCase()}\n📝 𝐓𝐢𝐭𝐥𝐞: ${title.substring(0, 35)}...\n📦 𝐒𝐢𝐳𝐞: ${sizeMB} MB\n✨ 𝐒𝐭𝐚𝐭𝐮𝐬: Ultra Turbo\n${line}\n🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`,
             attachment: [fs.createReadStream(filePath)]
@@ -96,7 +89,6 @@ module.exports.run = async function ({ api, event, args }) {
         }, messageID);
 
     } catch (error) {
-        console.error("AIODL ERROR:", error);
-        if (statusMsg) api.editMessage(`❌ ${rdx_header}\n${line}\n𝐄𝐫𝐫𝐨𝐫: ${error.message}\n${line}`, statusMsg.messageID, threadID);
+        if (statusMsg) api.editMessage(`❌ ${rdx_header}\n${line}\n𝐄𝐫𝐫𝐨𝐫: Server is down or Link invalid.\n${line}`, statusMsg.messageID, threadID);
     }
 };

@@ -16,7 +16,6 @@ module.exports = {
     const botID = api.getCurrentUserID();
     if (senderID == botID) return;
 
-    // Social links detect
     const socialMediaRegex =
       /(?:https?:\/\/)?(?:www\.)?(?:facebook\.com|fb\.watch|instagram\.com|tiktok\.com|twitter\.com|x\.com|youtube\.com|youtu\.be)[^\s]+/gi;
 
@@ -25,10 +24,12 @@ module.exports = {
 
     const videoUrl = matches[0];
 
-    let statusMsg = await api.sendMessage("⏳ Processing...", threadID);
+    let statusMsg = null;
+    try {
+      statusMsg = await api.sendMessage("⏳ Processing...", threadID);
+    } catch {}
 
     try {
-      // NEW API
       const apiURL = `https://kojaxd-api.vercel.app/downloader/aiodl?url=${encodeURIComponent(videoUrl)}&apikey=Koja`;
 
       const res = await axios.get(apiURL);
@@ -65,7 +66,7 @@ module.exports = {
 
         if (size > 80) {
           fs.unlinkSync(filePath);
-          api.unsendMessage(statusMsg.messageID);
+          if (statusMsg) api.unsendMessage(statusMsg.messageID);
           return api.sendMessage(
             "⚠️ File bada hai\n🔗 " + downloadLink,
             threadID,
@@ -83,11 +84,11 @@ module.exports = {
           messageID
         );
 
-        api.unsendMessage(statusMsg.messageID);
+        if (statusMsg) api.unsendMessage(statusMsg.messageID);
       });
 
     } catch (e) {
-      api.unsendMessage(statusMsg.messageID);
+      if (statusMsg) api.unsendMessage(statusMsg.messageID);
       return api.sendMessage("❌ " + e.message, threadID, messageID);
     }
   }

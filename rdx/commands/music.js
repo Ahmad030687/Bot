@@ -4,101 +4,128 @@ const path = require("path");
 const yts = require("yt-search");
 
 module.exports.config = {
-    name: "music",
-    version: "115.0.0",
-    hasPermssion: 0,
-    credits: "AHMAD RDX",
-    description: "Premium Pro Ultra-Fast Downloader",
-    commandCategory: "media",
-    usages: "[song name] [audio/video]",
-    cooldowns: 1
+  name: "music",
+  version: "12.0.0", // Direct Version
+  hasPermssion: 0,
+  credits: "AHMAD RDX",
+  description: "Direct Music/Video Downloader with Animation",
+  commandCategory: "media",
+  usages: "[song name] [audio/video]",
+  cooldowns: 5
 };
 
-// 💎 PREMIUM UI ELEMENTS
-const rdx_header = "🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐏𝐑𝐄𝐌𝐈𝐔𝐌 🦅";
-const line = "━━━━━━━━━━━━━━━━━━";
-const getBar = (pct) => {
-    const filled = Math.round(10 * pct / 100);
-    return `[${'█'.repeat(filled)}${'▒'.repeat(10 - filled)}] ${pct}%`;
+// --- RDX ANIMATION ENGINE ---
+const progressBar = (percentage) => {
+    const filled = Math.round(percentage / 10);
+    const empty = 10 - filled;
+    return `[${'█'.repeat(filled)}${'▒'.repeat(empty)}] ${percentage}%`;
 };
+
+const frames = [
+    "🔎 Searching on YouTube...",
+    "💿 Extracting Media info...",
+    "🔄 Converting Format...",
+    "⬇️ Downloading Content...",
+    "✅ Uploading to Chat..."
+];
 
 module.exports.run = async function ({ api, event, args }) {
-    const { threadID, messageID } = event;
+  const { threadID, messageID, senderID } = event;
 
-    // 🚀 FAST INPUT PARSING
-    const isVideo = args.includes("video") || args.includes("mp4");
-    const query = args.filter(a => !["video", "mp4", "audio", "mp3"].includes(a.toLowerCase())).join(" ");
+  // 1. INPUT HANDLING (Audio vs Video)
+  let lastArg = args[args.length - 1]?.toLowerCase();
+  let downloadType = "video"; // Default
+  let formatLabel = "𝐕𝐈𝐃𝐄𝐎 (𝐌𝐏𝟒)";
+  
+  // Check user demand (Audio/Video)
+  if (["audio", "mp3", "song"].includes(lastArg)) {
+    downloadType = "audio";
+    formatLabel = "𝐀𝐔𝐃𝐈𝐎 (𝐌𝐏𝟑)";
+    args.pop(); // Remove 'audio' from query
+  } else if (["video", "mp4", "watch"].includes(lastArg)) {
+    downloadType = "video";
+    formatLabel = "𝐕𝐈𝐃𝐄𝐎 (𝐌𝐏𝟒)";
+    args.pop(); // Remove 'video' from query
+  }
 
-    if (!query) return api.sendMessage(`${rdx_header}\n${line}\n⚠️ 𝐔𝐬𝐭𝐚𝐝 𝐣𝐢, 𝐠𝐚𝐧𝐞 𝐤𝐚 𝐧𝐚𝐚𝐦 𝐥𝐢𝐤𝐡𝐞𝐢𝐧!\n${line}`, threadID, messageID);
+  const query = args.join(" ");
+  if (!query) return api.sendMessage("⚠️ Ustad ji, gane ka naam to likhein!\nExample: #music Sadqay audio", threadID, messageID);
 
-    const type = isVideo ? "video" : "audio";
-    const ext = isVideo ? "mp4" : "mp3";
+  // 2. INITIAL ANIMATION
+  let loadingMsg = await api.sendMessage(`🦅 **𝐑𝐃𝐗 𝐌𝐔𝐒𝐈𝐂 𝐒𝐘𝐒𝐓𝐄𝐌**\n\n${progressBar(0)}\nStatus: Request Received...`, threadID);
 
-    // 1. SEARCHING ANIMATION
-    let statusMsg = await api.sendMessage(`${rdx_header}\n${line}\n🔎 𝐒𝐞𝐚𝐫𝐜𝐡𝐢𝐧𝐠 YouTube...\n${getBar(20)}\n${line}`, threadID);
+  try {
+    // --- STEP 1: SEARCHING (20%) ---
+    await new Promise(r => setTimeout(r, 500));
+    await api.editMessage(`🦅 **𝐑𝐃𝐗 𝐌𝐔𝐒𝐈𝐂 𝐒𝐘𝐒𝐓𝐄𝐌**\n\n${progressBar(20)}\nStatus: ${frames[0]}`, loadingMsg.messageID);
 
-    try {
-        // 🚀 PARALLEL EXECUTION
-        const [searchResult] = await Promise.all([yts(query)]);
-        const video = searchResult.videos[0];
-        if (!video) throw new Error("Gana nahi mila!");
+    const search = await yts(query);
+    const video = search.videos[0]; // Pick the exact first result
 
-        // 2. EXTRACTION ANIMATION
-        if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n⚡ 𝐅𝐞𝐭𝐜𝐡𝐢𝐧𝐠: ${video.title.substring(0, 20)}...\n${getBar(50)}\n${line}`, statusMsg.messageID, threadID);
+    if (!video) {
+      return api.editMessage("❌ Maafi ustad, ye gana nahi mila.", loadingMsg.messageID);
+    }
 
-        const nixtube = "https://nixtube.aryannix.workers.dev/api/download"; 
-        const dlRes = await axios.get(`${nixtube}?url=${encodeURIComponent(video.url)}&type=${type}`);
-        const dlLink = dlRes.data.downloadUrl || dlRes.data.data?.downloadUrl;
+    // --- STEP 2: EXTRACTING (40%) ---
+    await api.editMessage(`🦅 **𝐑𝐃𝐗 𝐌𝐔𝐒𝐈𝐂 𝐒𝐘𝐒𝐓𝐄𝐌**\n\n${progressBar(40)}\nStatus: Found: "${video.title.substring(0, 15)}..."`, loadingMsg.messageID);
 
-        if (!dlLink) throw new Error("Link bypass failed.");
+    // 3. API FETCHING (Your provided source)
+    const nixUrl = "https://raw.githubusercontent.com/aryannix/stuffs/master/raw/apis.json";
+    const apiConfig = await axios.get(nixUrl);
+    const nixtube = apiConfig.data.nixtube;
 
-        // 3. DOWNLOADING ANIMATION
-        if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n📥 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐒𝐭𝐫𝐞𝐚𝐦...\n${getBar(80)}\n${line}`, statusMsg.messageID, threadID);
+    // --- STEP 3: CONVERTING (60%) ---
+    await api.editMessage(`🦅 **𝐑𝐃𝐗 𝐌𝐔𝐒𝐈𝐂 𝐒𝐘𝐒𝐓𝐄𝐌**\n\n${progressBar(60)}\nStatus: ${frames[2]}`, loadingMsg.messageID);
 
-        const cacheDir = path.join(__dirname, "cache");
-        await fs.ensureDir(cacheDir);
-        const filePath = path.join(cacheDir, `rdx_${Date.now()}.${ext}`);
+    // Request Download Link
+    const res = await axios.get(`${nixtube}?url=${encodeURIComponent(video.url)}&type=${downloadType}&quality=144`); // 144 for fast processing, or remove quality param for best
+    const dlLink = res.data.downloadUrl || (res.data.data && res.data.downloadUrl);
 
-        // --- 📥 TURBO DOWNLOAD LOGIC ---
-        const response = await axios({
-            method: 'GET',
-            url: dlLink,
-            responseType: 'arraybuffer', // Stable for FCA
-            headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
+    if (!dlLink) throw new Error("API ne link nahi diya.");
 
-        // Write to file and wait
-        fs.writeFileSync(filePath, Buffer.from(response.data));
+    // --- STEP 4: DOWNLOADING FILE (80%) ---
+    await api.editMessage(`🦅 **𝐑𝐃𝐗 𝐌𝐔𝐒𝐈𝐂 𝐒𝐘𝐒𝐓𝐄𝐌**\n\n${progressBar(80)}\nStatus: ${frames[3]}`, loadingMsg.messageID);
 
-        // 🛡️ ATTACHMENT GUARD: Verify file exists and has data
-        if (!fs.existsSync(filePath) || fs.statSync(filePath).size < 100) {
-            throw new Error("File corruption detected.");
-        }
+    const ext = downloadType === "audio" ? "mp3" : "mp4";
+    const filePath = path.join(__dirname, "cache", `rdx_music_${Date.now()}.${ext}`);
+    const writer = fs.createWriteStream(filePath);
 
+    const streamResponse = await axios({
+        url: dlLink,
+        method: "GET",
+        responseType: "stream"
+    });
+
+    streamResponse.data.pipe(writer);
+
+    writer.on("finish", async () => {
+        // Check file stats
         const stats = fs.statSync(filePath);
-        const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+        const sizeMB = stats.size / (1024 * 1024);
 
-        if (sizeMB > 48) {
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-            return api.editMessage(`❌ ${rdx_header}\n${line}\n𝐒𝐢𝐳𝐞: ${sizeMB}MB (Limit 48MB)\n${line}`, statusMsg.messageID, threadID);
+        if (sizeMB > 50) {
+            fs.unlinkSync(filePath);
+            return api.editMessage("⚠️ File bohat bari hai (50MB+), Messenger allow nahi karta.", loadingMsg.messageID);
         }
 
-        // 4. UPLOADING ANIMATION
-        if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n📤 𝐔𝐩𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐭𝐨 𝐂𝐡𝐚𝐭...\n${getBar(100)}\n${line}`, statusMsg.messageID, threadID);
-
-        // FINAL PROFESSIONAL MESSAGE
-        const body = `${rdx_header}\n${line}\n✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!\n\n🎵 **Title:** ${video.title}\n📺 **Channel:** ${video.author.name}\n📦 **Size:** ${sizeMB} MB\n✨ **Status:** Premium High-Speed\n${line}\n🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`;
+        // --- STEP 5: UPLOADING (100%) ---
+        await api.editMessage(`🦅 **𝐑𝐃𝐗 𝐌𝐔𝐒𝐈𝐂 𝐒𝐘𝐒𝐓𝐄𝐌**\n\n${progressBar(100)}\nStatus: ${frames[4]}`, loadingMsg.messageID);
+        await new Promise(r => setTimeout(r, 800)); // Thora wait taake 100% nazar aye
+        
+        api.unsendMessage(loadingMsg.messageID);
 
         api.sendMessage({
-            body: body,
-            attachment: [fs.createReadStream(filePath)]
-        }, threadID, (err) => {
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-            if (statusMsg) api.unsendMessage(statusMsg.messageID);
-        }, messageID);
+            body: `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐏𝐋𝐀𝐘𝐄𝐑**\n━━━━━━━━━━━━━━━━\n🎵 **Title:** ${video.title}\n📺 **Channel:** ${video.author.name}\n💿 **Format:** ${formatLabel}\n📦 **Size:** ${sizeMB.toFixed(1)} MB`,
+            attachment: fs.createReadStream(filePath)
+        }, threadID, () => fs.unlinkSync(filePath), messageID);
+    });
 
-    } catch (error) {
-        console.error("RDX PRO ERROR:", error);
-        if (statusMsg) api.editMessage(`❌ ${rdx_header}\n${line}\n𝐄𝐫𝐫𝐨𝐫: ${error.message}\n${line}`, statusMsg.messageID, threadID);
-    }
+    writer.on("error", (err) => {
+        api.editMessage(`❌ Download Error: ${err.message}`, loadingMsg.messageID);
+    });
+
+  } catch (e) {
+    console.error(e);
+    api.editMessage(`❌ **Error:** Gana download nahi ho saka.\nReason: ${e.message}`, loadingMsg.messageID);
+  }
 };

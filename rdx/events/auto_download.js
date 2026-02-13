@@ -6,9 +6,9 @@ module.exports = {
     config: {
         name: 'autoDownload',
         eventType: 'message',
-        version: '12.0.0',
+        version: '13.0.0',
         credits: 'AHMAD RDX',
-        description: 'Auto Downloader - Multi-Engine & Anti-Error'
+        description: 'Auto Downloader - Fix Null messageID Error'
     },
 
     async run({ api, event }) {
@@ -34,15 +34,14 @@ module.exports = {
             " [██████████] 100%"
         ];
 
-        let statusMsg;
+        let statusMsg = null; // Initialize as null
+
         try {
+            // Check if we can send message
             statusMsg = await api.sendMessage(`${rdx_header}\n${line}\n🔍 𝐋𝐢𝐧𝐤 𝐃𝐞𝐭𝐞𝐜𝐭𝐞𝐝...\n${frames[0]}\n${line}`, threadID);
-        } catch (e) { return; }
-
-        const cacheDir = path.join(__dirname, "../commands/cache");
-
-        try {
-            await api.editMessage(`${rdx_header}\n${line}\n⚡ 𝐑𝐃𝐗 𝐄𝐧𝐠𝐢𝐧𝐞 𝐅𝐞𝐭𝐜𝐡𝐢𝐧𝐠...\n${frames[1]}\n${line}`, statusMsg.messageID, threadID);
+            
+            const cacheDir = path.join(__dirname, "../commands/cache");
+            if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n⚡ 𝐑𝐃𝐗 𝐄𝐧𝐠𝐢𝐧𝐞 𝐅𝐞𝐭𝐜𝐡𝐢𝐧𝐠...\n${frames[1]}\n${line}`, statusMsg.messageID, threadID);
 
             let finalUrl = null;
 
@@ -63,19 +62,9 @@ module.exports = {
                 } catch (e) {}
             }
 
-            // Engine 3: Koja
-            if (!finalUrl) {
-                try {
-                    const res = await axios.get(`https://kojaxd-api.vercel.app/downloader/aiodl?url=${encodeURIComponent(videoUrl)}&apikey=Koja`);
-                    const result = res.data.result;
-                    finalUrl = result?.links?.video?.hd?.url || result?.links?.video?.sd?.url || result?.url;
-                    if (finalUrl && !finalUrl.startsWith('http')) finalUrl = null;
-                } catch (e) {}
-            }
-
             if (!finalUrl) throw new Error("Valid download URL not found.");
 
-            await api.editMessage(`${rdx_header}\n${line}\n📥 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐌𝐞𝐝𝐢𝐚...\n${frames[2]}\n${line}`, statusMsg.messageID, threadID);
+            if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n📥 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐌𝐞𝐝𝐢𝐚...\n${frames[2]}\n${line}`, statusMsg.messageID, threadID);
 
             const fileRes = await axios({
                 method: 'GET',
@@ -84,7 +73,7 @@ module.exports = {
                 headers: { 'User-Agent': 'Mozilla/5.0' }
             });
 
-            await api.editMessage(`${rdx_header}\n${line}\n⚙️ 𝐏𝐫𝐨𝐜𝐞𝐬𝐬𝐢𝐧𝐠 𝐅𝐢𝐥𝐞...\n${frames[3]}\n${line}`, statusMsg.messageID, threadID);
+            if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n⚙️ 𝐏𝐫𝐨𝐜𝐞𝐬𝐬𝐢𝐧𝐠 𝐅𝐢𝐥𝐞...\n${frames[3]}\n${line}`, statusMsg.messageID, threadID);
 
             await fs.ensureDir(cacheDir);
             const filePath = path.join(cacheDir, `rdx_${Date.now()}.mp4`);
@@ -93,19 +82,23 @@ module.exports = {
             const stats = fs.statSync(filePath);
             const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
-            await api.editMessage(`${rdx_header}\n${line}\n📤 𝐔𝐩𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐭𝐨 𝐂𝐡𝐚𝐭...\n${frames[4]}\n${line}`, statusMsg.messageID, threadID);
+            if (statusMsg) await api.editMessage(`${rdx_header}\n${line}\n📤 𝐔𝐩𝐥𝐨𝐚𝐝𝐢𝐧𝐠 𝐭𝐨 𝐂𝐡𝐚𝐭...\n${frames[4]}\n${line}`, statusMsg.messageID, threadID);
 
             await api.sendMessage({
                 body: `${rdx_header}\n${line}\n✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!\n📦 𝐒𝐢𝐳𝐞: ${sizeMB} MB\n${line}\n🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`,
                 attachment: fs.createReadStream(filePath)
             }, threadID, () => {
                 if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-                api.unsendMessage(statusMsg.messageID);
+                if (statusMsg) api.unsendMessage(statusMsg.messageID);
             });
 
         } catch (error) {
-            api.editMessage(`❌ ${rdx_header}\n${line}\n𝐄𝐫𝐫𝐨𝐫: ${error.message}\n${line}`, statusMsg.messageID, threadID);
-            setTimeout(() => api.unsendMessage(statusMsg.messageID), 5000);
+            console.log("RDX Error:", error.message);
+            // Safety check for statusMsg
+            if (statusMsg && statusMsg.messageID) {
+                api.editMessage(`❌ ${rdx_header}\n${line}\n𝐄𝐫𝐫𝐨𝐫: ${error.message}\n${line}`, statusMsg.messageID, threadID);
+                setTimeout(() => api.unsendMessage(statusMsg.messageID), 5000);
+            }
         }
     }
 };

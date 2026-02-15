@@ -4,10 +4,10 @@ const path = require("path");
 
 module.exports.config = {
   name: "me",
-  version: "1.1.0",
+  version: "1.5.0",
   hasPermssion: 0,
   credits: "AHMAD RDX",
-  description: "Displays your RDX Premium Identity Card",
+  description: "Displays your RDX Premium Identity Card (Fixed)",
   commandCategory: "Information",
   usages: "",
   cooldowns: 5
@@ -22,14 +22,19 @@ module.exports.run = async function ({ api, event }) {
   const line = "━━━━━━━━━━━━━━━━━━";
 
   try {
-    // 1. Get User Info Safely
+    // 1. Get User Info
     const users = await api.getUserInfo(senderID);
-    const name = users[senderID]?.name || "RDX User";
-    const gender = users[senderID]?.gender == 2 ? "Male" : "Female";
+    let name = users[senderID]?.name || "RDX User";
+    let gender = users[senderID]?.gender == 2 ? "Male" : "Female";
 
-    // 2. Custom Rank Logic
+    // 🔥 BOSS OVERRIDE: Agar aapki ID ho to zabardasti sahi data dikhaye
+    if (senderID == "61577631137537") {
+       name = "AHMAD RDX";
+       gender = "Male";
+    }
+
     const ranks = ["Elite Member", "RDX Certified", "Alpha User", "Premium Soldier"];
-    const randomRank = ranks[senderID % ranks.length]; // ID base rank to keep it consistent
+    const randomRank = ranks[senderID % ranks.length];
 
     const idCard = `${rdx_header}
 ${line}
@@ -42,10 +47,12 @@ ${line}
 ${line}
 🔥 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`;
 
-    // 3. Download Profile Picture with Error Handling
+    // 2. Direct Image Link (No Token Needed for Public Profile)
+    const avatarUrl = `https://graph.facebook.com/${senderID}/picture?width=512&height=512&type=large`;
+
     try {
       await fs.ensureDir(cacheDir);
-      const imgRes = await axios.get(`https://graph.facebook.com/${senderID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a368b627040331618c32`, { responseType: 'arraybuffer' });
+      const imgRes = await axios.get(avatarUrl, { responseType: 'arraybuffer' });
       fs.writeFileSync(avatarPath, Buffer.from(imgRes.data));
 
       return api.sendMessage({
@@ -54,13 +61,11 @@ ${line}
       }, threadID, () => fs.unlinkSync(avatarPath), messageID);
 
     } catch (imgError) {
-      // If image fails, send only text
+      // Agar image block ho, to placeholder use karein
       return api.sendMessage(idCard, threadID, messageID);
     }
 
   } catch (error) {
-    console.error(error);
-    api.sendMessage(`❌ ${rdx_header}\n${line}\n𝐀𝐡𝐦𝐚𝐝 𝐛𝐡𝐚𝐢, 𝐬𝐲𝐬𝐭𝐞𝐦 𝐦𝐚𝐢𝐧 𝐦𝐚𝐬𝐥𝐚 𝐡𝐚𝐢!`, threadID, messageID);
+    api.sendMessage(`❌ ${rdx_header}\n${line}\nSystem Error!`, threadID, messageID);
   }
 };
-      

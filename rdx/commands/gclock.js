@@ -1,121 +1,79 @@
 const fs = require("fs-extra");
-const path = require("path");
 const axios = require("axios");
+const path = require("path");
 
 module.exports.config = {
-    name: "gclock",
-    version: "4.0.0", // No-Kick Edition
-    hasPermssion: 1, // Sirf Admin
-    credits: "Ahmad RDX",
-    description: "Prevent Group Changes (Name, Emoji, Photo)",
-    commandCategory: "admin",
-    usages: "[name/emoji/avt] [on/off]",
-    cooldowns: 5
+  name: "lockgroup",
+  version: "2.0.0", // RDX Updated
+  hasPermssion: 1, // Sirf Admin
+  credits: "AHMAD RDX",
+  description: "Anti-Change: Lock Group Name & Image",
+  commandCategory: "Security",
+  usages: "[on/off]",
+  cooldowns: 5
 };
 
-const pathData = path.join(__dirname, "cache", "guard_data.json");
-
-function loadData() {
-    if (!fs.existsSync(pathData)) fs.writeFileSync(pathData, JSON.stringify({}));
-    return JSON.parse(fs.readFileSync(pathData));
-}
-function saveData(data) { fs.writeFileSync(pathData, JSON.stringify(data, null, 4)); }
+// Data RAM mein save hoga (Restart hone par reset ho jayega)
+const lockData = {}; 
 
 module.exports.run = async function ({ api, event, args }) {
-    const { threadID, messageID } = event;
-    const type = args[0];
-    const state = args[1];
+  const { threadID, messageID } = event;
 
-    if (!type || !state) {
-        return api.sendMessage(
-            `🛡️ **RDX GUARD SETTINGS**\n━━━━━━━━━━━━━━\n` +
-            `🔒 **#guard name on** (Name Lock)\n` +
-            `🔒 **#guard emoji on** (Emoji Lock)\n` +
-            `🔒 **#guard avt on** (Photo Lock)\n` +
-            `🔓 **#guard name off** (Unlock)\n\n` +
-            `⚠️ *Note: Bot Admin hona chahiye!*`, 
-            threadID, messageID
-        );
+  if (!args[0]) return api.sendMessage("🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗: Likhain '#lockgroup on' ya 'off'", threadID, messageID);
+
+  if (args[0].toLowerCase() === "on") {
+    try {
+      const threadInfo = await api.getThreadInfo(threadID);
+      const groupName = threadInfo.threadName;
+      const groupImageSrc = threadInfo.imageSrc;
+
+      // Current Data Save kar lo
+      lockData[threadID] = {
+        name: groupName,
+        imageSrc: groupImageSrc,
+        status: true
+      };
+
+      return api.sendMessage(`🔒 𝐆𝐫𝐨𝐮𝐩 𝐋𝐨𝐜𝐤𝐞𝐝!\nName: ${groupName}\nAb koi change nahi kar payega.`, threadID, messageID);
+    } catch (err) {
+      return api.sendMessage("❌ Error: Main group info nahi le pa raha.", threadID, messageID);
     }
+  }
 
-    let data = loadData();
-    if (!data[threadID]) data[threadID] = { name: false, emoji: false, avt: false, originalName: "", originalEmoji: "" };
-
-    const threadInfo = await api.getThreadInfo(threadID);
-
-    // --- 1. NAME LOCK ---
-    if (type === "name") {
-        if (state === "on") {
-            data[threadID].name = true;
-            data[threadID].originalName = threadInfo.threadName;
-            api.sendMessage(`🔒 **Name Locked:** ${threadInfo.threadName}`, threadID);
-        } else {
-            data[threadID].name = false;
-            api.sendMessage(`🔓 **Name Unlocked!**`, threadID);
-        }
-    } 
-    // --- 2. EMOJI LOCK ---
-    else if (type === "emoji") {
-        if (state === "on") {
-            data[threadID].emoji = true;
-            data[threadID].originalEmoji = threadInfo.emoji;
-            api.sendMessage(`🔒 **Emoji Locked:** ${threadInfo.emoji}`, threadID);
-        } else {
-            data[threadID].emoji = false;
-            api.sendMessage(`🔓 **Emoji Unlocked!**`, threadID);
-        }
-    }
-    // --- 3. PHOTO LOCK ---
-    else if (type === "avt") {
-        if (state === "on") {
-            if (!threadInfo.imageSrc) return api.sendMessage("❌ Pehle koi photo lagayen!", threadID);
-            
-            const imgPath = path.join(__dirname, "cache", `guard_${threadID}.png`);
-            const buf = (await axios.get(threadInfo.imageSrc, { responseType: 'arraybuffer' })).data;
-            fs.writeFileSync(imgPath, Buffer.from(buf));
-
-            data[threadID].avt = true;
-            api.sendMessage(`🔒 **Photo Locked!** Backup saved.`, threadID);
-        } else {
-            data[threadID].avt = false;
-            api.sendMessage(`🔓 **Photo Unlocked!**`, threadID);
-        }
-    }
+  if (args[0].toLowerCase() === "off") {
+    if (!lockData[threadID]) return api.sendMessage("⚠️ Group pehle se unlocked hai.", threadID, messageID);
     
-    saveData(data);
+    delete lockData[threadID];
+    return api.sendMessage("🔓 𝐆𝐫𝐨𝐮𝐩 𝐔𝐧𝐥𝐨𝐜𝐤𝐞𝐝!", threadID, messageID);
+  }
 };
 
-// --- AUTOMATIC REVERTER (NO KICK) ---
 module.exports.handleEvent = async function ({ api, event }) {
-    const { threadID, logMessageType, logMessageData, author } = event;
-    if (author === api.getCurrentUserID()) return; // Bot khud ko na rokay
+  const { threadID, logMessageType, logMessageData } = event;
 
-    let data = loadData();
-    if (!data[threadID]) return;
+  // Agar lock nahi hai to kuch mat karo
+  if (!lockData[threadID] || !lockData[threadID].status) return;
 
-    // 1. ANTI-NAME CHANGE
-    if (logMessageType === "log:thread-name" && data[threadID].name) {
-        if (logMessageData.name !== data[threadID].originalName) {
-            // Sirf wapis karo, kick nahi
-            api.setTitle(data[threadID].originalName, threadID);
-            api.sendMessage(`⚠️ **Warning:** @User Name lock hai!`, threadID);
+  // 🛡️ SECURITY 1: Name Change Detection
+  if (logMessageType === "log:thread-name") {
+    const newName = logMessageData.name;
+    const oldName = lockData[threadID].name;
+
+    if (newName !== oldName) {
+      // Wapis Purana Naam Set karo
+      api.setTitle(oldName, threadID, (err) => {
+        if (!err) {
+          api.sendMessage(`⚠️ 𝐀𝐮𝐫𝐚 𝐖𝐚𝐫𝐧𝐢𝐧𝐠!\nNaam badalna mana hai.`, threadID);
         }
+      });
     }
+  }
 
-    // 2. ANTI-EMOJI CHANGE
-    if (logMessageType === "log:thread-icon" && data[threadID].emoji) {
-        // Sirf wapis karo
-        api.changeThreadEmoji(data[threadID].originalEmoji || "👍", threadID, () => {});
-        api.sendMessage(`⚠️ **Warning:** Emoji change karna mana hai!`, threadID);
-    }
-
-    // 3. ANTI-PHOTO CHANGE
-    if (logMessageType === "log:thread-image" && data[threadID].avt) {
-        api.sendMessage(`⚠️ **Warning:** Photo wapis lagayi ja rahi hai...`, threadID);
-        const imgPath = path.join(__dirname, "cache", `guard_${threadID}.png`);
-        if (fs.existsSync(imgPath)) {
-            api.changeGroupImage(fs.createReadStream(imgPath), threadID);
-        }
-    }
+  // 🛡️ SECURITY 2: Image Change Detection
+  if (logMessageType === "log:thread-image") {
+    // Image wapis lagana thora heavy hota hai, isliye hum sirf warn karte hain ya wapis purani lagate hain agar URL saved ho.
+    api.sendMessage(`⚠️ 𝐀𝐮𝐫𝐚 𝐖𝐚𝐫𝐧𝐢𝐧𝐠!\nGroup DP change mat karein!`, threadID);
+    
+    // Note: Auto-Image revert 2026 mai risky hai, isliye sirf Warning best hai.
+  }
 };
-              

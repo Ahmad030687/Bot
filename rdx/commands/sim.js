@@ -2,10 +2,10 @@ const axios = require("axios");
 
 module.exports.config = {
   name: "sim",
-  version: "15.0.0",
+  version: "25.0.0",
   hasPermssion: 0,
   credits: "AHMAD RDX",
-  description: "New 2026 Sim Tracker (Multi-Source)",
+  description: "Final Fixed SIM Tracker",
   commandCategory: "Tools",
   usages: "[number]",
   cooldowns: 2
@@ -13,47 +13,51 @@ module.exports.config = {
 
 module.exports.run = async function ({ api, event, args }) {
   const { threadID, messageID } = event;
-  let num = args[0];
+  let num = args.join("");
 
-  if (!num) return api.sendMessage("🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗: Number likho bhai!", threadID, messageID);
+  if (!num) return api.sendMessage("🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗: Number to likho Ahmad bhai!", threadID, messageID);
 
-  // Auto-format: Remove 0 or 92 from start for this new API
-  let cleanNum = num.replace(/^0|^92/, "");
+  // 🛠️ Step 1: Number ko clean karein (Sirf digits rakhein)
+  let cleanNum = num.replace(/\D/g, "");
 
-  api.sendMessage(`🚀 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗: Scanning New Database for ${cleanNum}...`, threadID, messageID);
+  // 🛠️ Step 2: Agar number 0 se shuru ho raha hai to 0 hata dein (Qunke API 0 ke baghair result deti hai)
+  if (cleanNum.startsWith("0")) {
+    cleanNum = cleanNum.substring(1);
+  } else if (cleanNum.startsWith("92")) {
+    cleanNum = cleanNum.substring(2);
+  }
+
+  // 🔗 Aapki working API ka link
+  const myApiUrl = `https://rdx-sim-api.ahmadalisafdar86.workers.dev/?q=${cleanNum}`;
+
+  api.sendMessage(`📡 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐒𝐘𝐒𝐓𝐄𝐌\nSearching for: ${cleanNum}...`, threadID, messageID);
 
   try {
-    // 🛡️ Source 1: New 2026 Public DB
-    const res = await axios.get(`https://api.v-p-n.workers.dev/sim?q=${cleanNum}`);
+    const res = await axios.get(myApiUrl);
     
-    // Agar ye API data de rahi hai
-    if (res.data && res.data.length > 0) {
-      let msg = "🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐅𝐎𝐔𝐍𝐃 𝐃𝐀𝐓𝐀 🦅\n━━━━━━━━━━━━━━━━━━\n";
+    // Cloudflare Worker se jo data aa raha hai usay check karein
+    const responseData = res.data;
+    const records = responseData.data || responseData;
+
+    if (Array.isArray(records) && records.length > 0) {
+      let msg = "🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐃𝐀𝐓𝐀 𝐅𝐎𝐔𝐍𝐃 🦅\n━━━━━━━━━━━━━━━━━━\n";
       
-      res.data.forEach((item, index) => {
+      records.forEach((item, index) => {
         msg += `👤 𝐑𝐞𝐜𝐨𝐫𝐝: ${index + 1}\n`;
-        msg += `📝 𝐍𝐚𝐦𝐞: ${item.name || "N/A"}\n`;
-        msg += `🆔 𝐂𝐍𝐈𝐂: ${item.cnic || "N/A"}\n`;
-        msg += `📞 𝐍𝐮𝐦𝐛𝐞𝐫: ${item.number || cleanNum}\n`;
-        msg += `🏠 𝐀𝐝𝐝𝐫𝐞𝐬𝐬: ${item.address || "N/A"}\n`;
+        msg += `📝 𝐍𝐚𝐦𝐞: ${item.Name || item.name || "N/A"}\n`;
+        msg += `🆔 𝐂𝐍𝐈𝐂: ${item.CNIC || item.cnic || "N/A"}\n`;
+        msg += `📞 𝐌𝐨𝐛𝐢𝐥𝐞: ${item.Mobile || item.number || cleanNum}\n`;
+        msg += `🏠 𝐀𝐝𝐝𝐫𝐞𝐬𝐬: ${item.ADDRESS || item.address || "N/A"}\n`;
         msg += `━━━━━━━━━━━━━━━━━━\n`;
       });
       
+      msg += `✅ 𝐒𝐞𝐚𝐫𝐜𝐡 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞𝐝`;
       return api.sendMessage(msg, threadID, messageID);
-    } 
-    
-    // 🛡️ Source 2: Backup Source (If Source 1 fails)
-    else {
-        const backupRes = await axios.get(`https://tool-api.com/sim?number=${cleanNum}`);
-        if(backupRes.data.success) {
-            // Display backup data logic...
-            return api.sendMessage("✅ Backup Data Found!", threadID);
-        }
+    } else {
+      return api.sendMessage(`❌ Ahmad bhai, is number (${cleanNum}) ka data database mein nahi mila.\n\nType: #sim [Dusra Number]`, threadID, messageID);
     }
 
-    return api.sendMessage("❌ Ahmad bhai, ye number kisi bhi latest database mein nahi mila. Shayad fresh sim hai.", threadID, messageID);
-
   } catch (error) {
-    return api.sendMessage("⚠️ System Busy! Dusri command try karein ya thori der baad.", threadID, messageID);
+    return api.sendMessage("⚠️ API Server Busy! Ahmad bhai, apna Worker dashboard check karein.", threadID, messageID);
   }
 };

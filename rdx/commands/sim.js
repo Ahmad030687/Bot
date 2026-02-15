@@ -1,11 +1,11 @@
-const axios = require("axios");
+const fetch = require('node-fetch');
 
 module.exports.config = {
   name: "sim",
-  version: "4.0.0",
+  version: "5.0.0",
   hasPermssion: 0,
   credits: "AHMAD RDX",
-  description: "Fixed SIM Tracker with Browser Headers",
+  description: "Bypass Blocked SIM Tracker",
   commandCategory: "Tools",
   usages: "[number]",
   cooldowns: 5
@@ -20,22 +20,23 @@ module.exports.run = async function ({ api, event, args }) {
   const rdx_header = "🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐒𝐈𝐌 𝐓𝐑𝐀𝐂𝐊𝐄𝐑 🦅";
   const line = "━━━━━━━━━━━━━━━━━━";
 
-  api.sendMessage(`📡 𝐒𝐞𝐚𝐫𝐜𝐡𝐢𝐧𝐠... (Direct Mode)`, threadID, messageID);
+  api.sendMessage(`📡 𝐁𝐲𝐩𝐚𝐬𝐬𝐢𝐧𝐠 𝐅𝐢𝐫𝐞𝐰𝐚𝐥𝐥... Searching: ${query}`, threadID, messageID);
 
   try {
-    // 🌐 Browser Headers: Taake API bot ko block na kare
-    const res = await axios.get(`https://sim.f-a-k.workers.dev/?q=${encodeURIComponent(query)}`, {
+    // Fetch use kar rahe hain axios ki jagah bypass ke liye
+    const response = await fetch(`https://sim.f-a-k.workers.dev/?q=${query}`, {
+      method: 'GET',
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json"
-      },
-      timeout: 15000 // 15 seconds wait
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://sim.f-a-k.workers.dev/',
+        'Origin': 'https://sim.f-a-k.workers.dev/'
+      }
     });
 
-    const apiData = res.data;
+    const apiData = await response.json();
 
-    // Check if data is successful and has content
-    if (apiData && apiData.status === "success" && apiData.data && apiData.data.length > 0) {
+    if (apiData.status === "success" && apiData.data && apiData.data.length > 0) {
       let msg = `${rdx_header}\n${line}\n`;
 
       apiData.data.forEach((item, index) => {
@@ -47,21 +48,14 @@ module.exports.run = async function ({ api, event, args }) {
         msg += `${line}\n`;
       });
 
-      msg += `✅ 𝐃𝐚𝐭𝐚 𝐅𝐞𝐭𝐜𝐡𝐞𝐝!`;
+      msg += `✅ 𝐃𝐚𝐭𝐚 𝐅𝐨𝐮𝐧𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`;
       return api.sendMessage(msg, threadID, messageID);
     } else {
-      // Agar API status success na ho ya data empty ho
-      return api.sendMessage(`❌ Ahmad bhai, API ne koi data nahi bheja. Shayad number database mein nahi hai.\n\nRaw Response: ${JSON.stringify(apiData.status || "No Status")}`, threadID, messageID);
+      return api.sendMessage(`❌ Record nahi mila! API Response: ${JSON.stringify(apiData)}`, threadID, messageID);
     }
 
   } catch (error) {
-    console.error("RDX DEBUG ERROR:", error);
-    
-    // Detailed error message
-    let errorMsg = "❌ API Error!";
-    if (error.response) errorMsg = `❌ Server Error: ${error.response.status}`;
-    else if (error.request) errorMsg = "❌ No response from API (Timeout)";
-    
-    return api.sendMessage(errorMsg, threadID, messageID);
+    console.error(error);
+    return api.sendMessage("❌ Connection Failed! Cloudflare ne bot ko block kar diya hai. Try again in 5 mins.", threadID, messageID);
   }
 };

@@ -1,61 +1,50 @@
-const fetch = require('node-fetch');
+const axios = require("axios");
 
 module.exports.config = {
   name: "sim",
-  version: "5.0.0",
+  version: "12.0.0",
   hasPermssion: 0,
   credits: "AHMAD RDX",
-  description: "Bypass Blocked SIM Tracker",
+  description: "Ahmad RDX Private API System",
   commandCategory: "Tools",
   usages: "[number]",
-  cooldowns: 5
+  cooldowns: 2
 };
 
 module.exports.run = async function ({ api, event, args }) {
   const { threadID, messageID } = event;
-  const query = args.join("");
+  const num = args[0];
 
-  if (!query) return api.sendMessage("⚠️ Ahmad bhai, number to likho!", threadID, messageID);
+  if (!num) return api.sendMessage("⚠️ Ahmad bhai, number to likho!\nExample: #sim 03024582854", threadID, messageID);
 
-  const rdx_header = "🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐒𝐈𝐌 𝐓𝐑𝐀𝐂𝐊𝐄𝐑 🦅";
-  const line = "━━━━━━━━━━━━━━━━━━";
+  // ✅ Your Private Cloudflare Worker Link
+  const myApiUrl = `https://rdx-sim-api.ahmadalisafdar86.workers.dev/?q=${num}`;
 
-  api.sendMessage(`📡 𝐁𝐲𝐩𝐚𝐬𝐬𝐢𝐧𝐠 𝐅𝐢𝐫𝐞𝐰𝐚𝐥𝐥... Searching: ${query}`, threadID, messageID);
+  api.sendMessage(`📡 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐏𝐑𝐈𝐕𝐀𝐓𝐄 𝐒𝐄𝐑𝐕𝐄𝐑\nScanning: ${num}...`, threadID, messageID);
 
   try {
-    // Fetch use kar rahe hain axios ki jagah bypass ke liye
-    const response = await fetch(`https://sim.f-a-k.workers.dev/?q=${query}`, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-        'Accept': 'application/json',
-        'Referer': 'https://sim.f-a-k.workers.dev/',
-        'Origin': 'https://sim.f-a-k.workers.dev/'
-      }
-    });
-
-    const apiData = await response.json();
+    const res = await axios.get(myApiUrl);
+    const apiData = res.data;
 
     if (apiData.status === "success" && apiData.data && apiData.data.length > 0) {
-      let msg = `${rdx_header}\n${line}\n`;
-
+      let msg = "🦅 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐒𝐈𝐌 𝐃𝐀𝐓𝐀 🦅\n━━━━━━━━━━━━━━━━━━\n";
+      
       apiData.data.forEach((item, index) => {
         msg += `👤 𝐑𝐞𝐜𝐨𝐫𝐝: ${index + 1}\n`;
-        msg += `📝 𝐍𝐚𝐦𝐞: ${item.Name || "N/A"}\n`;
-        msg += `🆔 𝐂𝐍𝐈𝐂: ${item.CNIC || "N/A"}\n`;
-        msg += `📞 𝐌𝐨𝐛𝐢𝐥𝐞: ${item.Mobile || "N/A"}\n`;
-        msg += `🏠 𝐀𝐝𝐝𝐫𝐞𝐬𝐬: ${item.ADDRESS || "N/A"}\n`;
-        msg += `${line}\n`;
+        msg += `📝 𝐍𝐚𝐦𝐞: ${item.Name}\n`;
+        msg += `🆔 𝐂𝐍𝐈𝐂: ${item.CNIC}\n`;
+        msg += `📞 𝐌𝐨𝐛𝐢𝐥𝐞: ${item.Mobile}\n`;
+        msg += `🏠 𝐀𝐝𝐝𝐫𝐞𝐬𝐬: ${item.ADDRESS}\n`;
+        msg += `━━━━━━━━━━━━━━━━━━\n`;
       });
-
-      msg += `✅ 𝐃𝐚𝐭𝐚 𝐅𝐨𝐮𝐧𝐝 𝐛𝐲 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗`;
+      
+      msg += `✅ Powered by RDX Private Cloud`;
       return api.sendMessage(msg, threadID, messageID);
     } else {
-      return api.sendMessage(`❌ Record nahi mila! API Response: ${JSON.stringify(apiData)}`, threadID, messageID);
+      return api.sendMessage("❌ Ahmad bhai, record nahi mila ya number galat hai.", threadID, messageID);
     }
-
   } catch (error) {
     console.error(error);
-    return api.sendMessage("❌ Connection Failed! Cloudflare ne bot ko block kar diya hai. Try again in 5 mins.", threadID, messageID);
+    return api.sendMessage("❌ Server Error! Ahmad bhai apna Worker check karein.", threadID, messageID);
   }
 };

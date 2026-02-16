@@ -5,13 +5,13 @@ const yts = require("yt-search");
 
 module.exports.config = {
   name: "music",
-  version: "20.0.0",
+  version: "30.0.0", // Final Working Version
   hasPermssion: 0,
   credits: "AHMAD RDX",
-  description: "High-Speed Private Downloader (No Timeout)",
+  description: "Private API Fix - Browser Mode",
   commandCategory: "media",
-  usages: "[song name] [audio/video]",
-  cooldowns: 2
+  usages: "[song name] audio/video",
+  cooldowns: 5
 };
 
 module.exports.run = async function ({ api, event, args }) {
@@ -20,13 +20,14 @@ module.exports.run = async function ({ api, event, args }) {
   // 1. Input Check
   let lastArg = args[args.length - 1]?.toLowerCase();
   let type = "video";
+  
   if (["audio", "mp3", "song"].includes(lastArg)) { type = "audio"; args.pop(); }
   else if (["video", "mp4"].includes(lastArg)) { type = "video"; args.pop(); }
 
   const query = args.join(" ");
-  if (!query) return api.sendMessage("🦅 Ahmad bhai, gane ka naam to likho!", threadID, messageID);
+  if (!query) return api.sendMessage("🦅 Ahmad bhai, gane ka naam to likhein!", threadID, messageID);
 
-  let loading = await api.sendMessage("🔎 RDX System: Searching and Processing...", threadID);
+  let loading = await api.sendMessage("🔎 RDX System: Finding best match...", threadID);
 
   try {
     // Search Video
@@ -34,52 +35,81 @@ module.exports.run = async function ({ api, event, args }) {
     const video = search.videos[0];
     if (!video) return api.editMessage("❌ Gana nahi mila!", loading.messageID);
 
-    // Private API Call (Unlimited Timeout)
-    const apiUrl = `https://simapi-no8v.onrender.com/download?url=${encodeURIComponent(video.url)}&type=${type}&key=ahmad_rdx_private_786`;
-    
-    const res = await axios.get(apiUrl, { timeout: 0 }); // 0 means no timeout
-    const dlLink = res.data.downloadUrl;
+    // 🛡️ API URL Setup
+    const privateKey = "ahmad_rdx_private_786";
+    const apiUrl = `https://simapi-no8v.onrender.com/download?url=${encodeURIComponent(video.url)}&type=${type}&key=${privateKey}`;
 
-    if (!dlLink) throw new Error("API link blank hai!");
+    // Update Status
+    await api.editMessage(`🦅 **𝐑𝐃𝐗 𝐒𝐘𝐒𝐓𝐄𝐌**\n━━━━━━━━━━━━━\n🔗 Connecting to Private Server...\n(Bypassing Bot Detection)`, loading.messageID);
 
-    // Download Path
+    // 🚀 STEP 1: API HIT WITH "FAKE BROWSER HEADERS"
+    // Ye headers Render aur YouTube ko dhoka denge ke ye Bot nahi Insaan hai
+    const response = await axios.get(apiUrl, {
+        headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1"
+        },
+        timeout: 120000 // 2 Minutes wait time (Timeout Error se bachne ke liye)
+    });
+
+    if (response.data.status !== "success" || !response.data.downloadUrl) {
+        throw new Error(response.data.message || "API ne 200 OK diya lekin link nahi diya!");
+    }
+
+    const dlLink = response.data.downloadUrl;
+    const songTitle = response.data.title;
+
+    // 🚀 STEP 2: DOWNLOADING FILE
+    // Yahan bhi wahi headers use karenge taake Google Video link expire na ho
+    await api.editMessage(`🦅 **𝐑𝐃𝐗 𝐒𝐘𝐒𝐓𝐄𝐌**\n━━━━━━━━━━━━━\n📥 Downloading: ${songTitle}\n🚀 Speed: High Priority`, loading.messageID);
+
     const ext = type === "audio" ? "mp3" : "mp4";
-    const filePath = path.join(__dirname, "cache", `${Date.now()}.${ext}`);
-    if (!fs.existsSync(path.join(__dirname, "cache"))) fs.mkdirSync(path.join(__dirname, "cache"));
+    const cachePath = path.join(__dirname, "cache");
+    if (!fs.existsSync(cachePath)) fs.mkdirSync(cachePath);
+    const filePath = path.join(cachePath, `rdx_${Date.now()}.${ext}`);
 
-    // Real Downloading Logic
-    const response = await axios({
-      method: 'GET',
-      url: dlLink,
-      responseType: 'stream',
-      timeout: 0 // Waiting for full file
+    const fileStream = await axios({
+        method: 'GET',
+        url: dlLink,
+        responseType: 'stream',
+        headers: {
+             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
     });
 
     const writer = fs.createWriteStream(filePath);
-    response.data.pipe(writer);
+    fileStream.data.pipe(writer);
 
-    // Ye part tabhi chalega jab file puri tarah download ho jaye
-    writer.on('finish', () => {
-      const size = fs.statSync(filePath).size / (1024 * 1024);
-      
-      if (size > 48) {
+    writer.on('finish', async () => {
+      const stats = fs.statSync(filePath);
+      const sizeMB = stats.size / (1024 * 1024);
+
+      if (sizeMB > 50) {
         fs.unlinkSync(filePath);
-        return api.editMessage("⚠️ File 50MB se badi hai, Messenger allow nahi karta!", loading.messageID);
+        return api.editMessage("⚠️ File 50MB se bari hai, Messenger allow nahi karta.", loading.messageID);
       }
 
-      api.unsendMessage(loading.messageID);
-      
+      await api.unsendMessage(loading.messageID);
+
       api.sendMessage({
-        body: `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃𝐄𝐑**\n━━━━━━━━━━━━━\n🎵 Title: ${video.title}\n📦 Size: ${size.toFixed(2)} MB\n✅ Status: Sent!`,
+        body: `🦅 **𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐏𝐋𝐀𝐘𝐄𝐑**\n━━━━━━━━━━━━━━━━━━\n🎵 **Title:** ${songTitle}\n💿 **Type:** ${type.toUpperCase()}\n📦 **Size:** ${sizeMB.toFixed(2)} MB\n✅ **Server:** RDX Private API`,
         attachment: fs.createReadStream(filePath)
       }, threadID, () => fs.unlinkSync(filePath), messageID);
     });
 
-    writer.on('error', (e) => {
-      api.editMessage("❌ Write Error: " + e.message, loading.messageID);
+    writer.on('error', (err) => {
+        throw err;
     });
 
   } catch (err) {
-    api.editMessage(`❌ RDX Server Error: ${err.message}`, loading.messageID);
+    console.error("RDX ERROR:", err);
+    // Agar 500 error aaye to user ko bataye
+    if(err.response && err.response.status === 500) {
+        return api.editMessage(`❌ **API Error 500:**\nAhmad bhai, Render server crash ho raha hai. Iska matlab Python code me 'Error Handling' nahi hai. Please main.py update karein.`, loading.messageID);
+    }
+    api.editMessage(`❌ **System Error:** ${err.message}`, loading.messageID);
   }
 };

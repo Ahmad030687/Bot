@@ -4,16 +4,16 @@ const path = require('path');
 
 const CEREBRAS_API_URL = 'https://api.cerebras.ai/v1/chat/completions';
 
-const API_KEYS = ['ADD YOUR API KEYS HERE - GET FROM https://cerebras.ai./'];
+const API_KEYS = ['csk-pyd4m69tmtfkjpcjjdwdyk9fh86kycjpphey8d5wj9p8fpth'];
 
 // Boy Owners (Malik)
 const BOY_OWNERS = {
-  '100009012838085': { name: 'SARDAR', gender: 'boy' }
+  '61577631137537': { name: 'AHMIII', gender: 'boy' }
 };
 
 // Girl Owners (Malkin)
 const GIRL_OWNERS = {
-  'GIRL UID': { name: 'SARA', gender: 'girl' }  // 
+  'GIRL UID': { name: 'AHMII KI JAN', gender: 'girl' }  // 
 };
 
 const BOT_NAME = 'Mano';
@@ -297,7 +297,7 @@ const funnyResponses = [
   "Aree Bandh kar Bandh Kar",
   "M hath jod ke Modi Ji Se Gujarish Karta hu",
   "Tujhe Kya koi aur Kam nhi ha? Puradin Khata hai Aur Messenger pe Bot Bot Karta h",
-  "Priyansh Ko Bol Dunga Me Mujhe Paresan Kiya To",
+  "Ahmiiii Ko Bol Dunga Me Mujhe Paresan Kiya To",
   "Tum Na Single Hi Maroge",
   "Tujhe Apna Bejjti Karne Ka Saukh hai?",
   "Abhi Bola Toh Bola Dubara Mat Bolna",

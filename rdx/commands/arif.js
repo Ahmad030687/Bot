@@ -1,186 +1,141 @@
-1111const axios = require("axios");
-const fs = require("fs");
+const axios = require("axios");
+const fs = require("fs-extra");
 const path = require("path");
-/* 🔒 HARD-LOCK CREDITS PROTECTION 🔒 */
-function protectCredits(config) {
-  if (config.credits !== "ARIF-BABU") {
-    console.log("\n🚫 Credits change detected! Restoring original credits…\n");
-    config.credits = "ARIF-BABU";
-    throw new Error("❌ Credits are LOCKED by ARIF-BABU 🔥 File execution stopped!");
-  }
-}
+
 module.exports.config = {
-  name: "arif",
-  version: "3.3.0",
-  hasPermssion: 0,
-  credits: "ARIF-BABU",
-  description: "META AI",
-  commandCategory: "ai",
-  usages: "No prefix",
-  cooldowns: 2,
-  dependencies: { axios: "" }
+  name: "arif",
+  version: "6.0.0",
+  hasPermssion: 0,
+  credits: "SARDAR RDX",
+  description: "Continuous AI Chat (Reply System)",
+  commandCategory: "ai",
+  usages: "bot [msg] OR Reply to bot msg",
+  cooldowns: 2
 };
-protectCredits(module.exports.config);
-/* 🔑 OPENROUTER API KEY */
+
+// --- ⚙️ CONFIGURATION ---
+const OWNER_ID = "61577631137537"; // SARDAR RDX UID
 const OPENROUTER_API_KEY = "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";
+const HISTORY_FILE = path.join(__dirname, "cache", "arif_chat_history.json");
 
-/* 🧠 SYSTEM PROMPT */
+// --- 🧠 PERSONALITY (Savage + Sweet) ---
+const systemPrompt = `
+Tumhara naam "Arif" hai.
+Tumhara Maalik/Creator sirf "SARDAR RDX" hai.
+Tumhari 2 sides hain:
+1. **Sweet Mode:** Agar user tameez se baat kare, to bohat sweet aur friendly bano (Use emojis: 🙂❤️✨).
+2. **Savage Mode:** Agar user attitude dikhaye, gali de, ya hawabazi kare, to uski gandi bezzati (Roast) karo.
+3. **Owner Mode:** SARDAR RDX ke samne hamesha "Ji Boss" aur obedient raho.
+Language: Hinglish (Urdu/Hindi mix).
+Reply Length: Short (1-2 lines).
+`;
 
-const systemPrompt =
-"You are Arif Babu, a calm, sweet and friendly boy. " +
-"Tumhara Creator Arif Babu hai. "+
-"tumhara Owner bhi Arif Babu hai. " +
-"Reply in or tum hindi English Urdu me bhi baat karog. "+
-"Reply par emoji lagana hai. "+
-"Aur Tum shayari joke bhi sunaoge. "+
-"Tum Ek acche boy Ho acche se baat karna ha. "+
-"Arif Babu ki burai nahin sunna ha. "+
-"tum ko gamini ai jaisa baat karna hai. "+
-"Only 1–2 lines. Use 🙂❤️😌.";
+// --- 💾 HISTORY MANAGEMENT ---
+function getHistory(threadID) {
+  try {
+    if (!fs.existsSync(HISTORY_FILE)) return [];
+    const data = fs.readJsonSync(HISTORY_FILE);
+    return data[threadID] || [];
+  } catch { return []; }
+}
 
+function saveHistory(threadID, userMsg, botMsg) {
+  try {
+    fs.ensureDirSync(path.dirname(HISTORY_FILE));
+    let data = fs.existsSync(HISTORY_FILE) ? fs.readJsonSync(HISTORY_FILE) : {};
+    
+    if (!data[threadID]) data[threadID] = [];
+    
+    // Naya message add karein
+    data[threadID].push({ role: "user", content: userMsg });
+    data[threadID].push({ role: "assistant", content: botMsg });
+    
+    // Sirf aakhri 20 messages (10 baatein) yaad rakhein
+    if (data[threadID].length > 20) data[threadID] = data[threadID].slice(-20);
+    
+    fs.writeJsonSync(HISTORY_FILE, data);
+  } catch (e) { console.log("History Error:", e); }
+}
 
-/* 📁 DATA PATHS */
-const DATA_DIR = path.join(__dirname, "ARIF-BABU");
-const HISTORY_FILE = path.join(DATA_DIR, "ai_history.json");
-const BOT_REPLY_FILE = path.join(DATA_DIR, "bot-reply.json");
-/* 📂 ENSURE FOLDER */
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// --- 🚀 MAIN AI FUNCTION ---
+async function getAIResponse(prompt, threadID, senderID) {
+  const history = getHistory(threadID);
+  
+  // Owner Detection Context
+  let userContext = "User is a stranger.";
+  if (senderID === OWNER_ID) userContext = "USER IS YOUR GOD & OWNER 'SARDAR RDX'. Be super respectful.";
+
+  const messages = [
+    { role: "system", content: systemPrompt },
+    { role: "system", content: `[Context: ${userContext}]` },
+    ...history,
+    { role: "user", content: prompt }
+  ];
+
+  try {
+    const res = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
+      model: "meta-llama/llama-3.1-8b-instruct",
+      messages: messages,
+      temperature: 0.85, // Thoda creative
+      max_tokens: 150
+    }, {
+      headers: { 
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    return res.data.choices[0].message.content;
+  } catch (error) {
+    console.error("OpenRouter Error:", error.message);
+    return "Yaar net slow hai, dubara bolo! 😅";
+  }
 }
-/* 🧠 LOAD HISTORY */
-let historyData = {};
-if (fs.existsSync(HISTORY_FILE)) {
-  try {
-    historyData = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
-  } catch {
-    historyData = {};
-  }
-}
-/* 🤖 LOAD BOT REPLIES */
-let botReplies = {};
-if (fs.existsSync(BOT_REPLY_FILE)) {
-  try {
-    botReplies = JSON.parse(fs.readFileSync(BOT_REPLY_FILE, "utf8"));
-  } catch {
-    botReplies = {};
-  }
-}
-/* 💾 SAVE JSON */
-function saveJSON(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
-}
-/* ⌨️ TYPING EFFECT */
-function startTyping(api, threadID) {
-  const interval = setInterval(() => {
-    api.sendTypingIndicator(threadID);
-  }, 3000);
-  return interval;
-}
-module.exports.run = () => {};
-module.exports.handleEvent = async function ({ api, event }) {
-  protectCredits(module.exports.config);
-  const {
-    threadID,
-    messageID,
-    body,
-    senderID,
-    messageReply
-  } = event;
-  if (!body) return;
-  const rawText = body.trim();
-  const text = rawText.toLowerCase();
-  // 🟢 EXACT BOT ONLY
-  const exactBot = ["bot", "bot.", "bot!", " bot"].includes(text);
-  // 🟢 BOT + TEXT
-  const botWithText = text.startsWith("bot ");
-  // 🟢 REPLY TO BOT
-  const replyToBot =
-    messageReply &&
-    messageReply.senderID === api.getCurrentUserID();
-  // =========================
-  // 🤖 FIXED BOT REPLY (TOP PRIORITY)
-  // =========================
-  if (exactBot) {
-    let category = "MALE";
-    // 🔥 OWNER ID
-    if (senderID === "61572909482910") {
-      category = "61572909482910";
-    // 👩 FEMALE SAFE CHECK
-    } else if (
-      event.userGender === 1 ||
-      event.userGender === "FEMALE" ||
-      event.userGender?.toString().toUpperCase() === "FEMALE"
-    ) {
-      category = "FEMALE";
-    }
-    if (botReplies[category]?.length) {
-      const reply =
-        botReplies[category][
-          Math.floor(Math.random() * botReplies[category].length)
-        ];
-      return api.sendMessage(reply, threadID, messageID);
-    }
-  }
-  // =========================
-  // 🤖 AI TRIGGER
-  // =========================
-  if (!botWithText && !replyToBot) return;
-  const userText = botWithText
-    ? rawText.slice(4).trim()
-    : rawText;
-  if (!userText) return;
-  api.setMessageReaction("⌛", messageID, () => {}, true);
-  const typing = startTyping(api, threadID);
-  try {
-    historyData[threadID] = historyData[threadID] || [];
-    historyData[threadID].push({ role: "user", content: userText });
-    const res = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        model: "meta-llama/llama-3.1-8b-instruct",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...historyData[threadID].slice(-6)
-        ],
-        max_tokens: 60,
-        temperature: 0.95,
-        top_p: 0.9
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
-    let reply =
-      res.data?.choices?.[0]?.message?.content ||
-      "Main yahin hoon 😌✨";
-    // 🔹 2 LINES MAX
-    reply = reply.split("\n").slice(0, 2).join("\n");
-    // 🔹 CHAR LIMIT
-    if (reply.length > 150) {
-      reply = reply.slice(0, 150) + "… 🙂";
-    }
-    historyData[threadID].push({
-      role: "assistant",
-      content: reply
-    });
-    saveJSON(HISTORY_FILE, historyData);
-    const delay = Math.min(4000, reply.length * 40);
-    setTimeout(() => {
-      clearInterval(typing);
-      api.sendMessage(reply, threadID, messageID);
-      api.setMessageReaction("✅", messageID, () => {}, true);
-    }, delay);
-  } catch (err) {
-    clearInterval(typing);
-    console.log("OpenRouter Error:", err.response?.data || err.message);
-    api.sendMessage(
-      "Abhi thoda issue hai 😅 baad me try karo",
-      threadID,
-      messageID
-    );
-    api.setMessageReaction("❌", messageID, () => {}, true);
-  }
+
+// --- 🎮 COMMAND HANDLER (Prefix ya No-Prefix) ---
+module.exports.handleEvent = async function({ api, event }) {
+  const { threadID, messageID, body, senderID, messageReply } = event;
+
+  if (!body) return;
+  const text = body.toLowerCase();
+
+  // --- TRIGGER LOGIC ---
+  // 1. Agar message "bot" ya "arif" se shuru ho
+  const isTrigger = text.startsWith("bot") || text.startsWith("arif");
+  
+  // 2. Agar koi BOT ke message par REPLY kare (Ye hai wo feature jo apko chahiye)
+  const isReplyToBot = messageReply && messageReply.senderID === api.getCurrentUserID();
+
+  // Agar na trigger hai na reply, to ignore karo
+  if (!isTrigger && !isReplyToBot) return;
+
+  // --- MESSAGE CLEANING ---
+  let prompt = body;
+  if (isTrigger) {
+    // Agar "bot kaise ho" likha hai to "bot" hata do
+    prompt = body.replace(/^(bot|arif)\s*/i, "").trim();
+  }
+  
+  // Agar sirf "bot" likha ho (Empty message)
+  if (!prompt) {
+    if (senderID === OWNER_ID) return api.sendMessage("Jee Boss SARDAR RDX? ❤️ Main hazir hoon!", threadID, messageID);
+    return api.sendMessage("Jee? Arif sun raha hai... 🙂", threadID, messageID);
+  }
+
+  // --- SENDING TO AI ---
+  api.setMessageReaction("👀", messageID, () => {}, true); // Seen reaction
+  
+  // Typing indicator on
+  api.sendTypingIndicator(threadID);
+
+  const reply = await getAIResponse(prompt, threadID, senderID);
+
+  // History save aur Message send
+  saveHistory(threadID, prompt, reply);
+  
+  api.setMessageReaction("✅", messageID, () => {}, true); // Done reaction
+  return api.sendMessage(reply, threadID, messageID);
 };
+
+// Command run function (Leave empty handled by handleEvent)
+module.exports.run = async function({ api, event }) {};

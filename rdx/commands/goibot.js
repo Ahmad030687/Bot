@@ -3,9 +3,9 @@ const axios = require('axios');
 const fs = require('fs-extra');
 const path = require('path');
 
-const CEREBRAS_API_URL = 'https://api.cerebras.ai/v1/chat/completions';
-
-const API_KEYS = ['csk-vnnddtxhyfxfrt4ewy6mhh3r2rhh2crf8pktm64cm333dwhc'];
+const GROQ_API_KEY = "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";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const MODEL_NAME = "llama-3.3-70b-versatile";
 
 // Boy Owners (Malik)
 const BOY_OWNERS = {
@@ -724,34 +724,39 @@ async function getAIResponse(userMessage, chatHistory, userName, userGender, sen
     ? `Tera OWNER aur CREATOR ${ownerInfo.name} ne kaha: "${userMessage}" - Tu ${ownerGender === 'girl' ? 'usse darti hai aur malkin se dar kehti hai' : 'uski har baat maanegi aur usse darti hai'}.`
     : `${userName} ne kaha: "${userMessage}"`;
   messages.push({ role: "user", content: userPrompt });
-  
+
   try {
     const response = await axios.post(
-      CEREBRAS_API_URL,
+      GROQ_API_URL,
       {
+        model: MODEL_NAME,
         messages: messages,
-        model: "llama3.3-70b", // <--- DASH HATA DIYA (Most common fix)
-        max_completion_tokens: 150,
-        temperature: 0.9,
-        top_p: 0.95,
+        temperature: 0.8,
+        max_tokens: 250,
+        top_p: 1,
         stream: false
       },
       {
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${GROQ_API_KEY}`,
           "Content-Type": "application/json"
         },
-        timeout: 15000
+        timeout: 20000
       }
     );
-      {
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json"
-        },
-        timeout: 15000
-      }
-    );
+
+    return response.data.choices[0].message.content;
+  } catch (error) {
+    console.error("Groq API Error:", error.response ? error.response.data : error.message);
+    // Agar error aaye to koi funy reply dedo
+    const errors = [
+      "Ahmad bhai, lagta hai network nakhre dikha raha hai!",
+      "Dimagh thak gaya hai mera, thori der baad pucho.",
+      "Groq API ne jawab dene se inkar kar diya, thora wait karo baby."
+    ];
+    return errors[Math.floor(Math.random() * errors.length)];
+  }
+  }
     
     if (response.data?.choices?.[0]?.message?.content) {
       let reply = response.data.choices[0].message.content.trim();
@@ -867,16 +872,15 @@ module.exports = {
       return;
     }
     
-    const botNameMatch = body.match(new RegExp(`^${BOT_NAME}\\s*`, 'i'));
-    const botMatch = body.match(/^bot\s*/i);
+    const input = body.toLowerCase();
     
-    if (!botNameMatch && !botMatch) return;
-    
-    let userMessage = '';
-    if (botNameMatch) {
-      userMessage = body.slice(botNameMatch[0].length).trim();
-    } else if (botMatch) {
-      userMessage = body.slice(botMatch[0].length).trim();
+    // Agar message "bot" se shuru ho ya sirf "bot" ho
+    const isBotTrigger = input.startsWith("bot") || input.includes(" bot ") || input === "bot";
+
+    if (isBotTrigger) {
+      const userMessage = body.replace(/bot/gi, "").trim() || "Ji bolo?";
+      // Baki logic wahi rahega jo aapki file me pehle se hai...
+      await onReply(api, event, send, config, client, userMessage, userName, userGender, senderID, threadID, messageID);
     }
     
     if (!userMessage) {

@@ -725,27 +725,48 @@ async function getAIResponse(userMessage, chatHistory, userName, userGender, sen
   messages.push({ role: "user", content: userPrompt });
   
   try {
-    const response = await axios.post(
-      CEREBRAS_API_URL,
-      {
+    async function getAIResponse(userMessage, chatHistory, userName, userGender, senderID) {
+  const apiKey = getRandomApiKey();
+  
+  // Pehle 70b try karega, agar 404 aaya to 8b par shift ho jayega
+  const models = ["llama3.3-70b", "llama-3.3-70b", "llama3.1-8b"];
+  
+  const messages = [
+    { role: "system", content: isOwner(senderID) ? getOwnerPersona(senderID) : getMuskanPersona(userName, userGender) },
+    ...chatHistory.slice(-10),
+    { role: "user", content: userMessage }
+  ];
+
+  for (const modelID of models) {
+    try {
+      const response = await axios.post(CEREBRAS_API_URL, {
         messages: messages,
-        model: "llama-3.3-70b",
+        model: modelID,
         max_completion_tokens: 150,
         temperature: 0.9,
-        top_p: 0.95,
         stream: false
-      },
-      {
+      }, {
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json"
         },
-        timeout: 15000
+        timeout: 10000
+      });
+
+      if (response.data?.choices?.[0]?.message?.content) {
+        return response.data.choices[0].message.content.trim();
       }
-    );
-    
-    if (response.data?.choices?.[0]?.message?.content) {
-      let reply = response.data.choices[0].message.content.trim();
+    } catch (error) {
+      if (error.response?.status === 404) {
+        console.log(`[Cerebras] ${modelID} nahi mila, doosra try kar raha hoon...`);
+        continue; // Agla model try karo
+      }
+      console.error("Cerebras Error:", error.message);
+      break;
+    }
+  }
+  return "Bhai, API key check karein ya model update ho gaya hai! 😅";
+    }
       reply = reply.replace(/\bbhai\b/gi, 'yaar');
       reply = reply.replace(/\bBhai\b/g, 'Yaar');
       return reply;

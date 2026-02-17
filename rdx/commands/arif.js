@@ -4,33 +4,28 @@ const path = require("path");
 
 module.exports.config = {
   name: "arif",
-  version: "6.0.0",
+  version: "10.0.0",
   hasPermssion: 0,
   credits: "SARDAR RDX",
-  description: "Continuous AI Chat (Reply System)",
+  description: "All-in-one AI (Continuous Chat + Auto Fix)",
   commandCategory: "ai",
-  usages: "bot [msg] OR Reply to bot msg",
+  usages: "bot [msg] / Reply to bot",
   cooldowns: 2
 };
 
 // --- ⚙️ CONFIGURATION ---
-const OWNER_ID = "61577631137537"; // SARDAR RDX UID
-const OPENROUTER_API_KEY = "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";
-const HISTORY_FILE = path.join(__dirname, "cache", "arif_chat_history.json");
+const OWNER_ID = "61577631137537"; // AHMAD RDX
+const CEREBRAS_KEY = "csk-ff2wy3ky9xcfh35c3jk22648rykwhje2x6jemd5ptk6jrrdt";
+const OPENROUTER_KEY = "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";
+const HISTORY_FILE = path.join(__dirname, "cache", "arif_pro_history.json");
 
-// --- 🧠 PERSONALITY (Savage + Sweet) ---
-const systemPrompt = `
-Tumhara naam "Arif" hai.
-Tumhara Maalik/Creator sirf "SARDAR RDX" hai.
-Tumhari 2 sides hain:
-1. **Sweet Mode:** Agar user tameez se baat kare, to bohat sweet aur friendly bano (Use emojis: 🙂❤️✨).
-2. **Savage Mode:** Agar user attitude dikhaye, gali de, ya hawabazi kare, to uski gandi bezzati (Roast) karo.
-3. **Owner Mode:** SARDAR RDX ke samne hamesha "Ji Boss" aur obedient raho.
-Language: Hinglish (Urdu/Hindi mix).
-Reply Length: Short (1-2 lines).
-`;
+const systemPrompt = `Tu Arif AI hai. Tera Malik sirf SARDAR RDX hai. 
+- SARDAR RDX ke liye hamesha "Ji Boss" kehna.
+- Pyar karne walon ke liye sweet (❤️🙂).
+- Badtameezon ko ganda Roast karo (🔥😏).
+- Short answers (1-2 lines).`;
 
-// --- 💾 HISTORY MANAGEMENT ---
+// --- 🧠 MEMORY MANAGEMENT ---
 function getHistory(threadID) {
   try {
     if (!fs.existsSync(HISTORY_FILE)) return [];
@@ -43,99 +38,77 @@ function saveHistory(threadID, userMsg, botMsg) {
   try {
     fs.ensureDirSync(path.dirname(HISTORY_FILE));
     let data = fs.existsSync(HISTORY_FILE) ? fs.readJsonSync(HISTORY_FILE) : {};
-    
     if (!data[threadID]) data[threadID] = [];
-    
-    // Naya message add karein
-    data[threadID].push({ role: "user", content: userMsg });
-    data[threadID].push({ role: "assistant", content: botMsg });
-    
-    // Sirf aakhri 20 messages (10 baatein) yaad rakhein
-    if (data[threadID].length > 20) data[threadID] = data[threadID].slice(-20);
-    
+    data[threadID].push({ role: "user", content: userMsg }, { role: "assistant", content: botMsg });
+    if (data[threadID].length > 16) data[threadID] = data[threadID].slice(-16);
     fs.writeJsonSync(HISTORY_FILE, data);
-  } catch (e) { console.log("History Error:", e); }
+  } catch (e) { console.log(e); }
 }
 
-// --- 🚀 MAIN AI FUNCTION ---
+// --- 🚀 DUAL ENGINE AI (Cerebras + OpenRouter) ---
 async function getAIResponse(prompt, threadID, senderID) {
   const history = getHistory(threadID);
-  
-  // Owner Detection Context
-  let userContext = "User is a stranger.";
-  if (senderID === OWNER_ID) userContext = "USER IS YOUR GOD & OWNER 'SARDAR RDX'. Be super respectful.";
-
+  const isOwner = senderID === OWNER_ID;
   const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "system", content: `[Context: ${userContext}]` },
+    { role: "system", content: systemPrompt + (isOwner ? " User is your Boss." : "") },
     ...history,
     { role: "user", content: prompt }
   ];
 
+  // Engine 1: Cerebras (Fastest)
   try {
-    const res = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
-      model: "meta-llama/llama-3.1-8b-instruct",
+    const res = await axios.post("https://api.cerebras.ai/v1/chat/completions", {
+      model: "llama3.1-8b", // 404 se bachne ke liye stable model
       messages: messages,
-      temperature: 0.85, // Thoda creative
-      max_tokens: 150
+      max_completion_tokens: 200
     }, {
-      headers: { 
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json"
-      }
+      headers: { "Authorization": `Bearer ${CEREBRAS_KEY}` },
+      timeout: 8000
     });
-
     return res.data.choices[0].message.content;
-  } catch (error) {
-    console.error("OpenRouter Error:", error.message);
-    return "Yaar net slow hai, dubara bolo! 😅";
+  } catch (err) {
+    console.log("Cerebras Fail, Switching to OpenRouter...");
+    // Engine 2: OpenRouter (Stable Backup)
+    try {
+      const res = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
+        model: "meta-llama/llama-3.1-8b-instruct",
+        messages: messages
+      }, {
+        headers: { "Authorization": `Bearer ${OPENROUTER_KEY}` },
+        timeout: 10000
+      });
+      return res.data.choices[0].message.content;
+    } catch (e) {
+      return "Dono system down hain Ahmad bhai! 😅";
+    }
   }
 }
 
-// --- 🎮 COMMAND HANDLER (Prefix ya No-Prefix) ---
+// --- 🎮 AUTO-HANDLE LOGIC ---
 module.exports.handleEvent = async function({ api, event }) {
   const { threadID, messageID, body, senderID, messageReply } = event;
-
   if (!body) return;
-  const text = body.toLowerCase();
 
-  // --- TRIGGER LOGIC ---
-  // 1. Agar message "bot" ya "arif" se shuru ho
-  const isTrigger = text.startsWith("bot") || text.startsWith("arif");
-  
-  // 2. Agar koi BOT ke message par REPLY kare (Ye hai wo feature jo apko chahiye)
+  const msg = body.toLowerCase();
+  const isTrigger = msg.startsWith("bot") || msg.startsWith("arif");
   const isReplyToBot = messageReply && messageReply.senderID === api.getCurrentUserID();
 
-  // Agar na trigger hai na reply, to ignore karo
-  if (!isTrigger && !isReplyToBot) return;
-
-  // --- MESSAGE CLEANING ---
-  let prompt = body;
-  if (isTrigger) {
-    // Agar "bot kaise ho" likha hai to "bot" hata do
-    prompt = body.replace(/^(bot|arif)\s*/i, "").trim();
+  if (isTrigger || isReplyToBot) {
+    const prompt = isTrigger ? body.replace(/^(bot|arif)\s*/i, "").trim() : body;
+    
+    api.setMessageReaction("⚡", messageID, () => {}, true);
+    const reply = await getAIResponse(prompt || "hi", threadID, senderID);
+    
+    saveHistory(threadID, prompt || "hi", reply);
+    api.setMessageReaction("✅", messageID, () => {}, true);
+    return api.sendMessage(reply, threadID, messageID);
   }
-  
-  // Agar sirf "bot" likha ho (Empty message)
-  if (!prompt) {
-    if (senderID === OWNER_ID) return api.sendMessage("Jee Boss SARDAR RDX? ❤️ Main hazir hoon!", threadID, messageID);
-    return api.sendMessage("Jee? Arif sun raha hai... 🙂", threadID, messageID);
-  }
-
-  // --- SENDING TO AI ---
-  api.setMessageReaction("👀", messageID, () => {}, true); // Seen reaction
-  
-  // Typing indicator on
-  api.sendTypingIndicator(threadID);
-
-  const reply = await getAIResponse(prompt, threadID, senderID);
-
-  // History save aur Message send
-  saveHistory(threadID, prompt, reply);
-  
-  api.setMessageReaction("✅", messageID, () => {}, true); // Done reaction
-  return api.sendMessage(reply, threadID, messageID);
 };
 
-// Command run function (Leave empty handled by handleEvent)
-module.exports.run = async function({ api, event }) {};
+module.exports.run = async function({ api, event, args }) {
+  if (args.length > 0) {
+    const reply = await getAIResponse(args.join(" "), event.threadID, event.senderID);
+    return api.sendMessage(reply, event.threadID, event.messageID);
+  }
+  return api.sendMessage("Jee Boss? Hukum karein. ✨", event.threadID);
+};

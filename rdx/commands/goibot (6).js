@@ -4,7 +4,7 @@ const path = require('path');
 
 const CEREBRAS_API_URL = 'https://api.cerebras.ai/v1/chat/completions';
 
-const API_KEYS = ['csk-ff2wy3ky9xcfh35c3jk22648rykwhje2x6jemd5ptk6jrrdt'];
+const API_KEYS = ['csk-pyd4m69tmtfkjpcjjdwdyk9fh86kycjpphey8d5wj9p8fpth'];
 
 // Boy Owners (Malik)
 const BOY_OWNERS = {
@@ -729,7 +729,7 @@ async function getAIResponse(userMessage, chatHistory, userName, userGender, sen
       CEREBRAS_API_URL,
       {
         messages: messages,
-        model: "llama-3.3-70b",
+        model: "gpt-oss-120b",
         max_completion_tokens: 150,
         temperature: 0.9,
         top_p: 0.95,

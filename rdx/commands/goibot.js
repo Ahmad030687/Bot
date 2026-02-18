@@ -257,12 +257,6 @@ Agar koi gaali de ya rude ho toh tu bhi savage reply de sakti hai.
 Tu masti aur fun mood mein rehti hai.`;
 }
 
-  
-  return '';
-}
-
-
-
 const funnyResponses = [
   "Haan ji, bolo kya haal hai? 😊",
   "Kya scene hai yaar? 🙂",

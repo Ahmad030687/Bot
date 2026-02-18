@@ -729,7 +729,7 @@ async function getAIResponse(userMessage, chatHistory, userName, userGender, sen
       CEREBRAS_API_URL,
       {
         messages: messages,
-        model: "gpt-oss-120b",
+        model: "llama3.1-8b",
         max_completion_tokens: 150,
         temperature: 0.9,
         top_p: 0.95,

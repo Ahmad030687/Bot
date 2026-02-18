@@ -13,7 +13,7 @@ const BOY_OWNERS = {
 
 // Girl Owners (Malkin)
 const GIRL_OWNERS = {
-  'GIRL UID': { name: 'SARA', gender: 'girl' }  // 
+  'GIRL UID': { name: 'AHMII KI JAN', gender: 'girl' }  // 
 };
 
 const BOT_NAME = 'Mano';
@@ -729,7 +729,7 @@ async function getAIResponse(userMessage, chatHistory, userName, userGender, sen
       CEREBRAS_API_URL,
       {
         messages: messages,
-        model: "llama-3.3-70b",
+        model: "gpt-oss-120b",
         max_completion_tokens: 150,
         temperature: 0.9,
         top_p: 0.95,

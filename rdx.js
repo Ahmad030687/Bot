@@ -18,7 +18,7 @@ let facebookRealSend = null; // Asli API yahan save hogi
 // 2. SLEEP MODE (Raat 2 se Subah 7 tak OFF - ID Safety ke liye)
 function isSleepTime() {
   const hour = moment().tz("Asia/Karachi").hour();
-  return (hour >= 6 && hour < 7);
+  return (hour >= 5 && hour < 6);
 }
 
 // 3. 🧠 SAFETY DELAY CALCULATOR (Minimum 6 Seconds)

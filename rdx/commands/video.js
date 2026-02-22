@@ -1,17 +1,16 @@
 const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
-const yts = require("yt-search"); // Aapki apni search library
 
 module.exports = {
   config: {
     name: "video",
-    aliases: ["v", "ytv"],
-    version: "2.0.0",
+    aliases: ["v", "play", "ytv"],
+    version: "5.0.0",
     author: "Sardar RDX",
     countDown: 10,
     role: 0,
-    description: "Internal Search + External Download",
+    description: "Private Python Search + Anabot Downloader",
     category: "media",
     guide: "{pn} [song name]",
     prefix: true
@@ -21,45 +20,53 @@ module.exports = {
     const { threadID, messageID } = event;
     const query = args.join(" ");
 
-    if (!query) return send.reply("❌ Oye saste hero! 🖕 Naam likh warna system hila dungi! 😏🔥");
+    // 1️⃣ INPUT CHECK
+    if (!query) return send.reply("❌ Oye saste hero! 🖕 Khali command mat maar, gaane ka naam likh! 😏🔥");
 
     try {
-      send.reply(`🔍 "${query}" ko apne system mein dhoond rahi hoon... 😏⏳`);
+      send.reply(`🔍 "${query}" ko apne Sardar RDX system mein dhoond rahi hoon... Sabr kar! 😏⏳`);
 
-      // 🔥 APNI SEARCH API (Internal Logic)
-      const searchResult = await yts(query);
-      const video = searchResult.videos[0]; // Pehla result uthao
+      // 2️⃣ STEP: SEARCH VIA CUSTOM PYTHON API
+      // ⚠️ Apni API ka link aur key zaroor check kar lena
+      const searchApiUrl = `https://simapi-no8v.onrender.com/search?q=${encodeURIComponent(query)}&key=ahmad_rdx_private_786`;
+      const searchRes = await axios.get(searchApiUrl);
 
-      if (!video) return send.reply("❌ Teri kismat hi kharab hai! 🖕 Kuch nahi mila. 😏");
-
-      const videoUrl = video.url;
-      const { title, timestamp, author, views } = video;
-
-      // 📥 DOWNLOADER (Abhi bhi external use kar rahe hain kyunki downloading ke liye server heavy chahiye)
-      const downloadRes = await axios.get(`https://anabot.my.id/api/download/ytmp4?url=${encodeURIComponent(videoUrl)}`);
-      
-      if (!downloadRes.data.success || !downloadRes.data.result.urls) {
-        return send.reply("❌ Search toh mil gayi par download system hila hua hai! 😂 Re-try kar.");
+      if (searchRes.data.status !== "success" || !searchRes.data.result) {
+        return send.reply("❌ Teri kismat hi kharab hai! 🖕 Search mein kuch nahi mila. 😏");
       }
 
-      const downloadUrl = downloadRes.data.result.urls;
+      // Python API se aane wala data
+      const videoUrl = searchRes.data.result.url;
+      const videoTitle = searchRes.data.result.title;
+      const uploader = searchRes.data.result.uploader;
+
+      // 3️⃣ STEP: DOWNLOAD VIA ANABOT API
+      const downloadApiUrl = `https://anabot.my.id/api/download/ytmp4?url=${encodeURIComponent(videoUrl)}`;
+      const downloadRes = await axios.get(downloadApiUrl);
+
+      if (!downloadRes.data.success || !downloadRes.data.data.result.urls) {
+        return send.reply(`❌ Search toh ho gayi par Anabot ka system hila hua hai! 😂 Link ye raha khud kar le: ${videoUrl}`);
+      }
+
+      const finalVideoLink = downloadRes.data.data.result.urls;
       const filePath = path.join(__dirname, "cache", `rdx_video_${Date.now()}.mp4`);
 
-      // File download process
-      const response = await axios.get(downloadUrl, { responseType: "arraybuffer" });
+      // 4️⃣ STEP: FILE DOWNLOAD & SEND
+      const response = await axios.get(finalVideoLink, { responseType: "arraybuffer" });
       
-      if (!fs.existsSync(path.join(__dirname, "cache"))) fs.mkdirSync(path.join(__dirname, "cache"));
+      if (!fs.existsSync(path.join(__dirname, "cache"))) {
+        fs.mkdirSync(path.join(__dirname, "cache"));
+      }
       fs.writeFileSync(filePath, Buffer.from(response.data));
 
       return api.sendMessage({
-        body: `✅ AHMAD RDX POWERED SYSTEM! 🔥\n\n🎬 Title: ${title}\n⏱️ Time: ${timestamp}\n👤 Channel: ${author.name}\n👀 Views: ${views.toLocaleString()}\n\nAb bol, kiska software update karun? 😏🖕`,
+        body: `✅ YE LE TERA VIDEO! 🔥\n\n🎬 Title: ${videoTitle}\n👤 Channel: ${uploader}\n\nSardar RDX ka system hai, halke mein mat lena! 😏🖕`,
         attachment: fs.createReadStream(filePath)
       }, threadID, () => fs.unlinkSync(filePath), messageID);
 
     } catch (err) {
       console.error(err);
-      return send.reply("❌ Error: Mere system mein koi virus ghus gaya lagta hai! 😂");
+      return send.reply("❌ Error: API ne auqat dikha di ya tera net mar gaya! 😂😏");
     }
   }
-                             };
-                             
+};

@@ -23,7 +23,7 @@ module.exports = {
     if (!query) return send.reply("❌ Oye saste hero! 🥱 Khali dabba mat bhej, gaane ka naam likh! 😏🔥");
 
     try {
-      send.reply(`🎵 "${query}" ko Sardar RDX system mein dhoond rahi hoon... 😏⏳`);
+      send.reply(`🎵 "${query}" ko 𝐀𝐇𝐌𝐀𝐃 𝐑𝐃𝐗 𝐒𝐘𝐒𝐓𝐄𝐌 mein dhoond rahi hoon... 😏⏳`);
 
       // 1️⃣ STEP: SEARCH (Aapki Python API)
       const searchRes = await axios.get(`https://simapi-no8v.onrender.com/search?q=${encodeURIComponent(query)}&key=ahmad_rdx_private_786`);

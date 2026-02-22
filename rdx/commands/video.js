@@ -5,12 +5,12 @@ const path = require("path");
 module.exports = {
   config: {
     name: "video",
-    aliases: ["v", "play", "ytv"],
-    version: "5.0.0",
+    aliases: ["v", "rdx", "play"],
+    version: "6.0.0",
     author: "Sardar RDX",
     countDown: 10,
     role: 0,
-    description: "Private Python Search + Anabot Downloader",
+    description: "Search + Dual Downloader (Anabot + Private)",
     category: "media",
     guide: "{pn} [song name]",
     prefix: true
@@ -20,53 +20,67 @@ module.exports = {
     const { threadID, messageID } = event;
     const query = args.join(" ");
 
-    // 1️⃣ INPUT CHECK
-    if (!query) return send.reply("❌ Oye saste hero! 🖕 Khali command mat maar, gaane ka naam likh! 😏🔥");
+    if (!query) return send.reply("❌ Oye saste hero! 🖕 Gana nu naam to lakh! 😏🔥");
 
     try {
-      send.reply(`🔍 "${query}" ko apne Sardar RDX system mein dhoond rahi hoon... Sabr kar! 😏⏳`);
+      send.reply(`🔍 "${query}" ne system ma dhoodhu chu... Sabr kar! 😏⏳`);
 
-      // 2️⃣ STEP: SEARCH VIA CUSTOM PYTHON API
-      // ⚠️ Apni API ka link aur key zaroor check kar lena
-      const searchApiUrl = `https://simapi-no8v.onrender.com/search?q=${encodeURIComponent(query)}&key=ahmad_rdx_private_786`;
-      const searchRes = await axios.get(searchApiUrl);
+      // 1️⃣ STEP: SEARCH VIA YOUR PYTHON API
+      const searchRes = await axios.get(`https://simapi-no8v.onrender.com/search?q=${encodeURIComponent(query)}&key=ahmad_rdx_private_786`);
 
-      if (searchRes.data.status !== "success" || !searchRes.data.result) {
-        return send.reply("❌ Teri kismat hi kharab hai! 🖕 Search mein kuch nahi mila. 😏");
+      if (searchRes.data.status !== "success") {
+        return send.reply("❌ Search fail thai gayi! YouTube tara thi naraj che. 😂");
       }
 
-      // Python API se aane wala data
       const videoUrl = searchRes.data.result.url;
       const videoTitle = searchRes.data.result.title;
-      const uploader = searchRes.data.result.uploader;
+      let finalDownloadUrl = "";
 
-      // 3️⃣ STEP: DOWNLOAD VIA ANABOT API
-      const downloadApiUrl = `https://anabot.my.id/api/download/ytmp4?url=${encodeURIComponent(videoUrl)}`;
-      const downloadRes = await axios.get(downloadApiUrl);
-
-      if (!downloadRes.data.success || !downloadRes.data.data.result.urls) {
-        return send.reply(`❌ Search toh ho gayi par Anabot ka system hila hua hai! 😂 Link ye raha khud kar le: ${videoUrl}`);
+      // 2️⃣ STEP: TRY ANABOT FIRST
+      try {
+        const anabotRes = await axios.get(`https://anabot.my.id/api/download/ytmp4?url=${encodeURIComponent(videoUrl)}`);
+        if (anabotRes.data.success) {
+          finalDownloadUrl = anabotRes.data.data.result.urls;
+        }
+      } catch (e) {
+        console.log("Anabot fail, switching to Private API...");
       }
 
-      const finalVideoLink = downloadRes.data.data.result.urls;
-      const filePath = path.join(__dirname, "cache", `rdx_video_${Date.now()}.mp4`);
-
-      // 4️⃣ STEP: FILE DOWNLOAD & SEND
-      const response = await axios.get(finalVideoLink, { responseType: "arraybuffer" });
-      
-      if (!fs.existsSync(path.join(__dirname, "cache"))) {
-        fs.mkdirSync(path.join(__dirname, "cache"));
+      // 3️⃣ STEP: FALLBACK TO YOUR PRIVATE DOWNLOAD API (If Anabot fails)
+      if (!finalDownloadUrl) {
+        const privateRes = await axios.get(`https://simapi-no8v.onrender.com/ahmad-dl?url=${encodeURIComponent(videoUrl)}`);
+        if (privateRes.data.status) {
+          finalDownloadUrl = privateRes.data.url;
+        }
       }
-      fs.writeFileSync(filePath, Buffer.from(response.data));
 
-      return api.sendMessage({
-        body: `✅ YE LE TERA VIDEO! 🔥\n\n🎬 Title: ${videoTitle}\n👤 Channel: ${uploader}\n\nSardar RDX ka system hai, halke mein mat lena! 😏🖕`,
-        attachment: fs.createReadStream(filePath)
-      }, threadID, () => fs.unlinkSync(filePath), messageID);
+      if (!finalDownloadUrl) {
+        return send.reply("❌ Badha rasta band che! 😂 Link thi kam chalavi le: " + videoUrl);
+      }
+
+      // 4️⃣ STEP: DOWNLOAD & SEND
+      const filePath = path.join(__dirname, "cache", `rdx_${Date.now()}.mp4`);
+      const response = await axios({
+        method: 'get',
+        url: finalDownloadUrl,
+        responseType: 'stream'
+      });
+
+      const writer = fs.createWriteStream(filePath);
+      response.data.pipe(writer);
+
+      writer.on('finish', () => {
+        return api.sendMessage({
+          body: `✅ LE TARA VIDEO! 🔥\n\n🎬 Title: ${videoTitle}\n\nSardar RDX no system che, halke ma na leta! 😏🖕`,
+          attachment: fs.createReadStream(filePath)
+        }, threadID, () => fs.unlinkSync(filePath), messageID);
+      });
+
+      writer.on('error', () => send.reply("❌ File writing ma locho thayo!"));
 
     } catch (err) {
       console.error(err);
-      return send.reply("❌ Error: API ne auqat dikha di ya tera net mar gaya! 😂😏");
+      return send.reply(`❌ Error: ${err.message}. System phati gayu! 😂😏`);
     }
   }
 };

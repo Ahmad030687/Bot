@@ -5,12 +5,12 @@ const path = require("path");
 module.exports = {
   config: {
     name: "video",
-    aliases: ["v", "rdx", "play"],
-    version: "6.0.0",
+    aliases: ["v", "rdx", "song"],
+    version: "10.0.0",
     author: "Sardar RDX",
-    countDown: 10,
+    countDown: 5,
     role: 0,
-    description: "Search + Dual Downloader (Anabot + Private)",
+    description: "Private Search + Anabot Downloader",
     category: "media",
     guide: "{pn} [song name]",
     prefix: true
@@ -20,67 +20,63 @@ module.exports = {
     const { threadID, messageID } = event;
     const query = args.join(" ");
 
-    if (!query) return send.reply("❌ Oye saste hero! 🖕 Gana nu naam to lakh! 😏🔥");
+    if (!query) return send.reply("❌ Oye saste hero! 🖕 Khali dabba mat bhej, gaane ka naam likh! 😏🔥");
 
     try {
-      send.reply(`🔍 "${query}" ne system ma dhoodhu chu... Sabr kar! 😏⏳`);
+      send.reply(`🔍 "${query}" ko Sardar RDX system mein dhoond rahi hoon... 😏⏳`);
 
       // 1️⃣ STEP: SEARCH VIA YOUR PYTHON API
       const searchRes = await axios.get(`https://simapi-no8v.onrender.com/search?q=${encodeURIComponent(query)}&key=ahmad_rdx_private_786`);
 
-      if (searchRes.data.status !== "success") {
-        return send.reply("❌ Search fail thai gayi! YouTube tara thi naraj che. 😂");
+      if (searchRes.data.status !== "success" || !searchRes.data.result) {
+        return send.reply("❌ Teri kismat kharab hai! 🖕 Search mein kuch nahi mila. 😏");
       }
 
       const videoUrl = searchRes.data.result.url;
       const videoTitle = searchRes.data.result.title;
-      let finalDownloadUrl = "";
 
-      // 2️⃣ STEP: TRY ANABOT FIRST
-      try {
-        const anabotRes = await axios.get(`https://anabot.my.id/api/download/ytmp4?url=${encodeURIComponent(videoUrl)}`);
-        if (anabotRes.data.success) {
-          finalDownloadUrl = anabotRes.data.data.result.urls;
-        }
-      } catch (e) {
-        console.log("Anabot fail, switching to Private API...");
+      send.reply(`📥 Video mil gayi: "${videoTitle}"\nAb Anabot se file nikal rahi hoon... 😏🔥`);
+
+      // 2️⃣ STEP: DOWNLOAD VIA ANABOT API
+      // Hum apikey 'freeApikey' use kar rahe hain jaisa aapne script mein dikhaya
+      const downloadApiUrl = `https://anabot.my.id/api/download/ytmp4?url=${encodeURIComponent(videoUrl)}&quality=360&apikey=freeApikey`;
+      const dlRes = await axios.get(downloadApiUrl);
+
+      // JSON Path Fix: data -> result -> urls (Aapke response ke mutabiq)
+      if (!dlRes.data.success || !dlRes.data.data.result.urls) {
+        return send.reply("❌ Anabot ne auqat dikha di! 😂 Link se kaam chala lo: " + videoUrl);
       }
 
-      // 3️⃣ STEP: FALLBACK TO YOUR PRIVATE DOWNLOAD API (If Anabot fails)
-      if (!finalDownloadUrl) {
-        const privateRes = await axios.get(`https://simapi-no8v.onrender.com/ahmad-dl?url=${encodeURIComponent(videoUrl)}`);
-        if (privateRes.data.status) {
-          finalDownloadUrl = privateRes.data.url;
-        }
-      }
-
-      if (!finalDownloadUrl) {
-        return send.reply("❌ Badha rasta band che! 😂 Link thi kam chalavi le: " + videoUrl);
-      }
-
-      // 4️⃣ STEP: DOWNLOAD & SEND
+      const finalDownloadUrl = dlRes.data.data.result.urls;
       const filePath = path.join(__dirname, "cache", `rdx_${Date.now()}.mp4`);
+
+      // 3️⃣ STEP: FILE DOWNLOAD (Stream Mode for stability)
       const response = await axios({
         method: 'get',
         url: finalDownloadUrl,
         responseType: 'stream'
       });
 
+      if (!fs.existsSync(path.join(__dirname, "cache"))) fs.mkdirSync(path.join(__dirname, "cache"));
+      
       const writer = fs.createWriteStream(filePath);
       response.data.pipe(writer);
 
       writer.on('finish', () => {
         return api.sendMessage({
-          body: `✅ LE TARA VIDEO! 🔥\n\n🎬 Title: ${videoTitle}\n\nSardar RDX no system che, halke ma na leta! 😏🖕`,
+          body: `✅ LE TERA VIDEO! 🔥\n\n🎬 Title: ${videoTitle}\n\nSardar RDX ka system hai, halke mein mat lena! 😏🖕`,
           attachment: fs.createReadStream(filePath)
         }, threadID, () => fs.unlinkSync(filePath), messageID);
       });
 
-      writer.on('error', () => send.reply("❌ File writing ma locho thayo!"));
+      writer.on('error', (err) => {
+        throw err;
+      });
 
     } catch (err) {
       console.error(err);
-      return send.reply(`❌ Error: ${err.message}. System phati gayu! 😂😏`);
+      const errorMsg = err.response ? JSON.stringify(err.response.data) : err.message;
+      return send.reply(`❌ Error: ${errorMsg}\nSystem phat gaya! 😂😏`);
     }
   }
 };
